@@ -5,5 +5,5 @@ contact_links:
     about: For questions about how the EPD Commerce API itself behaves, please
       consult the API reference. This repo only houses agent skill content.
   - name: Security vulnerability
-    url: https://github.com/EPDCommerce/AgentSkills/blob/main/SECURITY.md
+    url: https://github.com/EPDCommerce/agent-skills/blob/main/SECURITY.md
     about: Please do not file security issues publicly. Email merchantsuccess@easypaydirect.com.

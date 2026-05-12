@@ -6,10 +6,10 @@
   "homepage": "https://docs.api.epd.com/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/EPDCommerce/AgentSkills.git"
+    "url": "git+https://github.com/EPDCommerce/agent-skills.git"
   },
   "bugs": {
-    "url": "https://github.com/EPDCommerce/AgentSkills/issues"
+    "url": "https://github.com/EPDCommerce/agent-skills/issues"
   },
   "engines": {
     "node": ">=20"

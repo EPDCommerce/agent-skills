@@ -8,7 +8,7 @@ small wording changes can change real behavior.
 ## Local setup
 
 ```bash
-git clone https://github.com/EPDCommerce/AgentSkills.git epd-skills
+git clone https://github.com/EPDCommerce/agent-skills.git epd-skills
 cd epd-skills
 npm install
 npm run check     # validate manifest + run tests

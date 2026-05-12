@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/EPDCommerce/AgentSkills/blob/main/.well-known/skills/skill-frontmatter.schema.json",
+  "$id": "https://github.com/EPDCommerce/agent-skills/blob/main/.well-known/skills/skill-frontmatter.schema.json",
   "title": "EPD Skill Frontmatter",
   "description": "Schema for the YAML frontmatter at the top of every SKILL.md in this repository.",
   "type": "object",

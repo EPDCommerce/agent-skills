@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/EPDCommerce/AgentSkills/blob/main/.well-known/skills/schema.json",
+  "$id": "https://github.com/EPDCommerce/agent-skills/blob/main/.well-known/skills/schema.json",
   "title": "EPD Skills Manifest",
   "description": "Schema for the .well-known/skills/index.json manifest published by an EPD Skills repository. Project-local convention; not part of any public skills standard.",
   "type": "object",

@@ -49,7 +49,7 @@ skills folder. The agent loads each `SKILL.md`'s frontmatter at startup
 and pulls in `references/*.md` on demand when a task triggers them.
 
 ```bash
-git clone https://github.com/EPDCommerce/AgentSkills.git ~/src/epd-skills
+git clone https://github.com/EPDCommerce/agent-skills.git ~/src/epd-skills
 ```
 
 ### Claude Code (project-level)
@@ -77,7 +77,7 @@ instead of `.claude/skills/`.
 If you want the skills tracked alongside your project:
 
 ```bash
-git submodule add https://github.com/EPDCommerce/AgentSkills.git vendor/epd-skills
+git submodule add https://github.com/EPDCommerce/agent-skills.git vendor/epd-skills
 mkdir -p .claude/skills
 ln -s ../../vendor/epd-skills/integration/epd-best-practices .claude/skills/
 ```

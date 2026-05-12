@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "publisher": "EPD Commerce",
   "homepage": "https://docs.api.epd.com/",
-  "repository": "https://github.com/EPDCommerce/AgentSkills",
+  "repository": "https://github.com/EPDCommerce/agent-skills",
   "license": "MIT",
   "api_version": "2026-02-11",
   "skills": [

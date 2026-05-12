@@ -16,7 +16,7 @@
   },
   "scripts": {
     "validate": "node scripts/validate.js",
-    "test": "node --test 'scripts/__tests__/**/*.test.js'",
+    "test": "node --test scripts/__tests__/*.test.js",
     "check": "npm run validate && npm test"
   },
   "devDependencies": {

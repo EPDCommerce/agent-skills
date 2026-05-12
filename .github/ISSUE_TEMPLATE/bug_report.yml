@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a factual error, broken link, or stale guidance in a skill.
+title: "[bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. For security issues,
+        please email merchantsuccess@easypaydirect.com instead — see SECURITY.md.
+
+  - type: input
+    id: skill
+    attributes:
+      label: Affected skill
+      description: Which skill or file does this concern?
+      placeholder: integration/epd-best-practices/references/payments.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-is-wrong
+    attributes:
+      label: What is wrong?
+      description: Quote the line(s) and explain why they are incorrect or misleading.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should it say?
+      description: If you know the correct behavior, suggest the wording.
+    validations:
+      required: false
+
+  - type: input
+    id: api-version
+    attributes:
+      label: EPD Commerce API version
+      placeholder: "2026-02-11"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: How did you discover this?
+      description: Stack you were integrating against, agent that loaded the skill, etc.
+    validations:
+      required: false

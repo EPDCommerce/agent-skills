@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest a new skill, a new reference, or a workflow this repo should cover.
+title: "[feature] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of addition?
+      options:
+        - New skill (integration — dev-facing)
+        - New skill (workflow — operator-agent-facing)
+        - New reference inside an existing skill
+        - New verifier / wrapper script
+        - Tooling / CI improvement
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the developer or operator workflow that's currently underserved.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed shape
+      description: Sketch the SKILL.md trigger description, key sections, or files you'd add.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What did you try first? Why did existing skills fall short?
+    validations:
+      required: false

@@ -1,0 +1,40 @@
+{
+  "name": "epd-skills",
+  "version": "0.1.0",
+  "description": "Open-source agent skills for EPD Commerce — REST API integration guides and operator-agent workflows.",
+  "license": "MIT",
+  "homepage": "https://docs.api.epd.com/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EPDCommerce/AgentSkills.git"
+  },
+  "bugs": {
+    "url": "https://github.com/EPDCommerce/AgentSkills/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "validate": "node scripts/validate.js",
+    "test": "node --test 'scripts/__tests__/**/*.test.js'",
+    "check": "npm run validate && npm test"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "gray-matter": "^4.0.3"
+  },
+  "keywords": [
+    "agent-skills",
+    "claude",
+    "claude-code",
+    "epd",
+    "epd-commerce",
+    "easypaydirect",
+    "payments",
+    "mcp"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

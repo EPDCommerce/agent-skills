@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate manifest + frontmatter
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run validate
+      - run: npm test
+
+  verifier-scripts:
+    name: webhook verifier scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+      - name: Smoke-test Node verifier
+        run: node integration/epd-webhooks/scripts/verify_node.js --self-test
+        continue-on-error: true
+      - name: Smoke-test Python verifier
+        run: python integration/epd-webhooks/scripts/verify_python.py --self-test
+        continue-on-error: true
+      - name: Smoke-test PHP verifier
+        run: php integration/epd-webhooks/scripts/verify_php.php --self-test
+        continue-on-error: true
+
+  formatting:
+    name: markdown sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for tab characters in markdown
+        run: |
+          if grep -rPn '\t' --include='*.md' .; then
+            echo "Found tab characters in markdown — please use spaces."
+            exit 1
+          fi

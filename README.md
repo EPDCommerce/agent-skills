@@ -43,38 +43,77 @@ skills invoke MCP tools against real accounts.
 
 ## Install
 
-The skills are plain Markdown — no registry, no package manager. Clone the
-repo once, then symlink the skill directories you want into your agent's
-skills folder. The agent loads each `SKILL.md`'s frontmatter at startup
-and pulls in `references/*.md` on demand when a task triggers them.
+```bash
+npx skills add EPDCommerce/agent-skills
+```
+
+That's it. The [`skills`](https://github.com/vercel-labs/skills) CLI
+(Vercel Labs) discovers every `SKILL.md` in this repo and routes the
+files into the right directory for your agent — works with **Claude
+Code**, **Codex**, **Cursor**, **Gemini CLI**, **Cline**, **Goose**,
+**Continue**, **GitHub Copilot**, **Windsurf**, and
+[45+ more](https://github.com/vercel-labs/skills#supported-agents).
+
+### Common variations
+
+```bash
+# Just one skill
+npx skills add EPDCommerce/agent-skills --skill epd-quickstart
+
+# Several skills at once
+npx skills add EPDCommerce/agent-skills --skill epd-quickstart --skill epd-webhooks
+
+# All skills, all agents, no prompts (CI/CD-friendly)
+npx skills add EPDCommerce/agent-skills --all -y
+
+# Install globally — available across every project
+npx skills add EPDCommerce/agent-skills -g
+
+# Restrict to a specific agent
+npx skills add EPDCommerce/agent-skills -a claude-code
+
+# List available skills without installing
+npx skills add EPDCommerce/agent-skills --list
+```
+
+### Verify
+
+After installing, the agent should pick a skill up automatically when its
+triggers fire (env var names, key prefixes, error shapes — see each
+skill's `description` field). To sanity-check, ask the agent something
+like *"how do I make a one-time charge against EPD Commerce?"* — it
+should load `epd-best-practices`, then routing-load
+`references/payments.md`.
+
+### Manual install (no CLI)
+
+<details>
+<summary>Clone the repo and symlink the skill directories yourself.</summary>
+
+The skills are plain Markdown — no registry required. Clone once, then
+symlink the directories you want into your agent's skills folder.
 
 ```bash
 git clone https://github.com/EPDCommerce/agent-skills.git ~/src/epd-skills
 ```
 
-### Claude Code (project-level)
-
-Symlink each skill into the project's `.claude/skills/` directory. The
-agent recognizes any directory containing a `SKILL.md`.
+**Claude Code (project-level)** — symlink into `.claude/skills/` (use
+`~/.claude/skills/` for user-level):
 
 ```bash
 mkdir -p .claude/skills
 
-# Install everything:
+# All skills:
 for dir in ~/src/epd-skills/integration/* ~/src/epd-skills/workflows/*; do
   ln -s "$dir" ".claude/skills/$(basename "$dir")"
 done
 
-# Or just one skill:
+# Just one:
 ln -s ~/src/epd-skills/integration/epd-best-practices .claude/skills/
 ```
 
-For user-level (available across all projects), use `~/.claude/skills/`
-instead of `.claude/skills/`.
-
-### Claude Code (as a git submodule)
-
-If you want the skills tracked alongside your project:
+**Claude Code (git submodule)** — if you want the skills tracked
+alongside your project:
 
 ```bash
 git submodule add https://github.com/EPDCommerce/agent-skills.git vendor/epd-skills
@@ -82,23 +121,14 @@ mkdir -p .claude/skills
 ln -s ../../vendor/epd-skills/integration/epd-best-practices .claude/skills/
 ```
 
-### OpenAI Codex CLI
-
-Codex CLI auto-discovers skills under `$CODEX_HOME/skills/` (defaults to
-`~/.codex/skills/`). The `SKILL.md` anatomy is identical to Claude Code's,
-so the same symlink approach works:
+**OpenAI Codex CLI** — auto-discovers skills under `$CODEX_HOME/skills/`
+(defaults to `~/.codex/skills/`):
 
 ```bash
 mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-
-# Install everything:
 for dir in ~/src/epd-skills/integration/* ~/src/epd-skills/workflows/*; do
   ln -s "$dir" "${CODEX_HOME:-$HOME/.codex}/skills/$(basename "$dir")"
 done
-
-# Or just one skill:
-ln -s ~/src/epd-skills/integration/epd-best-practices \
-  "${CODEX_HOME:-$HOME/.codex}/skills/"
 ```
 
 Invoke explicitly with `$<skill-name>` in a prompt
@@ -106,13 +136,13 @@ Invoke explicitly with `$<skill-name>` in a prompt
 auto-triggers skills off the `description` frontmatter, the same signal
 Claude Code uses.
 
-### Cursor
+**Cursor** — doesn't yet support filesystem-based skills natively. Point
+its **Settings → Rules → Project Rules** at the cloned skill's
+`SKILL.md`; Cursor will inline it as a project rule. References are not
+lazy-loaded, so prefer linking only the `SKILL.md` of the most-used
+skill rather than the whole tree.
 
-Cursor doesn't yet support filesystem-based skills natively. Point its
-**Settings → Rules → Project Rules** at the cloned skill's `SKILL.md` —
-Cursor will inline it as a project rule. References are not lazy-loaded,
-so prefer linking only the `SKILL.md` of the most-used skill rather than
-the whole tree.
+</details>
 
 ### Custom agent
 
@@ -121,15 +151,6 @@ The manifest schema is at `.well-known/skills/schema.json`; the
 `SKILL.md` frontmatter schema is at
 `.well-known/skills/skill-frontmatter.schema.json`. Both are JSON Schema
 2020-12.
-
-### Verify
-
-After installing, the agent should pick the skill up automatically when
-its triggers fire (env var names, key prefixes, error shapes — see each
-skill's `description` field). To sanity-check the install, ask the agent
-something like *"how do I make a one-time charge against EPD Commerce?"*
-— it should load `epd-best-practices`, then routing-load
-`references/payments.md`.
 
 ## Documentation
 

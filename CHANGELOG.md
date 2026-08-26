@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2026-05-12
 
+- `audit/` — Phase A coverage audit. Live `tools/list` snapshot, tool-by-tool coverage matrix, proposed 12-skill map with routing and measured API key permissions. Analysis only; no skill content changes.
+
 Initial public release. Six agent skills for EPD Commerce, targeting API
 version `2026-02-11`.
 

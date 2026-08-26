@@ -1,0 +1,318 @@
+{
+  "captured_at": "2026-08-26T21:06:34.337Z",
+  "results": [
+    {
+      "label": "EPD_TEST_KEY",
+      "prefix": "epd_test_sk_",
+      "environment": "test",
+      "merchant": "MCP updates",
+      "pingVerdict": {
+        "ok": true,
+        "label": "ok"
+      },
+      "tools": [
+        "ping",
+        "get_account",
+        "upgrade_account_api_version",
+        "create_customer",
+        "list_customers",
+        "get_customer",
+        "update_customer",
+        "delete_customer",
+        "list_payment_methods",
+        "add_payment_method",
+        "delete_payment_method",
+        "create_product",
+        "list_products",
+        "get_product",
+        "update_product",
+        "delete_product",
+        "delete_product_image",
+        "reorder_product_images",
+        "list_plans",
+        "get_plan",
+        "create_order",
+        "list_orders",
+        "get_order",
+        "refund_order",
+        "retry_order",
+        "create_subscription",
+        "list_subscriptions",
+        "get_subscription",
+        "update_subscription",
+        "cancel_subscription",
+        "list_transactions",
+        "get_transaction",
+        "create_webhook_endpoint",
+        "list_webhook_endpoints",
+        "get_webhook_endpoint",
+        "update_webhook_endpoint",
+        "delete_webhook_endpoint",
+        "rotate_webhook_secret",
+        "test_webhook_endpoint",
+        "upgrade_webhook_version",
+        "downgrade_webhook_version",
+        "replay_webhook_event",
+        "list_webhook_events",
+        "list_webhook_delivery_logs",
+        "list_webhook_versions",
+        "preview_webhook_payload",
+        "compare_webhook_versions",
+        "create_coupon",
+        "list_coupons",
+        "retrieve_coupon",
+        "update_coupon",
+        "archive_coupon",
+        "unarchive_coupon",
+        "generate_coupon_codes",
+        "list_coupon_codes",
+        "validate_coupon",
+        "create_customer_and_subscribe",
+        "process_order",
+        "cancel_subscription_and_report",
+        "get_customer_financial_summary",
+        "get_revenue_summary",
+        "list_past_due_subscriptions",
+        "refund_transaction",
+        "setup_webhook_monitoring",
+        "create_customer_and_charge",
+        "refund_and_cancel",
+        "retry_failed_charge"
+      ],
+      "probes": {
+        "Account": {
+          "ok": true,
+          "label": "ok"
+        },
+        "Customers": {
+          "ok": true,
+          "label": "ok"
+        },
+        "Payment Methods": {
+          "ok": null,
+          "label": "skipped (needs id)"
+        },
+        "Products": {
+          "ok": true,
+          "label": "ok"
+        },
+        "Plans": {
+          "ok": true,
+          "label": "ok"
+        },
+        "Orders": {
+          "ok": true,
+          "label": "ok"
+        },
+        "Subscriptions": {
+          "ok": true,
+          "label": "ok"
+        },
+        "Transactions": {
+          "ok": true,
+          "label": "ok"
+        },
+        "Webhook Endpoints": {
+          "ok": true,
+          "label": "ok"
+        },
+        "Webhook Versions": {
+          "ok": true,
+          "label": "ok"
+        },
+        "Coupons": {
+          "ok": true,
+          "label": "ok"
+        },
+        "Composite": {
+          "ok": true,
+          "label": "ok"
+        }
+      },
+      "writes": {
+        "Customers": {
+          "ok": false,
+          "label": "resource_not_found"
+        },
+        "Products": {
+          "ok": false,
+          "label": "resource_not_found"
+        },
+        "Subscriptions": {
+          "ok": false,
+          "label": "resource_not_found"
+        },
+        "Webhook Endpoints": {
+          "ok": false,
+          "label": "resource_not_found"
+        },
+        "Coupons": {
+          "ok": false,
+          "label": "resource_not_found"
+        }
+      }
+    },
+    {
+      "label": "EPD_RESTRICTED_READ_KEY",
+      "prefix": "epd_restricted_sk_test_",
+      "pingVerdict": {
+        "ok": false,
+        "label": "Restricted API keys cannot access endpoints without explicit"
+      },
+      "tools": [],
+      "probes": {
+        "Account": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Customers": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Payment Methods": {
+          "ok": null,
+          "label": "skipped (needs id)"
+        },
+        "Products": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Plans": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Orders": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Subscriptions": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Transactions": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Webhook Endpoints": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Webhook Versions": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Coupons": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Composite": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        }
+      },
+      "writes": {
+        "Customers": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Products": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Subscriptions": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Webhook Endpoints": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Coupons": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        }
+      }
+    },
+    {
+      "label": "EPD_RESTRICTED_CUST_KEY",
+      "prefix": "epd_restricted_sk_test_",
+      "pingVerdict": {
+        "ok": false,
+        "label": "Restricted API keys cannot access endpoints without explicit"
+      },
+      "tools": [],
+      "probes": {
+        "Account": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Customers": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Payment Methods": {
+          "ok": null,
+          "label": "skipped (needs id)"
+        },
+        "Products": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Plans": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Orders": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Subscriptions": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Transactions": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Webhook Endpoints": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Webhook Versions": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Coupons": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Composite": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        }
+      },
+      "writes": {
+        "Customers": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Products": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Subscriptions": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Webhook Endpoints": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        },
+        "Coupons": {
+          "ok": false,
+          "label": "Restricted API keys cannot access endpoints without explicit"
+        }
+      }
+    }
+  ]
+}

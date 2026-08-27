@@ -43,14 +43,21 @@ input:
   first_name: Alice
   last_name: Liddell
   phone: "+14155551234"
-  billing_id: "12345678"        # numeric vault ID — see "Vaulting cards"
+  card_token: "cct_..."         # browser-captured token — see "Getting a card on file"
   items:
     - product_id: <product uuid>
       quantity: 1
   currency: usd
   description: "Signup bonus charge"
-  idempotency_key: <UUID v4>
+  idempotency_key: <UUID v4>    # required on this tool
 ```
+
+`card_token` is the only card field this tool accepts — no `billing_id`, no
+nested `customer` object, no `amount` (the price comes from each item's
+product). Because a `card_token` only comes from a browser running EPD
+Elements, this composite is for **browser-based** signups. A headless
+integration (no browser) can't call it directly — see "Getting a card on
+file" below for the alternative chain.
 
 On success, returns the new `customer`, `payment_method`, and `order` objects.
 
@@ -69,15 +76,18 @@ input:
   first_name: Alice
   last_name: Liddell
   phone: "+14155551234"
-  billing_id: "12345678"
+  card_token: "cct_..."
   plan_id: <plan uuid>
   billing_cycle:
     interval: month
     interval_count: 1
     anchor_day: 1
   start_date: "2026-05-15"     # optional — defaults to today
-  idempotency_key: <UUID v4>
+  idempotency_key: <UUID v4>   # required on this tool
 ```
+
+Same rule as above: `card_token` only, no `billing_id`. Browser-based signups
+only — see "Getting a card on file" for the headless alternative.
 
 The `start_date` lets you backdate or future-date the first cycle. Common
 patterns:
@@ -88,39 +98,83 @@ patterns:
   controls the next cycle.
 - **Future activation** → `start_date` in the future, no charge until then.
 
-## Vaulting cards — what `billing_id` is
+## Getting a card on file — `card_token` vs the headless path
 
-`billing_id` is **not** a card number. It's a numeric reference returned by
-the EPD Commerce Gateway vault after the customer's card is tokenized in the browser.
+None of the values below is a card number. `add_payment_method` and the two
+composite tools above accept **`card_token` only** — a single-use `cct_...`
+token that a browser produces by running the **EPD Elements** SDK with a
+publishable key. That token expires 15 minutes after capture. Since it can
+only come from a browser, an MCP-connected agent operating headlessly (no
+browser in the loop) cannot produce one itself and cannot call
+`add_payment_method` or the composites directly.
 
-The flow:
+For a headless onboarding — an agent signing up a customer with a card
+supplied out-of-band (phone, back-office, migration) — chain primitives
+instead, and get the card on file via `secure.epd.com` rather than
+`add_payment_method`:
 
 ```
-1. Frontend collects card details using EPD Commerce Elements / hosted vault page.
-2. EPD Commerce Gateway vault returns a numeric billing_id (e.g. "12345678").
-3. Frontend sends billing_id to the operator (you).
-4. Operator passes billing_id to the MCP tool.
+1. create_customer (MCP)                        → customer_id
+2. POST https://secure.epd.com (secret key)      → payment_method_id
+   body: { customer_id, card: { number, exp_month, exp_year, cvc }, ... }
+3. create_order / create_subscription (MCP)      → uses payment_method_id
 ```
 
-**Never let a raw card number reach you.** If you see anything that looks
-like a 16-digit card number where a `billing_id` should be, refuse the
-operation and surface it as an error — touching a PAN puts the merchant
-into PCI scope they probably don't want.
+`secure.epd.com` is a PCI-scoped proxy separate from the EPD Commerce API —
+the raw card is forwarded straight to it and never reaches your MCP server
+or the main API. See `epd-best-practices/references/security.md` for the
+full request/response shape and the PCI-scope tradeoff of handling a raw PAN
+this way, even briefly.
+
+For a **browser-based** integration (a web or mobile frontend sits between
+the customer and you), use the browser flow instead:
+
+```
+1. Frontend captures the card with EPD Elements (publishable key).
+2. It receives a single-use card_token (cct_...).
+3. Frontend sends the card_token to the operator (you).
+4. Operator passes card_token to add_payment_method, or to
+   create_customer_and_charge / create_customer_and_subscribe.
+```
+
+**Never let a raw card number reach you directly** (outside the
+`secure.epd.com` call, which is built for exactly that). If you see anything
+that looks like a 16-digit card number where a `card_token` or
+`payment_method_id` should be, refuse the operation and surface it as an
+error — mishandling a PAN puts the merchant into PCI scope they probably
+don't want.
+
+Legacy accounts may still reference a numeric `billing_id` from the older
+Collect.js / EPD Gateway vault flow — it's still accepted on the REST
+`payment_methods` endpoint, but it is **not** available on this MCP surface.
+If an operator hands you a `billing_id`, that's a legacy integration; there
+is no MCP tool that accepts it directly.
 
 ## Primitives — when composites don't fit
 
 If the workflow doesn't match a composite (e.g. signup with no charge, or
-multi-step verification before billing), chain primitives:
+multi-step verification before billing), chain primitives. Which primitive
+attaches the card depends on whether you have a browser-captured
+`card_token` or are going through the headless `secure.epd.com` path:
 
 ```
-1. create_customer            → customer.id
-2. add_payment_method         → payment_method.id (with billing_id)
-3. (optional) create_order    → order.id
+Browser:
+1. create_customer                → customer.id
+2. add_payment_method              → payment_method.id (with card_token)
+3. (optional) create_order         → order.id
    OR
-3. (optional) create_subscription → subscription.id
+3. (optional) create_subscription  → subscription.id
+
+Headless:
+1. create_customer                          → customer.id
+2. POST https://secure.epd.com (secret key) → payment_method_id
+3. (optional) create_order                  → order.id
+   OR
+3. (optional) create_subscription           → subscription.id
 ```
 
-Each step needs its own idempotency key. If step 2 fails after step 1, the
+Each MCP step needs its own idempotency key. If the card-attach step fails
+after step 1, the
 customer exists without a payment method — you need to handle the cleanup
 yourself, deciding from context whether to delete the orphaned record or
 keep it for retry.
@@ -148,7 +202,7 @@ composites:
 
 | `error.code`                  | What happened                                                                                       | What to do                                                                            |
 |-------------------------------|-----------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
-| `no_payment_method`           | `create_customer_and_charge` was called without `billing_id` and the customer has no card on file.   | Pass `billing_id`, or attach a card first via `add_payment_method`.                   |
+| `no_payment_method`           | `create_customer_and_charge` was called without `card_token` and the customer has no card on file.   | Pass `card_token`, or attach a card first via `add_payment_method` (browser) or `secure.epd.com` (headless). |
 | `partial_rollback_failed`     | A step in the chain failed AND the automatic rollback of earlier-created resources also failed.      | The `message` names the orphaned `cus_<uuid>` (and `pm_<uuid>` where relevant) — surface it and clean up manually. |
 | Any underlying primitive code | The chain failed cleanly and the customer (and payment method, where applicable) was rolled back.    | The error from the failing step bubbles up unchanged. Treat as you would the primitive's error. |
 
@@ -178,7 +232,7 @@ fresh execution.
 moves money. Confirm with the user before invoking:
 
 > "This will create customer Alice Liddell and charge $29.99 to the card
-> with vault ID 12345678. Proceed?"
+> ending in 4242. Proceed?"
 
 For `create_customer_and_subscribe`, confirm the recurring nature:
 
@@ -190,15 +244,19 @@ can find it in the dashboard.
 
 ## Common operator mistakes
 
-1. **Treating `billing_id` as a card number.** It's a vault reference. If
-   you don't have one, say so — don't fabricate one or ask the user for raw
-   card data.
-2. **Using a semantic idempotency key like `"signup-alice"`.** Collides
+1. **Treating `card_token`, `billing_id`, or a `payment_method_id` as a card
+   number.** All three are opaque references. If you don't have one, say
+   so — don't fabricate one or ask the user for raw card data.
+2. **Calling `add_payment_method` or a composite tool without a
+   browser-captured `card_token`.** These tools have no other card input on
+   the MCP surface. For a headless flow, go through `secure.epd.com`
+   instead — see "Getting a card on file".
+3. **Using a semantic idempotency key like `"signup-alice"`.** Collides
    trivially. Generate a UUID v4 per call.
-3. **Re-running a failed composite without the same idempotency key.**
+4. **Re-running a failed composite without the same idempotency key.**
    Risk of duplicate customer or duplicate charge. Use the same key for
    true retries; new key only for genuinely new attempts.
-4. **Skipping confirmation on charge tools.** Anything that moves money
+5. **Skipping confirmation on charge tools.** Anything that moves money
    should be confirmed before execution.
 
 ## Where to go next for the operator

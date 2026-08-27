@@ -14,7 +14,9 @@ The end-to-end REST integration is three steps:
 
 1. **Customer exists**: `POST /v1/customers` (or look up by email).
 2. **Card is on file**: `POST /v1/customers/{id}/payment_methods` —
-   the body is a **vault `billing_id`**, not raw card data. See
+   the body is a **`card_token`** (browser capture) or a legacy
+   **`billing_id`**, not raw card data. A headless integration can skip this
+   step entirely and POST straight to `secure.epd.com` instead. See
    `security.md` for how the card reaches the vault.
 3. **Process the charge**: `POST /v1/orders`.
 
@@ -39,8 +41,22 @@ Response: `{ "id": "<bare uuid>", "object": "customer", ... }`. Store the ID.
 
 ### Attach a payment method
 
-The dev's frontend tokenizes the card via the EPD Commerce Gateway vault (separate
-from the API — see `security.md`). The vault returns a numeric `billing_id`.
+Supply **exactly one** card source in the body:
+
+- **`card_token`** (browser) — a single-use `cct_…` token from the **EPD
+  Elements** SDK (`epd.js`). The dev's frontend loads it with a
+  **publishable** key (`epd_test_pk_…`), captures the card in a hosted
+  field, and exchanges it for the token. The dev's backend then sends that
+  token here with the **secret** key — raw card data never reaches the
+  dev's servers. See `security.md`.
+- **`billing_id`** (legacy) — a numeric vault id from the older Collect.js /
+  EPD Commerce Gateway vault flow. Still accepted; use `card_token` for new
+  integrations.
+
+For a headless integration with no browser (phone orders, migrations, an
+agent-driven backend), skip this endpoint entirely and POST the card to
+`https://secure.epd.com` instead — it creates the payment method directly
+and returns its `id`. See `security.md` for that flow.
 
 ```http
 POST /v1/customers/{customer_id}/payment_methods HTTP/1.1
@@ -50,10 +66,14 @@ X-EPD-Idempotency-Key: <uuid v4>
 Content-Type: application/json
 
 {
-  "billing_id": "12345678",
+  "card_token": "cct_3f8a1c9e7b2d4a6f0e1c3b5d7f9a1c3e5b7d9f0a2c4e6b8d",
   "set_as_default": true
 }
 ```
+
+A `card_token` expires 15 minutes after capture. The legacy
+`{ "billing_id": "12345678", "set_as_default": true }` body still works
+unchanged.
 
 Response: `{ "id": "<bare uuid>", "card": { "brand": "visa", "last4": "4242", ... } }`.
 

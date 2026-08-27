@@ -163,8 +163,11 @@ transactions to find the one that triggered the past-due state. Use
 
 - **Hard card issue** (e.g. `transaction_not_allowed`, `expired_card`,
   `incorrect_cvv`, `invalid_account`, `closed_card`, `lost_stolen_card`,
-  `fraud_suspected`) → ask the customer for a new card (vaulted via the
-  gateway → fresh `billing_id` → `add_payment_method`). Then update the
+  `fraud_suspected`) → get a new card on file. In a browser flow, capture a
+  `card_token` via EPD Elements and attach it with `add_payment_method`; for
+  a headless/back-office update, POST straight to `secure.epd.com` (which
+  creates the payment method directly) — see
+  `epd-best-practices/references/security.md`. Then update the
   subscription's payment method, then retry.
 - **Soft / transient issue** (e.g. `processor_declined`, `insufficient_funds`,
   `issuer_unavailable`, `do_not_honor`) → retry on the same payment method

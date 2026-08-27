@@ -66,8 +66,10 @@ Save the returned `id` as `CUSTOMER_ID`.
 
 ## Step 4 — Attach a sandbox card
 
-In sandbox you can pass a **test card token** as `billing_id`. The
-always-succeeds Visa token is `card_visa`. The full list lives in
+This quickstart is pure curl, with no browser to run the EPD Elements SDK,
+so it uses the sandbox's legacy **test card token** shortcut — a string
+starting with `card_` passed as `billing_id`. The always-succeeds Visa token
+is `card_visa`. The full list lives in
 `epd-best-practices/references/testing.md`.
 
 ```bash
@@ -88,6 +90,14 @@ prefix it with `pm_` on input.**
 
 For the decline path used in step 7, save a second payment method with
 `billing_id: "card_visa_declined"` as `DECLINE_PAYMENT_METHOD_ID`.
+
+> **Beyond this quickstart:** `billing_id` (and its `card_` sandbox tokens)
+> is the legacy way to get a card on file. Current integrations use either
+> a browser-captured `card_token` from the **EPD Elements** SDK (with a
+> publishable key), or — for a headless backend like this one — POST the
+> card straight to `https://secure.epd.com` with your secret key, which
+> creates the payment method in one call. See
+> `epd-best-practices/references/security.md` for both flows.
 
 ## Step 5 — Create a product
 

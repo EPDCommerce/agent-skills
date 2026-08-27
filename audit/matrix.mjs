@@ -66,13 +66,16 @@ const MENTION_ONLY = {
 };
 
 const NOTES = {
-  add_payment_method: 'BLOCKED ON CLIENT — MCP takes card_token (^cct_[0-9a-f]{48}$) only; billing_id is REST-only. Awaiting sandbox token path.',
-  create_customer_and_charge: 'BLOCKED ON CLIENT — same card_token question. Current example in epd-onboard-customer fails schema validation.',
-  create_customer_and_subscribe: 'BLOCKED ON CLIENT — same card_token question. Current example fails schema validation.',
+  add_payment_method: 'BROWSER ONLY — takes card_token (^cct_[0-9a-f]{48}$) from EPD Elements, which only a browser can mint. Not reachable by a server-side agent. Document as the browser path and route agents to secure.epd.com instead.',
+  create_customer_and_charge: 'BROWSER ONLY — composite requires card_token. Server-side agents cannot use it; they must use create_customer + secure.epd.com + create_order.',
+  create_customer_and_subscribe: 'BROWSER ONLY — composite requires card_token. Server-side agents must use create_customer + secure.epd.com + create_subscription.',
+  create_order: 'Agent-facing charge path. Takes payment_method_id from secure.epd.com. Verified end to end 27 Aug: order 1DVZHHMB, status succeeded.',
+  create_subscription: 'Agent-facing recurring path. Takes payment_method_id from secure.epd.com, same as create_order.',
+  create_customer: 'Step 1 of the browserless onboarding flow. Returns the customer_id that secure.epd.com requires.',
   upgrade_account_api_version: 'Destructive and account-wide. Sandbox account currently has api_version=null (floating on latest), so the Aug 31 release lands automatically.',
   rotate_webhook_secret: 'Needs the overlap-window procedure written before the rotate call, not after.',
   archive_coupon: 'Archive vs delete distinction must be explicit — unarchive_coupon exists, so archive is reversible and should not be described as deletion.',
-  retry_order: 'Absent from the published docs entirely. Destructive + retries money movement, so it needs the soft/hard decline split from epd-transaction-triage.',
+  retry_order: 'Was missing from the published docs when this audit ran; added 27 Aug. Destructive and retries money movement, so it needs the soft/hard decline split from epd-transaction-triage.',
   test_webhook_endpoint: 'openWorldHint — calls an external URL. No idempotency_key parameter exists.',
   replay_webhook_event: 'openWorldHint — calls an external URL. No idempotency_key parameter exists.',
   reorder_product_images: 'Write tool with no idempotency_key parameter — the "idempotency_key on every write" rule needs a stated exception here.',
@@ -156,13 +159,17 @@ p('## Summary');
 p();
 p('| | |');
 p('|---|---|');
-p(`| Tools on the server | **${rows.length}** (docs publish 63) |`);
+p(`| Tools on the server | **${rows.length}** across 12 groups |`);
 p(`| Documented today | ${nDoc} |`);
 p(`| Not mentioned anywhere today | ${nAbsent} |`);
 p(`| Proposed: worked example | ${nEx} |`);
 p(`| Proposed: reference row only | ${nRef} |`);
 p(`| Proposed: one-line mention | ${nMen} |`);
 p(`| Blocked on client answer | ${blocked.length} |`);
+p();
+p('When this audit ran, the MCP overview published 63 tools across 11 groups: the Webhook');
+p('Versions group was missing entirely and Orders omitted `retry_order`. Both were');
+p('corrected in the docs on 27 August, and the published counts now agree with the server.');
 p();
 p('**Treatment** is the scope control. A `get_*` that takes an id and returns the object');
 p('needs a table row, not a transcript; a destructive tool needs a transcript showing the');
@@ -211,6 +218,45 @@ if (blocked.length) {
   for (const r of blocked) p(`- \`${r.name}\` — ${r.note.replace(/^BLOCKED ON CLIENT — /, '')}`);
   p();
 }
+
+p('## Card capture: two paths, only one reachable by an agent');
+p();
+p('The audit found `epd-onboard-customer` documenting the REST `billing_id` model on an');
+p('MCP skill, so both of its worked examples failed schema validation. The EPD team');
+p('confirmed the intended model on 27 August and fixed the skill in `6ccd9c7`; the');
+p('argument-validation pass in `audit/coverage.mjs` now reports clean. This section');
+p('records the confirmed model so the rest of the matrix can be read against it.');
+p();
+p('| | Browser path | Agent path |');
+p('|---|---|---|');
+p('| Capture | EPD Elements SDK in the shopper\'s browser | `POST https://secure.epd.com` server-to-server |');
+p('| Produces | `card_token` (`cct_…`), single-use | `payment_method_id` |');
+p('| Charge with | `create_customer_and_charge` / `create_customer_and_subscribe` | `create_order` / `create_subscription` |');
+p();
+p('There is no fixture `cct_` token and no server-side way to mint one, so the three');
+p('`card_token` tools are unreachable from an MCP session. The browserless sequence is:');
+p();
+p('```');
+p('1. create_customer            (MCP)   -> customer_id');
+p('2. POST https://secure.epd.com (REST)  -> payment_method_id');
+p('   body: {"customer_id": "...", "card": {"number","exp_month","exp_year","cvc"}}');
+p('3. create_order | create_subscription  (MCP, with payment_method_id)');
+p('```');
+p();
+p('Verified 27 Aug against sandbox: order `1DVZHHMB`, status `succeeded`.');
+p();
+p('One consequence is already handled: `epd-onboard-customer` spans two hosts, and');
+p('`6ccd9c7` now documents that. It is the only workflow skill that leaves the MCP');
+p('surface mid-flow, since `secure.epd.com` carries the PCI weight the MCP tools avoid.');
+p();
+p('One remains open for `epd-mcp-operator`:');
+p();
+p('- The server\'s own `instructions` block says to prefer composite tools over');
+p('  hand-rolled multi-step workflows. For onboarding that advice inverts: both');
+p('  onboarding composites are browser-only, so a server-side agent must use the');
+p('  primitives. `epd-mcp-operator` needs to carry that exception explicitly, or');
+p('  agents will follow the server hint into a tool they cannot call.');
+p();
 
 p('## Tool-by-tool matrix');
 p();

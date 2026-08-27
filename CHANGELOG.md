@@ -5,9 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - 2026-05-12
+## [Unreleased]
 
-- `audit/` — Phase A coverage audit. Live `tools/list` snapshot, tool-by-tool coverage matrix, proposed 12-skill map with routing and measured API key permissions. Analysis only; no skill content changes.
+### Added
+
+- `audit/` — Phase A coverage audit. Live `tools/list` snapshot, tool-by-tool
+  coverage matrix, proposed 12-skill map with routing, and measured API key
+  permissions. Analysis only; no skill content changes.
+
+## [0.1.0] - 2026-05-12
 
 Initial public release. Six agent skills for EPD Commerce, targeting API
 version `2026-02-11`.

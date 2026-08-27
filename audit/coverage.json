@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-08-26T22:31:19.191Z",
+  "captured_at": "2026-08-27T20:10:43.871Z",
   "coverage": [
     {
       "name": "ping",
@@ -42,8 +42,8 @@
       "group": "Customers",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 3,
-      "code": 1,
+      "total": 5,
+      "code": 3,
       "head": 0,
       "table": 0,
       "prose": 2,
@@ -117,11 +117,11 @@
       "group": "Payment Methods",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 7,
-      "code": 1,
+      "total": 14,
+      "code": 2,
       "head": 0,
       "table": 2,
-      "prose": 4,
+      "prose": 10,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-onboard-customer",
@@ -253,11 +253,11 @@
       "group": "Orders",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 4,
-      "code": 1,
+      "total": 8,
+      "code": 3,
       "head": 0,
       "table": 1,
-      "prose": 2,
+      "prose": 4,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-onboard-customer"
@@ -324,12 +324,13 @@
       "group": "Subscriptions",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 4,
-      "code": 2,
+      "total": 8,
+      "code": 4,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 4,
       "skills": [
+        "integration/epd-best-practices",
         "workflows/epd-onboard-customer",
         "workflows/epd-subscriptions"
       ]
@@ -721,10 +722,10 @@
       "tier": "T3 destructive",
       "depth": "documented",
       "total": 8,
-      "code": 1,
+      "code": 2,
       "head": 1,
       "table": 2,
-      "prose": 4,
+      "prose": 3,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-onboard-customer",
@@ -838,10 +839,10 @@
       "tier": "T3 destructive",
       "depth": "documented",
       "total": 8,
-      "code": 1,
+      "code": 2,
       "head": 1,
       "table": 3,
-      "prose": 3,
+      "prose": 2,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-onboard-customer"
@@ -890,7 +891,7 @@
         "first_name",
         "last_name",
         "phone",
-        "billing_id",
+        "card_token",
         "items",
         "currency",
         "description",
@@ -900,14 +901,14 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 66,
+      "line": 73,
       "tool": "create_customer_and_subscribe",
       "keys": [
         "email",
         "first_name",
         "last_name",
         "phone",
-        "billing_id",
+        "card_token",
         "plan_id",
         "billing_cycle",
         "start_date",
@@ -1008,7 +1009,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 177,
+      "line": 180,
       "tool": "retry_failed_charge",
       "keys": [
         "transaction_id",
@@ -1017,84 +1018,7 @@
       ]
     }
   ],
-  "argIssues": [
-    {
-      "skill": "workflows/epd-onboard-customer",
-      "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 40,
-      "tool": "create_customer_and_charge",
-      "keys": [
-        "email",
-        "first_name",
-        "last_name",
-        "phone",
-        "billing_id",
-        "items",
-        "currency",
-        "description",
-        "idempotency_key"
-      ],
-      "kind": "UNKNOWN ARG",
-      "detail": "billing_id"
-    },
-    {
-      "skill": "workflows/epd-onboard-customer",
-      "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 40,
-      "tool": "create_customer_and_charge",
-      "keys": [
-        "email",
-        "first_name",
-        "last_name",
-        "phone",
-        "billing_id",
-        "items",
-        "currency",
-        "description",
-        "idempotency_key"
-      ],
-      "kind": "MISSING REQUIRED",
-      "detail": "card_token"
-    },
-    {
-      "skill": "workflows/epd-onboard-customer",
-      "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 66,
-      "tool": "create_customer_and_subscribe",
-      "keys": [
-        "email",
-        "first_name",
-        "last_name",
-        "phone",
-        "billing_id",
-        "plan_id",
-        "billing_cycle",
-        "start_date",
-        "idempotency_key"
-      ],
-      "kind": "UNKNOWN ARG",
-      "detail": "billing_id"
-    },
-    {
-      "skill": "workflows/epd-onboard-customer",
-      "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 66,
-      "tool": "create_customer_and_subscribe",
-      "keys": [
-        "email",
-        "first_name",
-        "last_name",
-        "phone",
-        "billing_id",
-        "plan_id",
-        "billing_cycle",
-        "start_date",
-        "idempotency_key"
-      ],
-      "kind": "MISSING REQUIRED",
-      "detail": "card_token"
-    }
-  ],
+  "argIssues": [],
   "ghosts": {
     "cancel_reason": [
       "integration/epd-best-practices/references/subscriptions.md"

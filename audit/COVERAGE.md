@@ -7,13 +7,17 @@ Regenerate with `node audit/matrix.mjs`.
 
 | | |
 |---|---|
-| Tools on the server | **67** (docs publish 63) |
+| Tools on the server | **67** across 12 groups |
 | Documented today | 14 |
 | Not mentioned anywhere today | 40 |
 | Proposed: worked example | 47 |
 | Proposed: reference row only | 19 |
 | Proposed: one-line mention | 1 |
-| Blocked on client answer | 3 |
+| Blocked on client answer | 0 |
+
+When this audit ran, the MCP overview published 63 tools across 11 groups: the Webhook
+Versions group was missing entirely and Orders omitted `retry_order`. Both were
+corrected in the docs on 27 August, and the published counts now agree with the server.
 
 **Treatment** is the scope control. A `get_*` that takes an id and returns the object
 needs a table row, not a transcript; a destructive tool needs a transcript showing the
@@ -64,11 +68,43 @@ Tiers are derived from the server's own annotations, not assigned by hand.
 `epd-best-practices`, `epd-quickstart` and `epd-webhooks` stay REST/integration-facing and own no MCP tools.
 The MCP counterparts are `epd-mcp-operator` and `epd-webhook-ops`.
 
-## Blocked on client answer
+## Card capture: two paths, only one reachable by an agent
 
-- `add_payment_method` — MCP takes card_token (^cct_[0-9a-f]{48}$) only; billing_id is REST-only. Awaiting sandbox token path.
-- `create_customer_and_subscribe` — same card_token question. Current example fails schema validation.
-- `create_customer_and_charge` — same card_token question. Current example in epd-onboard-customer fails schema validation.
+The audit found `epd-onboard-customer` documenting the REST `billing_id` model on an
+MCP skill, so both of its worked examples failed schema validation. The EPD team
+confirmed the intended model on 27 August and fixed the skill in `6ccd9c7`; the
+argument-validation pass in `audit/coverage.mjs` now reports clean. This section
+records the confirmed model so the rest of the matrix can be read against it.
+
+| | Browser path | Agent path |
+|---|---|---|
+| Capture | EPD Elements SDK in the shopper's browser | `POST https://secure.epd.com` server-to-server |
+| Produces | `card_token` (`cct_…`), single-use | `payment_method_id` |
+| Charge with | `create_customer_and_charge` / `create_customer_and_subscribe` | `create_order` / `create_subscription` |
+
+There is no fixture `cct_` token and no server-side way to mint one, so the three
+`card_token` tools are unreachable from an MCP session. The browserless sequence is:
+
+```
+1. create_customer            (MCP)   -> customer_id
+2. POST https://secure.epd.com (REST)  -> payment_method_id
+   body: {"customer_id": "...", "card": {"number","exp_month","exp_year","cvc"}}
+3. create_order | create_subscription  (MCP, with payment_method_id)
+```
+
+Verified 27 Aug against sandbox: order `1DVZHHMB`, status `succeeded`.
+
+One consequence is already handled: `epd-onboard-customer` spans two hosts, and
+`6ccd9c7` now documents that. It is the only workflow skill that leaves the MCP
+surface mid-flow, since `secure.epd.com` carries the PCI weight the MCP tools avoid.
+
+One remains open for `epd-mcp-operator`:
+
+- The server's own `instructions` block says to prefer composite tools over
+  hand-rolled multi-step workflows. For onboarding that advice inverts: both
+  onboarding composites are browser-only, so a server-side agent must use the
+  primitives. `epd-mcp-operator` needs to carry that exception explicitly, or
+  agents will follow the server hint into a tool they cannot call.
 
 ## Tool-by-tool matrix
 
@@ -77,13 +113,13 @@ The MCP counterparts are `epd-mcp-operator` and `epd-webhook-ops`.
 | `ping` | Account | readOnly, idempotent | T0 read | — | — | `epd-mcp-operator` | MENTION | Liveness check with no workflow around it. One line in epd-mcp-operator as the connection test; a dedicated section would be padding. |
 | `get_account` | Account | readOnly, idempotent | T0 read | — | — | `epd-mcp-operator` | REFERENCE |  |
 | `upgrade_account_api_version` | Account | destructive, idempotent | T3 destructive | optional | — | `epd-mcp-operator` | EXAMPLE | Destructive and account-wide. Sandbox account currently has api_version=null (floating on latest), so the Aug 31 release lands automatically. |
-| `create_customer` | Customers | idempotent | T2 write | optional | documented (epd-best-practices, epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE |  |
+| `create_customer` | Customers | idempotent | T2 write | optional | documented (epd-best-practices, epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE | Step 1 of the browserless onboarding flow. Returns the customer_id that secure.epd.com requires. |
 | `list_customers` | Customers | readOnly, idempotent | T0 read | — | — | `epd-onboard-customer` | REFERENCE |  |
 | `get_customer` | Customers | readOnly, idempotent | T0 read | — | — | `epd-onboard-customer` | REFERENCE |  |
 | `update_customer` | Customers | idempotent | T2 write | optional | — | `epd-onboard-customer` | EXAMPLE |  |
 | `delete_customer` | Customers | destructive, idempotent | T3 destructive | optional | — | `epd-onboard-customer` | EXAMPLE |  |
 | `list_payment_methods` | Payment Methods | readOnly, idempotent | T0 read | — | — | `epd-onboard-customer` | REFERENCE |  |
-| `add_payment_method` | Payment Methods | idempotent | T2 write | optional | documented (epd-best-practices, epd-onboard-customer, epd-subscriptions) | `epd-onboard-customer` | EXAMPLE | BLOCKED ON CLIENT — MCP takes card_token (^cct_[0-9a-f]{48}$) only; billing_id is REST-only. Awaiting sandbox token path. |
+| `add_payment_method` | Payment Methods | idempotent | T2 write | optional | documented (epd-best-practices, epd-onboard-customer, epd-subscriptions) | `epd-onboard-customer` | EXAMPLE | BROWSER ONLY — takes card_token (^cct_[0-9a-f]{48}$) from EPD Elements, which only a browser can mint. Not reachable by a server-side agent. Document as the browser path and route agents to secure.epd.com instead. |
 | `delete_payment_method` | Payment Methods | destructive, idempotent | T3 destructive | optional | — | `epd-onboard-customer` | EXAMPLE |  |
 | `create_product` | Products | idempotent | T2 write | optional | — | `epd-catalog` | EXAMPLE |  |
 | `list_products` | Products | readOnly, idempotent | T0 read | — | — | `epd-catalog` | REFERENCE |  |
@@ -94,12 +130,12 @@ The MCP counterparts are `epd-mcp-operator` and `epd-webhook-ops`.
 | `reorder_product_images` | Products | idempotent | T2 write | — | — | `epd-catalog` | EXAMPLE | Write tool with no idempotency_key parameter — the "idempotency_key on every write" rule needs a stated exception here. |
 | `list_plans` | Plans | readOnly, idempotent | T0 read | — | — | `epd-catalog` | REFERENCE |  |
 | `get_plan` | Plans | readOnly, idempotent | T0 read | — | — | `epd-catalog` | REFERENCE |  |
-| `create_order` | Orders | idempotent | T2 write | required | documented (epd-best-practices, epd-onboard-customer) | `epd-catalog` | EXAMPLE |  |
+| `create_order` | Orders | idempotent | T2 write | required | documented (epd-best-practices, epd-onboard-customer) | `epd-catalog` | EXAMPLE | Agent-facing charge path. Takes payment_method_id from secure.epd.com. Verified end to end 27 Aug: order 1DVZHHMB, status succeeded. |
 | `list_orders` | Orders | readOnly, idempotent | T0 read | — | prose-only (epd-refunds) | `epd-transaction-triage` | REFERENCE |  |
 | `get_order` | Orders | readOnly, idempotent | T0 read | — | prose-only (epd-refunds) | `epd-transaction-triage` | REFERENCE |  |
 | `refund_order` | Orders | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-refunds, epd-subscriptions) | `epd-refunds` | EXAMPLE |  |
-| `retry_order` | Orders | destructive, idempotent | T3 destructive | required | — | `epd-transaction-triage` | EXAMPLE | Absent from the published docs entirely. Destructive + retries money movement, so it needs the soft/hard decline split from epd-transaction-triage. |
-| `create_subscription` | Subscriptions | idempotent | T2 write | required | documented (epd-onboard-customer, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
+| `retry_order` | Orders | destructive, idempotent | T3 destructive | required | — | `epd-transaction-triage` | EXAMPLE | Was missing from the published docs when this audit ran; added 27 Aug. Destructive and retries money movement, so it needs the soft/hard decline split from epd-transaction-triage. |
+| `create_subscription` | Subscriptions | idempotent | T2 write | required | documented (epd-best-practices, epd-onboard-customer, epd-subscriptions) | `epd-subscriptions` | EXAMPLE | Agent-facing recurring path. Takes payment_method_id from secure.epd.com, same as create_order. |
 | `list_subscriptions` | Subscriptions | readOnly, idempotent | T0 read | — | — | `epd-subscriptions` | REFERENCE |  |
 | `get_subscription` | Subscriptions | readOnly, idempotent | T0 read | — | prose-only (epd-subscriptions) | `epd-subscriptions` | REFERENCE |  |
 | `update_subscription` | Subscriptions | idempotent | T2 write | optional | documented (epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
@@ -130,7 +166,7 @@ The MCP counterparts are `epd-mcp-operator` and `epd-webhook-ops`.
 | `generate_coupon_codes` | Coupons | idempotent | T2 write | optional | — | `epd-coupons` | EXAMPLE |  |
 | `list_coupon_codes` | Coupons | readOnly, idempotent | T0 read | — | — | `epd-coupons` | REFERENCE |  |
 | `validate_coupon` | Coupons | readOnly, idempotent | T0 read | — | — | `epd-coupons` | EXAMPLE |  |
-| `create_customer_and_subscribe` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-onboard-customer, epd-subscriptions) | `epd-onboard-customer` | EXAMPLE | BLOCKED ON CLIENT — same card_token question. Current example fails schema validation. |
+| `create_customer_and_subscribe` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-onboard-customer, epd-subscriptions) | `epd-onboard-customer` | EXAMPLE | BROWSER ONLY — composite requires card_token. Server-side agents must use create_customer + secure.epd.com + create_subscription. |
 | `process_order` | Composite | destructive, idempotent | T3 destructive | required | table-only (epd-best-practices, epd-onboard-customer) | `epd-catalog` | EXAMPLE |  |
 | `cancel_subscription_and_report` | Composite | destructive, idempotent | T3 destructive | optional | documented (epd-best-practices, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
 | `get_customer_financial_summary` | Composite | readOnly, idempotent | T0 read | — | prose-only (epd-onboard-customer, epd-refunds, epd-subscriptions) | `epd-reporting` | EXAMPLE |  |
@@ -138,7 +174,7 @@ The MCP counterparts are `epd-mcp-operator` and `epd-webhook-ops`.
 | `list_past_due_subscriptions` | Composite | readOnly, idempotent | T0 read | — | documented (epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
 | `refund_transaction` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-refunds) | `epd-refunds` | EXAMPLE |  |
 | `setup_webhook_monitoring` | Composite | idempotent | T2 write | optional | — | `epd-webhook-ops` | EXAMPLE |  |
-| `create_customer_and_charge` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE | BLOCKED ON CLIENT — same card_token question. Current example in epd-onboard-customer fails schema validation. |
+| `create_customer_and_charge` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE | BROWSER ONLY — composite requires card_token. Server-side agents cannot use it; they must use create_customer + secure.epd.com + create_order. |
 | `refund_and_cancel` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-refunds, epd-subscriptions) | `epd-refunds` | EXAMPLE |  |
 | `retry_failed_charge` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
 

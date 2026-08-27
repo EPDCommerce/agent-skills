@@ -66,19 +66,20 @@ Save the returned `id` as `CUSTOMER_ID`.
 
 ## Step 4 — Attach a sandbox card
 
-In sandbox you can pass a **test card token** as `billing_id`. The
-always-succeeds Visa token is `card_visa`. The full list lives in
-`epd-best-practices/references/testing.md`.
+This quickstart is pure curl with no browser, so it uses the headless
+`secure.epd.com` path: POST the card with your secret key and a PCI-scoped
+proxy tokenizes the PAN (it never reaches the main API) and creates the
+payment method in one call. Use the sandbox test PAN `4111 1111 1111 1111`
+(always succeeds).
 
 ```bash
-curl -s "https://api.epd.com/v1/customers/$CUSTOMER_ID/payment_methods" \
+curl -s "https://secure.epd.com" \
   -X POST \
   -H "Authorization: Bearer $EPD_API_KEY" \
-  -H "EPD-Version: 2026-02-11" \
-  -H "X-EPD-Idempotency-Key: $(uuidgen)" \
   -H "Content-Type: application/json" \
   -d '{
-    "billing_id": "card_visa",
+    "customer_id": "'"$CUSTOMER_ID"'",
+    "card": { "number": "4111111111111111", "exp_month": "12", "exp_year": "2030", "cvc": "123" },
     "set_as_default": true
   }'
 ```
@@ -86,8 +87,16 @@ curl -s "https://api.epd.com/v1/customers/$CUSTOMER_ID/payment_methods" \
 Save the returned `id` as `PAYMENT_METHOD_ID`. **It is a bare UUID — never
 prefix it with `pm_` on input.**
 
-For the decline path used in step 7, save a second payment method with
-`billing_id: "card_visa_declined"` as `DECLINE_PAYMENT_METHOD_ID`.
+For the decline path used in step 7, run the same call with the decline test
+PAN `4000 0000 0000 0002` and save its `id` as `DECLINE_PAYMENT_METHOD_ID`.
+
+> **Other ways to get a card on file:** in a browser integration, capture a
+> `card_token` (`cct_…`) with the **EPD Elements** SDK (publishable key) and
+> attach it via `POST /v1/customers/{id}/payment_methods`. A legacy sandbox
+> shortcut also exists — pass a `card_` test token (e.g. `card_visa`) as
+> `billing_id` to that same endpoint — but `billing_id` is deprecated; prefer
+> `secure.epd.com` or `card_token`. See
+> `epd-best-practices/references/security.md`.
 
 ## Step 5 — Create a product
 

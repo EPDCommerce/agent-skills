@@ -8,12 +8,14 @@ schemas, same idempotency rules. The differences:
   trigger specific outcomes.
 - No real money moves.
 
-## Sandbox card tokens
+## Sandbox card tokens (legacy path)
 
 In sandbox, pass a **test card token** (string starting with `card_`) as the
-`billing_id` on `POST /v1/customers/{id}/payment_methods` (or as
-`epd_gateway_customer_vault_id` on the MCP `create_customer_and_charge` /
-`create_customer_and_subscribe` composites). The gateway mints a vault entry
+`billing_id` on `POST /v1/customers/{id}/payment_methods`. This is the
+**legacy** sandbox path — it exercises the same Collect.js / EPD Gateway
+vault flow that `billing_id` uses in production, and it is not available on
+the MCP surface (MCP's `add_payment_method` and composites take `card_token`
+only, which these string tokens are not). The gateway mints a vault entry
 backed by the corresponding test card. Subsequent orders against that
 payment method produce the deterministic result below.
 
@@ -38,6 +40,21 @@ payment method produce the deterministic result below.
 The full failure_reason enum is in `errors.md` ("Failure reasons on declined
 orders"). Branch on `order.status === "failed"` first, then on
 `order.failure_reason`.
+
+## Testing the headless path (`secure.epd.com`)
+
+For an integration that gets a card on file via `https://secure.epd.com`
+(see `security.md`), sandbox testing doesn't use the `card_` tokens above —
+POST a standard test card number instead, e.g. `4111 1111 1111 1111` (a
+generic always-succeeds Visa test PAN) with any future expiry and any CVC.
+Use your sandbox secret key (`epd_test_sk_...`) on the request. The response
+is the same payment method object shape as the browser flow; its `id` feeds
+into `create_order` / `create_subscription` the same way.
+
+For a browser-based (`card_token`) integration, sandbox testing runs through
+the same EPD Elements flow as production, initialized with a **test**
+publishable key (`epd_test_pk_...`) — the `cct_...` token it produces is
+attached with a sandbox secret key.
 
 ## Test mode environment guard pattern
 

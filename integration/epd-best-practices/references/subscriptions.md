@@ -147,9 +147,14 @@ Commerce automatically retries on its dunning schedule. The REST API does
 
 The recovery path from your backend is:
 
-1. Customer updates their card through your UI; your frontend tokenizes via
-   the EPD Gateway vault and you receive a fresh `billing_id`.
-2. `POST /v1/customers/{id}/payment_methods` to attach it.
+1. Customer updates their card. In a browser flow, your frontend captures it
+   with **EPD Elements** (a publishable key) and gets back a `card_token`;
+   for a headless/back-office update, POST the card straight to
+   `https://secure.epd.com` with your secret key instead — see
+   `security.md` for both flows.
+2. If you captured a `card_token`, `POST /v1/customers/{id}/payment_methods`
+   with it to attach the card. (Skip this step if you used
+   `secure.epd.com` — that call already created the payment method.)
 3. `PATCH /v1/subscriptions/{id}` with the new `payment_method_id`.
 4. Wait for the next scheduled dunning attempt — it will use the updated
    payment method.

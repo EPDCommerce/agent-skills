@@ -17,9 +17,11 @@ whatever language the surrounding repo uses.
 Full reference: <https://docs.api.epd.com/>. This skill encodes the **non-obvious
 patterns** that live above the reference — load a domain reference for detail.
 
-> **No publishable / browser-safe key exists** in EPD Commerce. All API
-> authentication uses a server-side secret. Browser-side card collection
-> happens in a separate vault layer (see `references/security.md`).
+> EPD Commerce **does** issue a publishable, browser-safe key
+> (`epd_live_pk_...` / `epd_test_pk_...`), but it is capture-only — it can
+> tokenize a card via the EPD Elements SDK and nothing else. All other API
+> authentication, including attaching that token to a customer, uses a
+> server-side secret key. See `references/security.md`.
 
 ## Routing — pick the reference that matches the task
 
@@ -66,10 +68,11 @@ Restricted keys (limited scope) use `epd_restricted_sk_live_` / `_test_`
 prefixes. Issue these for analytics dashboards or read-only workloads instead
 of full secret keys.
 
-EPD Commerce does **not** issue publishable (browser-safe) keys. Card
-tokenization happens through the EPD Gateway vault, which has its own
-credentials — see
-`references/security.md`.
+EPD Commerce also issues a **publishable** (browser-safe) key
+(`epd_live_pk_...` / `epd_test_pk_...`) for the EPD Elements SDK, but it can
+only capture and tokenize a card — it carries none of the API's read/write
+authority. Card tokenization details, including the server-to-server
+alternative for headless integrations, are in `references/security.md`.
 
 Rules:
 
@@ -300,8 +303,12 @@ MCP server.
 ## What this skill will not do
 
 - Won't write business logic — cart math, tax, fulfillment, etc.
-- Won't pick a frontend tokenization strategy (EPD Elements vs hosted checkout
-  vs embedded SDK) — that's a product decision, see <https://docs.api.epd.com/>.
+- Won't pick a frontend tokenization strategy for you — EPD Elements
+  (browser capture with a publishable key) vs `secure.epd.com`
+  (server-to-server with a secret key) vs the legacy Collect.js vault are all
+  live options; which one fits is a product decision. See
+  `references/security.md` for how each works and <https://docs.api.epd.com/>
+  for the full picture.
 - Won't generate webhook signature verification — load `epd-webhooks`.
 - Won't operate against a live EPD Commerce account — that's the workflow skills under
   `workflows/`, loaded by an MCP-connected agent.

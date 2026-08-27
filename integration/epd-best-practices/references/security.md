@@ -8,11 +8,21 @@
 | `epd_test_sk_<32 hex>`       | Sandbox     | Full read/write on a sandbox account        |
 | `epd_restricted_sk_live_...` | Production  | Subset of permissions defined per key       |
 | `epd_restricted_sk_test_...` | Sandbox     | Subset of permissions defined per key       |
+| `epd_live_pk_...`            | Production  | **Publishable** — browser card capture only |
+| `epd_test_pk_...`            | Sandbox     | **Publishable** — browser card capture only |
 
-There is **no publishable / browser-safe key** in the EPD Commerce model. All
-API authentication uses a server-side secret key. Browser-side card
-collection goes through the EPD Commerce Gateway vault (see "Card
-tokenization" below), which has its own credential model.
+All REST API authentication — customers, orders, subscriptions, refunds,
+webhooks, everything except capturing a card in the browser — uses a
+server-side **secret** key (`_sk_`). The only browser-safe key is the
+**publishable** key (`_pk_`), created separately in the dashboard under
+Settings → Developer & Integrations → **Publishable Keys** (a different tab
+from **API Keys**). A publishable key does exactly one thing: it initializes
+the EPD Elements SDK to capture and tokenize a card. It cannot read, list,
+charge, or move money, so it's safe to ship in client-side code. It is not a
+substitute for a secret key — the `card_token` it produces still has to be
+attached to a customer server-side, with a secret key. See "Card
+tokenization" below for the full flow, including a server-to-server option
+that needs no publishable key at all.
 
 ## Key handling — non-negotiables
 
@@ -80,31 +90,79 @@ process startup, not at first charge.
 
 ## Card tokenization & PCI scope
 
-The EPD Commerce API never accepts a raw card number. Card data flows through
-the **EPD Commerce Gateway vault**, which is the PCI-scoped layer. The flow:
+The EPD Commerce API never accepts a raw card number directly on
+`POST /v1/customers/{id}/payment_methods`. There are two supported ways to
+get a card into the vault today. The browser flow keeps your servers out of
+the cardholder-data path entirely; the server-to-server flow does not need a
+browser but does put a raw PAN through your backend for one call, which
+carries a heavier PCI obligation (see its note below).
+
+### 1. Browser capture — EPD Elements (`card_token`)
 
 ```
 Customer's browser
    │
-   │  collects card → tokenizes via EPD Commerce Elements / hosted vault page
+   │  epd.js (https://js.epd.com/element/v1/epd.js), initialized with a
+   │  publishable key, captures the card and tokenizes it
    ▼
-EPD Commerce Gateway vault (PCI-DSS scope) ── returns numeric billing_id ──┐
+EPD card capture (PCI-scoped) ── returns single-use card_token (cct_...) ──┐
                                                                            │
                                                                            ▼
 Your backend ─── POST /v1/customers/{id}/payment_methods ───► EPD Commerce API
-                  body: { "billing_id": "12345678" }
+                  body: { "card_token": "cct_..." }        (secret key)
 ```
 
-Your backend **only handles the `billing_id`** (a numeric string from the
-vault). Your servers never see the PAN, CVV, or expiry. This keeps you in
-**SAQ-A** PCI scope (the lightest tier) instead of full PCI-DSS.
+The `card_token` (`cct_` followed by 48 hex characters) is single-use and
+expires 15 minutes after capture. Your servers never see the PAN, CVV, or
+expiry — only the token. This is the only card input the MCP payment tools
+accept.
 
-Critical: the `billing_id` is **not** a card number. It's an opaque vault
-reference. If a dev tries to pass a 16-digit string to `billing_id` thinking
-"oh it's a card", the API rejects it (the vault hasn't seen it) — but more
-importantly, your backend has just touched a PAN, which kicks you into full
-PCI scope. Educate your team that anything looking like card data on your
-servers is an incident, not a feature.
+### 2. Server-to-server — `secure.epd.com` (headless, no browser)
+
+For phone/MOTO orders, back-office entry, data migration, or an
+agent/headless integration with no browser to run EPD Elements in, POST the
+raw card directly to `https://secure.epd.com` using your **secret** key.
+That endpoint is a PCI-scoped proxy — the card never reaches the main EPD
+Commerce API — and it creates the payment method in the same call:
+
+```json
+POST https://secure.epd.com
+Authorization: Bearer epd_test_sk_...
+
+{
+  "customer_id": "<existing customer id>",
+  "card": { "number": "4111111111111111", "exp_month": "12", "exp_year": "2027", "cvc": "123" },
+  "billing_details": { "...": "..." },
+  "set_as_default": true
+}
+```
+
+The response is the standard payment method object; its `id` is the
+`payment_method_id` you pass to `create_order` / `create_subscription`.
+Your server does handle the raw card number for this one call (even though
+it's forwarded straight to the proxy and never stored), so this path puts
+you in a heavier PCI scope than the browser flow — confirm the applicable
+SAQ level with your acquirer or QSA before leaning on it for volume.
+
+### 3. Legacy — `billing_id` and `payment_token`
+
+Older integrations vault cards through Collect.js / the EPD Gateway vault. The
+inputs below are still accepted on `POST /v1/customers/{id}/payment_methods`,
+but neither exists on the MCP surface — `add_payment_method` and the composite
+MCP tools accept `card_token` only. Use the current paths for new work:
+
+| Legacy input    | Status     | Use instead                                            |
+|-----------------|------------|--------------------------------------------------------|
+| `billing_id`    | Deprecated | `card_token` (browser) or `secure.epd.com` (headless)  |
+| `payment_token` | Deprecated | `card_token` (browser) or `secure.epd.com` (headless)  |
+
+Critical: none of `card_token`, `billing_id`, `payment_token`, or a
+`payment_method_id` returned from `secure.epd.com` is a card number. If a dev
+tries to pass a 16-digit string into one of these fields thinking "oh it's a
+card", the API rejects it — but more importantly, your backend has just
+touched a PAN, which kicks you into full PCI scope. Educate your team that
+anything looking like card data on your servers outside the `secure.epd.com`
+call itself is an incident, not a feature.
 
 ## Webhook secret handling
 

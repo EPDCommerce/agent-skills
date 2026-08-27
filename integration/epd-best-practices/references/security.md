@@ -146,13 +146,15 @@ SAQ level with your acquirer or QSA before leaning on it for volume.
 
 ### 3. Legacy — `billing_id` and `payment_token`
 
-Older integrations vault cards through Collect.js / the EPD Gateway vault and
-attach the result as a numeric `billing_id`, or through the legacy NMI
-`payment_token`. Both are still accepted on
-`POST /v1/customers/{id}/payment_methods`, but neither exists on the MCP
-surface — `add_payment_method` and the composite MCP tools accept
-`card_token` only. New integrations should use EPD Elements (browser) or
-`secure.epd.com` (server-to-server) instead.
+Older integrations vault cards through Collect.js / the EPD Gateway vault. The
+inputs below are still accepted on `POST /v1/customers/{id}/payment_methods`,
+but neither exists on the MCP surface — `add_payment_method` and the composite
+MCP tools accept `card_token` only. Use the current paths for new work:
+
+| Legacy input    | Status     | Use instead                                            |
+|-----------------|------------|--------------------------------------------------------|
+| `billing_id`    | Deprecated | `card_token` (browser) or `secure.epd.com` (headless)  |
+| `payment_token` | Deprecated | `card_token` (browser) or `secure.epd.com` (headless)  |
 
 Critical: none of `card_token`, `billing_id`, `payment_token`, or a
 `payment_method_id` returned from `secure.epd.com` is a card number. If a dev

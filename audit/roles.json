@@ -1,0 +1,41 @@
+{
+    "data": [
+        {
+            "id": "84558e19-be1c-40ef-98ee-9fd3ea1bf9a3",
+            "name": "Bookkeeper",
+            "description": "Read-only access to financial data such as orders, transactions and billing data. Cannot modify products, customers, or settings.",
+            "default_page": "DASHBOARDS"
+        },
+        {
+            "id": "5623c8c8-0688-45be-b944-2cb982b50ffa",
+            "name": "Content/Product Manager",
+            "description": "Manages products and plans, its pricing. Cannot access financials, customer data, user management, or system settings.",
+            "default_page": "PRODUCTS"
+        },
+        {
+            "id": "8b095720-5144-4e8e-9dea-6eebfa4554d4",
+            "name": "Customer Service",
+            "description": "Views and assists customers, manages support requests, returns, and order issues. Cannot change product and plans, financials, or system settings.",
+            "default_page": "CUSTOMERS"
+        },
+        {
+            "id": "317a123d-abf6-49d8-ac64-b7a269f2c14d",
+            "name": "Read-only",
+            "description": "View-only access to key business data. Cannot create, edit, or delete anything.",
+            "default_page": "DASHBOARDS"
+        },
+        {
+            "id": "9365616d-555a-4a4a-ab28-d2eb8a033a05",
+            "name": "Sales",
+            "description": "Originates customer purchases and subscriptions. Limited access to product and plans; no access to system settings.",
+            "default_page": "DASHBOARDS"
+        },
+        {
+            "id": "b1eac531-a69f-471a-b8e3-dd42201e4d1a",
+            "name": "Workspace Admin",
+            "description": "Manages users and settings, has limited view access and empowered for specific operations (delete). Cannot perform business operations.",
+            "default_page": "USERS"
+        }
+    ],
+    "url": "/v1/roles"
+}

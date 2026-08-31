@@ -1,0 +1,1027 @@
+{
+  "captured_at": "2026-08-27T20:10:43.871Z",
+  "coverage": [
+    {
+      "name": "ping",
+      "group": "Account",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "get_account",
+      "group": "Account",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "upgrade_account_api_version",
+      "group": "Account",
+      "tier": "T3 destructive",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "create_customer",
+      "group": "Customers",
+      "tier": "T2 write",
+      "depth": "documented",
+      "total": 5,
+      "code": 3,
+      "head": 0,
+      "table": 0,
+      "prose": 2,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-onboard-customer"
+      ]
+    },
+    {
+      "name": "list_customers",
+      "group": "Customers",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "get_customer",
+      "group": "Customers",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "update_customer",
+      "group": "Customers",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "delete_customer",
+      "group": "Customers",
+      "tier": "T3 destructive",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "list_payment_methods",
+      "group": "Payment Methods",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "add_payment_method",
+      "group": "Payment Methods",
+      "tier": "T2 write",
+      "depth": "documented",
+      "total": 14,
+      "code": 2,
+      "head": 0,
+      "table": 2,
+      "prose": 10,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-onboard-customer",
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "delete_payment_method",
+      "group": "Payment Methods",
+      "tier": "T3 destructive",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "create_product",
+      "group": "Products",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "list_products",
+      "group": "Products",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "get_product",
+      "group": "Products",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "update_product",
+      "group": "Products",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "delete_product",
+      "group": "Products",
+      "tier": "T3 destructive",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "delete_product_image",
+      "group": "Products",
+      "tier": "T3 destructive",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "reorder_product_images",
+      "group": "Products",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "list_plans",
+      "group": "Plans",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "get_plan",
+      "group": "Plans",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "create_order",
+      "group": "Orders",
+      "tier": "T2 write",
+      "depth": "documented",
+      "total": 8,
+      "code": 3,
+      "head": 0,
+      "table": 1,
+      "prose": 4,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-onboard-customer"
+      ]
+    },
+    {
+      "name": "list_orders",
+      "group": "Orders",
+      "tier": "T0 read",
+      "depth": "prose-only",
+      "total": 2,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 2,
+      "skills": [
+        "workflows/epd-refunds"
+      ]
+    },
+    {
+      "name": "get_order",
+      "group": "Orders",
+      "tier": "T0 read",
+      "depth": "prose-only",
+      "total": 2,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 2,
+      "skills": [
+        "workflows/epd-refunds"
+      ]
+    },
+    {
+      "name": "refund_order",
+      "group": "Orders",
+      "tier": "T3 destructive",
+      "depth": "documented",
+      "total": 10,
+      "code": 1,
+      "head": 1,
+      "table": 1,
+      "prose": 7,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-refunds",
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "retry_order",
+      "group": "Orders",
+      "tier": "T3 destructive",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "create_subscription",
+      "group": "Subscriptions",
+      "tier": "T2 write",
+      "depth": "documented",
+      "total": 8,
+      "code": 4,
+      "head": 0,
+      "table": 0,
+      "prose": 4,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-onboard-customer",
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "list_subscriptions",
+      "group": "Subscriptions",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "get_subscription",
+      "group": "Subscriptions",
+      "tier": "T0 read",
+      "depth": "prose-only",
+      "total": 1,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 1,
+      "skills": [
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "update_subscription",
+      "group": "Subscriptions",
+      "tier": "T2 write",
+      "depth": "documented",
+      "total": 5,
+      "code": 1,
+      "head": 0,
+      "table": 0,
+      "prose": 4,
+      "skills": [
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "cancel_subscription",
+      "group": "Subscriptions",
+      "tier": "T3 destructive",
+      "depth": "documented",
+      "total": 5,
+      "code": 1,
+      "head": 1,
+      "table": 0,
+      "prose": 3,
+      "skills": [
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "list_transactions",
+      "group": "Transactions",
+      "tier": "T0 read",
+      "depth": "table-only",
+      "total": 4,
+      "code": 0,
+      "head": 0,
+      "table": 1,
+      "prose": 3,
+      "skills": [
+        "workflows/epd-refunds",
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "get_transaction",
+      "group": "Transactions",
+      "tier": "T0 read",
+      "depth": "prose-only",
+      "total": 1,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 1,
+      "skills": [
+        "workflows/epd-refunds"
+      ]
+    },
+    {
+      "name": "create_webhook_endpoint",
+      "group": "Webhook Endpoints",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "list_webhook_endpoints",
+      "group": "Webhook Endpoints",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "get_webhook_endpoint",
+      "group": "Webhook Endpoints",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "update_webhook_endpoint",
+      "group": "Webhook Endpoints",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "delete_webhook_endpoint",
+      "group": "Webhook Endpoints",
+      "tier": "T3 destructive",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "rotate_webhook_secret",
+      "group": "Webhook Endpoints",
+      "tier": "T3 destructive",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "test_webhook_endpoint",
+      "group": "Webhook Endpoints",
+      "tier": "T2 external",
+      "depth": "prose-only",
+      "total": 1,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 1,
+      "skills": [
+        "integration/epd-webhooks"
+      ]
+    },
+    {
+      "name": "upgrade_webhook_version",
+      "group": "Webhook Endpoints",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "downgrade_webhook_version",
+      "group": "Webhook Endpoints",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "replay_webhook_event",
+      "group": "Webhook Endpoints",
+      "tier": "T2 external",
+      "depth": "prose-only",
+      "total": 2,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 2,
+      "skills": [
+        "integration/epd-webhooks"
+      ]
+    },
+    {
+      "name": "list_webhook_events",
+      "group": "Webhook Endpoints",
+      "tier": "T0 read",
+      "depth": "heading-only",
+      "total": 1,
+      "code": 0,
+      "head": 1,
+      "table": 0,
+      "prose": 0,
+      "skills": [
+        "integration/epd-webhooks"
+      ]
+    },
+    {
+      "name": "list_webhook_delivery_logs",
+      "group": "Webhook Endpoints",
+      "tier": "T0 read",
+      "depth": "prose-only",
+      "total": 1,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 1,
+      "skills": [
+        "integration/epd-webhooks"
+      ]
+    },
+    {
+      "name": "list_webhook_versions",
+      "group": "Webhook Versions",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "preview_webhook_payload",
+      "group": "Webhook Versions",
+      "tier": "T0 read",
+      "depth": "prose-only",
+      "total": 1,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 1,
+      "skills": [
+        "integration/epd-webhooks"
+      ]
+    },
+    {
+      "name": "compare_webhook_versions",
+      "group": "Webhook Versions",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "create_coupon",
+      "group": "Coupons",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "list_coupons",
+      "group": "Coupons",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "retrieve_coupon",
+      "group": "Coupons",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "update_coupon",
+      "group": "Coupons",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "archive_coupon",
+      "group": "Coupons",
+      "tier": "T3 destructive",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "unarchive_coupon",
+      "group": "Coupons",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "generate_coupon_codes",
+      "group": "Coupons",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "list_coupon_codes",
+      "group": "Coupons",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "validate_coupon",
+      "group": "Coupons",
+      "tier": "T0 read",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "create_customer_and_subscribe",
+      "group": "Composite",
+      "tier": "T3 destructive",
+      "depth": "documented",
+      "total": 8,
+      "code": 2,
+      "head": 1,
+      "table": 2,
+      "prose": 3,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-onboard-customer",
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "process_order",
+      "group": "Composite",
+      "tier": "T3 destructive",
+      "depth": "table-only",
+      "total": 3,
+      "code": 0,
+      "head": 0,
+      "table": 2,
+      "prose": 1,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-onboard-customer"
+      ]
+    },
+    {
+      "name": "cancel_subscription_and_report",
+      "group": "Composite",
+      "tier": "T3 destructive",
+      "depth": "documented",
+      "total": 5,
+      "code": 1,
+      "head": 1,
+      "table": 1,
+      "prose": 2,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "get_customer_financial_summary",
+      "group": "Composite",
+      "tier": "T0 read",
+      "depth": "prose-only",
+      "total": 3,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 3,
+      "skills": [
+        "workflows/epd-onboard-customer",
+        "workflows/epd-refunds",
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "get_revenue_summary",
+      "group": "Composite",
+      "tier": "T0 read",
+      "depth": "prose-only",
+      "total": 1,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 1,
+      "skills": [
+        "workflows/epd-onboard-customer"
+      ]
+    },
+    {
+      "name": "list_past_due_subscriptions",
+      "group": "Composite",
+      "tier": "T0 read",
+      "depth": "documented",
+      "total": 2,
+      "code": 1,
+      "head": 0,
+      "table": 0,
+      "prose": 1,
+      "skills": [
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "refund_transaction",
+      "group": "Composite",
+      "tier": "T3 destructive",
+      "depth": "documented",
+      "total": 8,
+      "code": 2,
+      "head": 1,
+      "table": 1,
+      "prose": 4,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-refunds"
+      ]
+    },
+    {
+      "name": "setup_webhook_monitoring",
+      "group": "Composite",
+      "tier": "T2 write",
+      "depth": "absent",
+      "total": 0,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 0,
+      "skills": []
+    },
+    {
+      "name": "create_customer_and_charge",
+      "group": "Composite",
+      "tier": "T3 destructive",
+      "depth": "documented",
+      "total": 8,
+      "code": 2,
+      "head": 1,
+      "table": 3,
+      "prose": 2,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-onboard-customer"
+      ]
+    },
+    {
+      "name": "refund_and_cancel",
+      "group": "Composite",
+      "tier": "T3 destructive",
+      "depth": "documented",
+      "total": 15,
+      "code": 2,
+      "head": 1,
+      "table": 2,
+      "prose": 10,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-refunds",
+        "workflows/epd-subscriptions"
+      ]
+    },
+    {
+      "name": "retry_failed_charge",
+      "group": "Composite",
+      "tier": "T3 destructive",
+      "depth": "documented",
+      "total": 7,
+      "code": 1,
+      "head": 0,
+      "table": 1,
+      "prose": 5,
+      "skills": [
+        "integration/epd-best-practices",
+        "workflows/epd-subscriptions"
+      ]
+    }
+  ],
+  "examples": [
+    {
+      "skill": "workflows/epd-onboard-customer",
+      "file": "workflows/epd-onboard-customer/SKILL.md",
+      "line": 40,
+      "tool": "create_customer_and_charge",
+      "keys": [
+        "email",
+        "first_name",
+        "last_name",
+        "phone",
+        "card_token",
+        "items",
+        "currency",
+        "description",
+        "idempotency_key"
+      ]
+    },
+    {
+      "skill": "workflows/epd-onboard-customer",
+      "file": "workflows/epd-onboard-customer/SKILL.md",
+      "line": 73,
+      "tool": "create_customer_and_subscribe",
+      "keys": [
+        "email",
+        "first_name",
+        "last_name",
+        "phone",
+        "card_token",
+        "plan_id",
+        "billing_cycle",
+        "start_date",
+        "idempotency_key"
+      ]
+    },
+    {
+      "skill": "workflows/epd-refunds",
+      "file": "workflows/epd-refunds/SKILL.md",
+      "line": 35,
+      "tool": "refund_order",
+      "keys": [
+        "order_id",
+        "amount",
+        "idempotency_key"
+      ]
+    },
+    {
+      "skill": "workflows/epd-refunds",
+      "file": "workflows/epd-refunds/SKILL.md",
+      "line": 52,
+      "tool": "refund_transaction",
+      "keys": [
+        "transaction_id",
+        "amount",
+        "idempotency_key"
+      ]
+    },
+    {
+      "skill": "workflows/epd-refunds",
+      "file": "workflows/epd-refunds/SKILL.md",
+      "line": 81,
+      "tool": "refund_and_cancel",
+      "keys": [
+        "subscription_id",
+        "idempotency_key"
+      ]
+    },
+    {
+      "skill": "workflows/epd-subscriptions",
+      "file": "workflows/epd-subscriptions/SKILL.md",
+      "line": 48,
+      "tool": "create_subscription",
+      "keys": [
+        "customer_id",
+        "plan_id",
+        "payment_method_id",
+        "billing_cycle",
+        "billing_cycles",
+        "start_date",
+        "shipping_address_id",
+        "idempotency_key"
+      ]
+    },
+    {
+      "skill": "workflows/epd-subscriptions",
+      "file": "workflows/epd-subscriptions/SKILL.md",
+      "line": 78,
+      "tool": "update_subscription",
+      "keys": [
+        "id",
+        "payment_method_id",
+        "billing_cycle",
+        "shipping_address_id",
+        "idempotency_key"
+      ]
+    },
+    {
+      "skill": "workflows/epd-subscriptions",
+      "file": "workflows/epd-subscriptions/SKILL.md",
+      "line": 108,
+      "tool": "cancel_subscription",
+      "keys": [
+        "id",
+        "idempotency_key"
+      ]
+    },
+    {
+      "skill": "workflows/epd-subscriptions",
+      "file": "workflows/epd-subscriptions/SKILL.md",
+      "line": 120,
+      "tool": "cancel_subscription_and_report",
+      "keys": [
+        "subscription_id",
+        "idempotency_key"
+      ]
+    },
+    {
+      "skill": "workflows/epd-subscriptions",
+      "file": "workflows/epd-subscriptions/SKILL.md",
+      "line": 147,
+      "tool": "list_past_due_subscriptions",
+      "keys": [
+        "limit",
+        "starting_after"
+      ]
+    },
+    {
+      "skill": "workflows/epd-subscriptions",
+      "file": "workflows/epd-subscriptions/SKILL.md",
+      "line": 180,
+      "tool": "retry_failed_charge",
+      "keys": [
+        "transaction_id",
+        "payment_method_id",
+        "idempotency_key"
+      ]
+    }
+  ],
+  "argIssues": [],
+  "ghosts": {
+    "cancel_reason": [
+      "integration/epd-best-practices/references/subscriptions.md"
+    ]
+  }
+}

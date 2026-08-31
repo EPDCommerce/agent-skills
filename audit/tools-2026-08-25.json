@@ -1,0 +1,3974 @@
+{
+  "_snapshot": {
+    "captured_at": "2026-08-25T21:41:47.267Z",
+    "source": "POST https://api.epd.com/mcp  method=tools/list",
+    "epd_version_header": "2026-02-11",
+    "key_mode": "test / sandbox",
+    "server": {
+      "name": "epd",
+      "version": "1.0.0"
+    },
+    "protocol_version": "2025-06-18",
+    "tool_count": 67
+  },
+  "tools": [
+    {
+      "name": "ping",
+      "title": "Ping",
+      "description": "Verify connectivity to the EPD MCP server and return connected account details (merchant ID, account name, active environment).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "title": "Ping",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_account",
+      "title": "Get account",
+      "description": "Get current EPD merchant account info, including pinned API version and account details.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "title": "Get account",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "upgrade_account_api_version",
+      "title": "Upgrade account API version",
+      "description": "Upgrade the merchant's pinned API version. This is a one-way operation — you cannot downgrade after upgrading. Use the EPD-Version header to test a newer version per-request before committing.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "API version date to upgrade to, e.g. \"2025-01-01\""
+          },
+          "idempotency_key": {
+            "description": "Optional idempotency key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ]
+      },
+      "annotations": {
+        "title": "Upgrade account API version",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_customer",
+      "title": "Create customer",
+      "description": "Create a new customer in EPD.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "first_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "E.164 format, e.g. \"+14155551234\""
+          },
+          "company": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "shipping": {
+            "description": "Default shipping address",
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 100,
+                "description": "Recipient name"
+              },
+              "line1": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "line2": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "state": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "postal_code": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "country": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 2,
+                "description": "ISO 3166-1 alpha-2, e.g. \"US\""
+              },
+              "phone": {
+                "description": "E.164 format, e.g. \"+14155551234\"",
+                "type": "string",
+                "pattern": "^\\+[1-9]\\d{6,14}$"
+              }
+            },
+            "required": [
+              "name",
+              "line1",
+              "city",
+              "state",
+              "postal_code",
+              "country"
+            ]
+          },
+          "metadata": {
+            "description": "Up to 50 key-value pairs (max 40-char keys, 500-char values)",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "idempotency_key": {
+            "description": "Idempotency key to prevent duplicate creation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "first_name",
+          "last_name",
+          "phone"
+        ]
+      },
+      "annotations": {
+        "title": "Create customer",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_customers",
+      "title": "List customers",
+      "description": "List customers for the EPD merchant account. Supports filtering by email, full-text search, tags, and date ranges. Returns paginated results.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ending_before": {
+            "description": "UUID cursor for backward pagination (use cursors.previous from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "created_after": {
+            "description": "Inclusive lower bound for created_at — ISO 8601 datetime with timezone, e.g. \"2026-04-30T00:00:00Z\" or \"2026-04-30T00:00:00+02:00\"",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "created_before": {
+            "description": "Exclusive upper bound for created_at — ISO 8601 datetime with timezone, e.g. \"2026-04-30T00:00:00Z\" or \"2026-04-30T00:00:00+02:00\"",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "email": {
+            "description": "Filter by exact email address",
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "q": {
+            "description": "Full-text search across name, email, and company",
+            "type": "string",
+            "maxLength": 100
+          },
+          "tags": {
+            "description": "Filter by tags, e.g. [\"vip\", \"enterprise\"]",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deleted": {
+            "description": "Include soft-deleted customers",
+            "type": "boolean"
+          },
+          "sort": {
+            "description": "Sort order, e.g. \"created_at[desc]\" or \"created_at[asc]\"",
+            "type": "string"
+          },
+          "expand": {
+            "description": "Expand related data, e.g. \"payment_methods\" or \"payment_methods,subscriptions\"",
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "title": "List customers",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_customer",
+      "title": "Get customer",
+      "description": "Get a single customer by ID.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Customer ID (UUID)"
+          },
+          "expand": {
+            "description": "Comma-separated expansions, e.g. \"payment_methods,subscriptions\"",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Get customer",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "update_customer",
+      "title": "Update customer",
+      "description": "Update fields on an existing customer. Only provided fields are changed.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Customer ID"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "first_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+[1-9]\\d{6,14}$"
+          },
+          "company": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "shipping": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 100,
+                "description": "Recipient name"
+              },
+              "line1": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "line2": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "state": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "postal_code": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "country": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 2,
+                "description": "ISO 3166-1 alpha-2, e.g. \"US\""
+              },
+              "phone": {
+                "description": "E.164 format, e.g. \"+14155551234\"",
+                "type": "string",
+                "pattern": "^\\+[1-9]\\d{6,14}$"
+              }
+            },
+            "required": [
+              "name",
+              "line1",
+              "city",
+              "state",
+              "postal_code",
+              "country"
+            ]
+          },
+          "metadata": {
+            "description": "Up to 50 key-value pairs (max 40-char keys, 500-char values)",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Update customer",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "delete_customer",
+      "title": "Delete customer",
+      "description": "Soft-delete a customer. The customer record is preserved but marked as deleted.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Customer ID"
+          },
+          "idempotency_key": {
+            "description": "Idempotency key for retries — soft-deletes are naturally idempotent",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Delete customer",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_payment_methods",
+      "title": "List payment methods",
+      "description": "List all payment methods attached to a customer.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer ID (UUID)"
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      },
+      "annotations": {
+        "title": "List payment methods",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "add_payment_method",
+      "title": "Add payment method",
+      "description": "Attach a card to a customer using a card_token (cct_...) captured in the browser with EPD Elements. The card is tokenized client-side and vaulted in EPD's secure vault — raw card data never reaches the API. Optionally include billing_details (some processors require a full billing address to vault).",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer ID (UUID)"
+          },
+          "card_token": {
+            "type": "string",
+            "pattern": "^cct_[0-9a-f]{48}$",
+            "description": "Single-use card-capture token (cct_...) from the EPD Elements browser SDK. Your frontend captures the card with a publishable key and exchanges it for this token; expires 15 minutes after capture and can be used once."
+          },
+          "billing_details": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "address1": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "address2": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "state": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "zip": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "country": {
+                "description": "ISO 3166-1 alpha-2, e.g. \"US\"",
+                "type": "string",
+                "maxLength": 2
+              },
+              "email": {
+                "type": "string",
+                "maxLength": 200,
+                "format": "email",
+                "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              },
+              "phone": {
+                "type": "string",
+                "maxLength": 40
+              }
+            },
+            "description": "Cardholder billing details stored with the card. Some processors require a full billing address to vault; name/email/phone fall back to the customer record when omitted."
+          },
+          "set_as_default": {
+            "description": "Set this card as the customer's default payment method",
+            "type": "boolean"
+          },
+          "update_subscriptions": {
+            "description": "If set_as_default is true, also update all active subscriptions to use this card",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_id",
+          "card_token"
+        ]
+      },
+      "annotations": {
+        "title": "Add payment method",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "delete_payment_method",
+      "title": "Delete payment method",
+      "description": "Remove a payment method from a customer. If the card being deleted is the default or is used by active subscriptions, a replacement_payment_method UUID is required.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer ID"
+          },
+          "payment_method_id": {
+            "type": "string",
+            "description": "UUID of the payment method to delete"
+          },
+          "replacement_payment_method": {
+            "description": "UUID of replacement card — required if deleting the default card or one with active subscriptions",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "description": "Idempotency key for retries — deleting an already-deleted card is a no-op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_id",
+          "payment_method_id"
+        ]
+      },
+      "annotations": {
+        "title": "Delete payment method",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_product",
+      "title": "Create product",
+      "description": "Create a new product in the EPD catalog.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 2000
+          },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 99999999,
+                "description": "Price in cents, e.g. 29700 = $297.00"
+              },
+              "currency": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 3,
+                "description": "ISO 4217 lowercase currency code, e.g. \"usd\""
+              }
+            },
+            "required": [
+              "amount",
+              "currency"
+            ]
+          },
+          "requires_shipping": {
+            "type": "boolean",
+            "description": "Whether this product requires a shipping address at checkout"
+          },
+          "sku": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 30,
+            "pattern": "^[a-z0-9_-]+$",
+            "description": "URL-safe SKU: lowercase letters, numbers, hyphens, underscores"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock",
+              "preorder"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "metadata": {
+            "description": "Up to 50 key-value pairs (max 40-char keys, 500-char values)",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "pricing",
+          "requires_shipping",
+          "sku"
+        ]
+      },
+      "annotations": {
+        "title": "Create product",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_products",
+      "title": "List products",
+      "description": "List products in the EPD catalog. Supports filtering by availability, category, and date ranges.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ending_before": {
+            "description": "UUID cursor for backward pagination (use cursors.previous from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "created_after": {
+            "description": "Inclusive lower bound for created_at — ISO 8601 datetime with timezone, e.g. \"2026-04-30T00:00:00Z\" or \"2026-04-30T00:00:00+02:00\"",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "created_before": {
+            "description": "Exclusive upper bound for created_at — ISO 8601 datetime with timezone, e.g. \"2026-04-30T00:00:00Z\" or \"2026-04-30T00:00:00+02:00\"",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "sort": {
+            "description": "Sort order, e.g. \"created_at[desc]\" or \"created_at[asc]\"",
+            "type": "string"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock",
+              "preorder"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "q": {
+            "description": "Full-text search by name or description",
+            "type": "string"
+          },
+          "expand": {
+            "description": "e.g. \"images\"",
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "title": "List products",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_product",
+      "title": "Get product",
+      "description": "Get a single product by ID.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Product ID, e.g. \"prod_<uuid>\""
+          },
+          "expand": {
+            "description": "e.g. \"images\"",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Get product",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "update_product",
+      "title": "Update product",
+      "description": "Update fields on an existing product. Only provided fields are changed.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Product ID"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 2000
+          },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 99999999,
+                "description": "Price in cents, e.g. 29700 = $297.00"
+              },
+              "currency": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 3,
+                "description": "ISO 4217 lowercase currency code, e.g. \"usd\""
+              }
+            },
+            "required": [
+              "amount",
+              "currency"
+            ]
+          },
+          "requires_shipping": {
+            "type": "boolean"
+          },
+          "sku": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 30,
+            "pattern": "^[a-z0-9_-]+$"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock",
+              "preorder"
+            ]
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "metadata": {
+            "description": "Up to 50 key-value pairs (max 40-char keys, 500-char values)",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Update product",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "delete_product",
+      "title": "Delete product",
+      "description": "Delete a product from the catalog.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Product ID"
+          },
+          "idempotency_key": {
+            "description": "Idempotency key — deleting an already-deleted product is a no-op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Delete product",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "delete_product_image",
+      "title": "Delete product image",
+      "description": "Remove a specific image from a product.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Product ID"
+          },
+          "image_id": {
+            "type": "string",
+            "description": "Image ID to delete"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "product_id",
+          "image_id"
+        ]
+      },
+      "annotations": {
+        "title": "Delete product image",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "reorder_product_images",
+      "title": "Reorder product images",
+      "description": "Set the display order of images for a product.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Product ID"
+          },
+          "image_ids": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Image IDs in the desired display order"
+          }
+        },
+        "required": [
+          "product_id",
+          "image_ids"
+        ]
+      },
+      "annotations": {
+        "title": "Reorder product images",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_plans",
+      "title": "List plans",
+      "description": "List subscription plans available in the EPD merchant account. Use this to find a plan_id before creating a subscription.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ending_before": {
+            "description": "UUID cursor for backward pagination (use cursors.previous from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "sort": {
+            "description": "Sort order, e.g. \"created_at[desc]\" or \"created_at[asc]\"",
+            "type": "string"
+          },
+          "active": {
+            "description": "Filter to active plans only",
+            "type": "boolean"
+          },
+          "search": {
+            "description": "Search by plan name, code, or description",
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "title": "List plans",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_plan",
+      "title": "Get plan",
+      "description": "Get a single subscription plan by ID.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Plan ID (UUID)"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Get plan",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_order",
+      "title": "Create order",
+      "description": "Create and immediately process a payment order. Amounts are always in cents (e.g. 2999 = $29.99). Optionally apply a coupon via `coupon_code` — the discount is reserved atomically before the gateway is charged and released if the card declines. Requires an idempotency_key to prevent duplicate charges on retries.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer ID (UUID)"
+          },
+          "payment_method_id": {
+            "type": "string",
+            "description": "Payment method ID (UUID — bare, no prefix)"
+          },
+          "items": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "product_id": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9999
+                }
+              },
+              "required": [
+                "product_id",
+                "quantity"
+              ]
+            },
+            "description": "Line items — price is always taken from the product catalog"
+          },
+          "currency": {
+            "description": "ISO 4217 lowercase, e.g. \"usd\" (default)",
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "pattern": "^[a-z]{3}$"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "shipping_address_id": {
+            "description": "ID of an existing saved shipping address — use this OR shipping_address, not both",
+            "type": "string"
+          },
+          "shipping_address": {
+            "description": "Inline shipping address — use this OR shipping_address_id, not both",
+            "type": "object",
+            "properties": {
+              "first_name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "last_name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "address_line1": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "address_line2": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "state": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "postal_code": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "country": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 2,
+                "pattern": "^[A-Z]{2}$",
+                "description": "ISO 3166-1 alpha-2 uppercase, e.g. \"US\""
+              },
+              "phone": {
+                "type": "string",
+                "pattern": "^\\+[1-9]\\d{6,14}$"
+              }
+            },
+            "required": [
+              "first_name",
+              "last_name",
+              "address_line1",
+              "city",
+              "state",
+              "postal_code",
+              "country"
+            ]
+          },
+          "coupon_code": {
+            "description": "Optional coupon code to apply. Case-insensitive. Failures (expired, exhausted, ineligible, etc.) surface as a structured error and the order is not created.",
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 50,
+            "pattern": "^[A-Za-z0-9-]+$"
+          },
+          "metadata": {
+            "description": "Up to 50 key-value pairs (max 40-char keys, 500-char values)",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "REQUIRED — prevents duplicate charges on network retries"
+          }
+        },
+        "required": [
+          "customer_id",
+          "payment_method_id",
+          "items",
+          "idempotency_key"
+        ]
+      },
+      "annotations": {
+        "title": "Create order",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_orders",
+      "title": "List orders",
+      "description": "List orders for the merchant account. Supports filtering by customer, status, and date ranges.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ending_before": {
+            "description": "UUID cursor for backward pagination (use cursors.previous from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "created_after": {
+            "description": "Inclusive lower bound for created_at — ISO 8601 datetime with timezone, e.g. \"2026-04-30T00:00:00Z\" or \"2026-04-30T00:00:00+02:00\"",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "created_before": {
+            "description": "Exclusive upper bound for created_at — ISO 8601 datetime with timezone, e.g. \"2026-04-30T00:00:00Z\" or \"2026-04-30T00:00:00+02:00\"",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "sort": {
+            "description": "Sort order, e.g. \"created_at[desc]\" or \"created_at[asc]\"",
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "status": {
+            "description": "Comma-separated statuses: succeeded, failed, pending, voided, partially_refunded, refunded, chargeback",
+            "type": "string"
+          },
+          "expand": {
+            "description": "e.g. \"customer,items,transactions\"",
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "title": "List orders",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_order",
+      "title": "Get order",
+      "description": "Get a single order by ID.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Order ID (UUID)"
+          },
+          "expand": {
+            "description": "e.g. \"customer,transactions\"",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Get order",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "refund_order",
+      "title": "Refund order",
+      "description": "Refund an order — partially or in full. Amount is in cents; omit for a full refund. Requires an idempotency_key to prevent duplicate refunds.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order ID (UUID)"
+          },
+          "amount": {
+            "description": "Refund amount in cents, e.g. 2999 = $29.99. Omit for full refund.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99999999
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "REQUIRED — prevents duplicate refunds on retries"
+          }
+        },
+        "required": [
+          "order_id",
+          "idempotency_key"
+        ]
+      },
+      "annotations": {
+        "title": "Refund order",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "retry_order",
+      "title": "Retry order payment",
+      "description": "Retry a failed payment on an existing order — re-attempts a declined charge or a failed refund using the order's card-on-file. Body-less: there is no payment-method switch on retry (create a new order to charge a different card). Because subscription cycles are themselves orders, this also retries a failed recurring charge and reconciles the cycle so the dunning cron will not charge the customer again. Requires an idempotency_key to prevent duplicate charges on network retries.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Order ID (UUID)"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "REQUIRED — prevents duplicate charges on network retries"
+          }
+        },
+        "required": [
+          "order_id",
+          "idempotency_key"
+        ]
+      },
+      "annotations": {
+        "title": "Retry order payment",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_subscription",
+      "title": "Create subscription",
+      "description": "Create a recurring subscription linking a customer to a plan. Optionally apply a coupon via `coupon_code` — the discount is redeemed atomically against the initial charge and the redemption snapshot drives subsequent cycles (later coupon edits do not retroactively change billing). Requires an idempotency_key to prevent duplicate subscriptions.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer ID (UUID)"
+          },
+          "plan_id": {
+            "type": "string",
+            "description": "Plan ID (UUID) — use list_plans to find available plans"
+          },
+          "payment_method_id": {
+            "type": "string",
+            "description": "Payment method ID (UUID — bare, no prefix)"
+          },
+          "billing_cycle": {
+            "type": "object",
+            "properties": {
+              "interval": {
+                "type": "string",
+                "enum": [
+                  "day",
+                  "month"
+                ]
+              },
+              "interval_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 365,
+                "description": "e.g. 1 = every month, 3 = quarterly, 12 = annual (with month interval)"
+              },
+              "anchor_day": {
+                "description": "Day of month for billing anchor — only used when interval is \"month\"",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 31
+              }
+            },
+            "required": [
+              "interval",
+              "interval_count"
+            ]
+          },
+          "start_date": {
+            "description": "ISO 8601 date, defaults to today",
+            "type": "string"
+          },
+          "end_date": {
+            "description": "ISO 8601 date for a fixed-end subscription",
+            "type": "string"
+          },
+          "billing_cycles": {
+            "description": "Number of billing cycles (0 = unlimited)",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 999
+          },
+          "shipping_address_id": {
+            "description": "Existing shipping address ID — use this OR shipping_address, not both",
+            "type": "string"
+          },
+          "shipping_address": {
+            "description": "Inline shipping address — use this OR shipping_address_id, not both",
+            "type": "object",
+            "properties": {
+              "first_name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "last_name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "address_line1": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "address_line2": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "state": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "postal_code": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "country": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 2
+              },
+              "phone": {
+                "type": "string",
+                "pattern": "^\\+[1-9]\\d{6,14}$"
+              }
+            },
+            "required": [
+              "first_name",
+              "last_name",
+              "address_line1",
+              "city",
+              "state",
+              "postal_code",
+              "country"
+            ]
+          },
+          "shipping_option_id": {
+            "type": "string"
+          },
+          "coupon_code": {
+            "description": "Optional coupon code to apply to the initial charge. Case-insensitive. Failures (expired, exhausted, ineligible plan, currency mismatch, first-time-customer rule, etc.) surface as a structured error and the subscription is not created.",
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 50,
+            "pattern": "^[A-Za-z0-9-]+$"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "REQUIRED — prevents duplicate subscriptions on retries"
+          }
+        },
+        "required": [
+          "customer_id",
+          "plan_id",
+          "payment_method_id",
+          "billing_cycle",
+          "idempotency_key"
+        ]
+      },
+      "annotations": {
+        "title": "Create subscription",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_subscriptions",
+      "title": "List subscriptions",
+      "description": "List subscriptions for the merchant account. Supports filtering by customer, plan, status, and date ranges.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ending_before": {
+            "description": "UUID cursor for backward pagination (use cursors.previous from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "created_after": {
+            "description": "Inclusive lower bound for created_at — ISO 8601 datetime with timezone, e.g. \"2026-04-30T00:00:00Z\" or \"2026-04-30T00:00:00+02:00\"",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "created_before": {
+            "description": "Exclusive upper bound for created_at — ISO 8601 datetime with timezone, e.g. \"2026-04-30T00:00:00Z\" or \"2026-04-30T00:00:00+02:00\"",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "sort": {
+            "description": "Sort order, e.g. \"created_at[desc]\" or \"created_at[asc]\"",
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "plan_id": {
+            "type": "string"
+          },
+          "status": {
+            "description": "Comma-separated statuses: active, paused, canceled, completed, past_due",
+            "type": "string"
+          },
+          "expand": {
+            "description": "e.g. \"customer,plan\" or \"customer,plan,cycles\"",
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "title": "List subscriptions",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_subscription",
+      "title": "Get subscription",
+      "description": "Get a single subscription by ID.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Subscription ID (UUID)"
+          },
+          "expand": {
+            "description": "e.g. \"customer,plan,cycles\"",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Get subscription",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "update_subscription",
+      "title": "Update subscription",
+      "description": "Update a subscription. Payment method and shipping changes apply immediately (including a queued charge and retries) and work on any non-canceled, non-completed subscription. Billing-terms changes (products, pricing_tiers, billing_cycles, billing_cycle) apply from the NEXT billing cycle, require an active or paused subscription, and are rejected for migrated subscriptions. One-time products and fees are read-only.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Subscription ID"
+          },
+          "payment_method_id": {
+            "description": "UUID of new payment method to bill",
+            "type": "string"
+          },
+          "billing_cycle": {
+            "type": "object",
+            "properties": {
+              "interval": {
+                "type": "string",
+                "enum": [
+                  "day",
+                  "month"
+                ]
+              },
+              "interval_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 365,
+                "description": "e.g. 1 = every month, 3 = quarterly, 12 = annual (with month interval)"
+              },
+              "anchor_day": {
+                "description": "Day of month for billing anchor — only used when interval is \"month\"",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 31
+              }
+            },
+            "required": [
+              "interval",
+              "interval_count"
+            ]
+          },
+          "shipping_address_id": {
+            "type": "string"
+          },
+          "shipping_address": {
+            "type": "object",
+            "properties": {
+              "first_name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "last_name": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "address_line1": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "address_line2": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "state": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "postal_code": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "country": {
+                "type": "string",
+                "minLength": 2,
+                "maxLength": 2
+              },
+              "phone": {
+                "type": "string",
+                "pattern": "^\\+[1-9]\\d{6,14}$"
+              }
+            },
+            "required": [
+              "first_name",
+              "last_name",
+              "address_line1",
+              "city",
+              "state",
+              "postal_code",
+              "country"
+            ]
+          },
+          "shipping_option_id": {
+            "type": "string"
+          },
+          "products": {
+            "description": "Full desired list of recurring product lines; omitted lines are removed, one-time lines preserved.",
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "description": "Subscription line id (from the read). Absent = add a new line.",
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "product_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "custom_field_values": {
+                  "description": "Only on new lines; a kept line's custom fields are frozen.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "custom_field_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "text": {
+                        "type": "string"
+                      },
+                      "bool": {
+                        "type": "boolean"
+                      },
+                      "option_ids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "reference_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    },
+                    "required": [
+                      "custom_field_id"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "product_id",
+                "quantity"
+              ]
+            }
+          },
+          "pricing_tiers": {
+            "description": "Full desired list of recurring fee tiers (cents); one-time tiers preserved.",
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                },
+                "amount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Integer cents"
+                }
+              },
+              "required": [
+                "name",
+                "amount"
+              ]
+            }
+          },
+          "billing_cycles": {
+            "description": "Total billing cycles; 0 = evergreen. Must be at least completed cycles + 1; a fixed-term subscription cannot become evergreen.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Update subscription",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "cancel_subscription",
+      "title": "Cancel subscription",
+      "description": "Cancel a subscription immediately. The subscription history is preserved. Valid from active or paused state only.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Subscription ID"
+          },
+          "cancellation_reason": {
+            "description": "Reason for cancellation, matched case-insensitively by name against the tenant's cancellation-reasons catalog. An unrecognized value returns a validation error and the subscription is not canceled.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "cancellation_notes": {
+            "description": "Free-text notes about the cancellation. Persisted even when cancellation_reason is omitted.",
+            "type": "string",
+            "maxLength": 1000
+          },
+          "idempotency_key": {
+            "description": "Idempotency key — re-cancelling a canceled subscription is a no-op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Cancel subscription",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_transactions",
+      "title": "List transactions",
+      "description": "List transactions for the merchant account. Supports filtering by customer, order, status, type, amount range, and date ranges.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ending_before": {
+            "description": "UUID cursor for backward pagination (use cursors.previous from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "created_after": {
+            "description": "Inclusive lower bound for created_at — ISO 8601 datetime with timezone, e.g. \"2026-04-30T00:00:00Z\" or \"2026-04-30T00:00:00+02:00\"",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "created_before": {
+            "description": "Exclusive upper bound for created_at — ISO 8601 datetime with timezone, e.g. \"2026-04-30T00:00:00Z\" or \"2026-04-30T00:00:00+02:00\"",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "sort": {
+            "description": "Sort order, e.g. \"created_at[desc]\" or \"created_at[asc]\"",
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "order_id": {
+            "type": "string"
+          },
+          "status": {
+            "description": "Comma-separated: succeeded, failed, pending, voided, chargeback",
+            "type": "string"
+          },
+          "type": {
+            "description": "Comma-separated: sale, refund, auth",
+            "type": "string"
+          },
+          "amount_gte": {
+            "description": "Minimum amount in cents (inclusive)",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "amount_lte": {
+            "description": "Maximum amount in cents (inclusive)",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "expand": {
+            "description": "e.g. \"customer,order\"",
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "title": "List transactions",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_transaction",
+      "title": "Get transaction",
+      "description": "Get a single transaction by ID.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Transaction ID (UUID)"
+          },
+          "expand": {
+            "description": "e.g. \"customer,order\"",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Get transaction",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_webhook_endpoint",
+      "title": "Create webhook endpoint",
+      "description": "Create a new webhook endpoint to receive EPD events. The signing secret is only returned at creation time.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "HTTPS endpoint URL (must start with https://)"
+          },
+          "enabled_events": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Event types to subscribe to, e.g. [\"order.succeeded\", \"order.recovery\", \"subscription.*\"] or [\"*\"] for all"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "api_version": {
+            "description": "Pin this endpoint to a specific schema version, e.g. \"2025-01-01\"",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "enabled_events"
+        ]
+      },
+      "annotations": {
+        "title": "Create webhook endpoint",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_webhook_endpoints",
+      "title": "List webhook endpoints",
+      "description": "List webhook endpoints configured for the merchant account.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ending_before": {
+            "description": "UUID cursor for backward pagination (use cursors.previous from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        }
+      },
+      "annotations": {
+        "title": "List webhook endpoints",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_webhook_endpoint",
+      "title": "Get webhook endpoint",
+      "description": "Get a single webhook endpoint by ID.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Webhook endpoint ID"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Get webhook endpoint",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "update_webhook_endpoint",
+      "title": "Update webhook endpoint",
+      "description": "Update a webhook endpoint — change URL, subscribed events, or pinned API version.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Webhook endpoint ID"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "enabled_events": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "api_version": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "disabled": {
+            "description": "Set to true to disable delivery without deleting",
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Update webhook endpoint",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "delete_webhook_endpoint",
+      "title": "Delete webhook endpoint",
+      "description": "Permanently delete a webhook endpoint.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Webhook endpoint ID"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Delete webhook endpoint",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "rotate_webhook_secret",
+      "title": "Rotate webhook secret",
+      "description": "Rotate the signing secret for a webhook endpoint. The new secret is returned in the response and will not be shown again.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Webhook endpoint ID"
+          },
+          "idempotency_key": {
+            "description": "Use the same key on retries to avoid invalidating multiple secrets",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Rotate webhook secret",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "test_webhook_endpoint",
+      "title": "Test webhook endpoint",
+      "description": "Send a test webhook event to the endpoint to verify connectivity and signature verification.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Webhook endpoint ID"
+          },
+          "event_type": {
+            "description": "Event type to send, e.g. \"order.succeeded\". Defaults to a generic test event.",
+            "type": "string"
+          },
+          "api_version": {
+            "description": "Schema version for the test payload. Defaults to the endpoint's effective version.",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Test webhook endpoint",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "upgrade_webhook_version",
+      "title": "Upgrade webhook version",
+      "description": "Upgrade a webhook endpoint to a newer schema version.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Webhook endpoint ID"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Target schema version in YYYY-MM-DD format"
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ]
+      },
+      "annotations": {
+        "title": "Upgrade webhook version",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "downgrade_webhook_version",
+      "title": "Downgrade webhook version",
+      "description": "Downgrade a webhook endpoint to an older schema version.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Webhook endpoint ID"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Target schema version in YYYY-MM-DD format"
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ]
+      },
+      "annotations": {
+        "title": "Downgrade webhook version",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "replay_webhook_event",
+      "title": "Replay webhook event",
+      "description": "Replay a previously delivered (or failed) webhook event to the endpoint.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "endpoint_id": {
+            "type": "string",
+            "description": "Webhook endpoint ID"
+          },
+          "event_id": {
+            "type": "string",
+            "description": "Webhook event ID to replay"
+          }
+        },
+        "required": [
+          "endpoint_id",
+          "event_id"
+        ]
+      },
+      "annotations": {
+        "title": "Replay webhook event",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_webhook_events",
+      "title": "List webhook events",
+      "description": "List events sent to a specific webhook endpoint.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Webhook endpoint ID"
+          },
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "List webhook events",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_webhook_delivery_logs",
+      "title": "List webhook delivery logs",
+      "description": "List delivery attempt logs for a specific webhook endpoint, including failures and retries.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Webhook endpoint ID"
+          },
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "List webhook delivery logs",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_webhook_versions",
+      "title": "List webhook versions",
+      "description": "List all available webhook schema versions, including their status (active, deprecated, sunset) and changelog.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "title": "List webhook versions",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "preview_webhook_payload",
+      "title": "Preview webhook payload",
+      "description": "Preview what a webhook payload will look like for a given event type at a specific schema version.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "description": "The event type to preview, e.g. \"order.succeeded\" or \"subscription.canceled\""
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Schema version date in YYYY-MM-DD format"
+          }
+        },
+        "required": [
+          "event_type",
+          "version"
+        ]
+      },
+      "annotations": {
+        "title": "Preview webhook payload",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "compare_webhook_versions",
+      "title": "Compare webhook versions",
+      "description": "Compare webhook payloads between two schema versions to understand what changed.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "description": "The event type to compare, e.g. \"order.succeeded\""
+          },
+          "from_version": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Older version in YYYY-MM-DD format"
+          },
+          "to_version": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Newer version in YYYY-MM-DD format"
+          }
+        },
+        "required": [
+          "event_type",
+          "from_version",
+          "to_version"
+        ]
+      },
+      "annotations": {
+        "title": "Compare webhook versions",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_coupon",
+      "title": "Create coupon",
+      "description": "Create a coupon. kind=\"promo\" mints a single shared code equal to the (normalized) name; kind=\"generated\" mints unique codes either inline via the `codes` block or later via generate_coupon_codes. Exactly one of percentage or amount must be provided.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "Defaults to \"generated\". For \"promo\", name must match /^[A-Z0-9-]{4,50}$/ and becomes the redeemable code; max_redemptions_per_code and inline `codes` are rejected.",
+            "type": "string",
+            "enum": [
+              "generated",
+              "promo"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Display name. For kind=\"promo\" the normalized (trim + uppercase) value also becomes the redeemable code, so it must be reusable as one (letters, digits, hyphens, 4-50 chars)."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 280
+          },
+          "percentage": {
+            "description": "Percent off, 0 < x <= 100. Exactly one of percentage or amount must be provided.",
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          },
+          "amount": {
+            "description": "Flat amount off, in CENTS. Exactly one of percentage or amount must be provided. Requires currency; rejected for kind-agnostic percentage-off coupons.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "description": "ISO-4217 alpha-3 (e.g. \"USD\"). Defaults to USD. Required-context for amount-off; rejected with a non-USD value when paired with percentage (percentage is currency-agnostic).",
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "max_discount_amount": {
+            "description": "Per-redemption cap in CENTS. Percentage-off coupons only — rejected for amount-off (the fixed value already plays the role of a cap).",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "duration": {
+            "description": "Discount lifetime on a subscription: \"once\" = first charge only, \"repeating\" = first N cycles (set duration_in_cycles), \"forever\" = every cycle. Defaults to \"once\".",
+            "type": "string",
+            "enum": [
+              "once",
+              "repeating",
+              "forever"
+            ]
+          },
+          "duration_in_cycles": {
+            "description": "Required when duration=\"repeating\"; must be omitted otherwise.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "minimum_amount": {
+            "description": "Minimum order subtotal in CENTS required for the coupon to apply.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "first_time_customer_only": {
+            "description": "When true, only customers with zero prior paid orders may redeem.",
+            "type": "boolean"
+          },
+          "max_redemptions": {
+            "description": "Total redemptions allowed across all codes minted under this coupon.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "max_redemptions_per_code": {
+            "description": "Per-code redemption cap. Only meaningful for kind=\"generated\"; rejected for kind=\"promo\" (use max_redemptions to cap the shared code).",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "max_redemptions_per_customer": {
+            "description": "Per-customer redemption cap (across all codes of this coupon).",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "starts_at": {
+            "description": "ISO 8601 date-time. Coupon is inert before this moment.",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          },
+          "expires_at": {
+            "description": "ISO 8601 date-time. Must be strictly after starts_at when both are provided.",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          },
+          "product_scope": {
+            "description": "Product applicability. \"specific\" requires product_ids non-empty. At least one of product_scope/plan_scope must be non-\"none\".",
+            "type": "string",
+            "enum": [
+              "none",
+              "all",
+              "specific"
+            ]
+          },
+          "plan_scope": {
+            "description": "Plan (subscription) applicability. \"specific\" requires plan_ids non-empty. At least one of product_scope/plan_scope must be non-\"none\".",
+            "type": "string",
+            "enum": [
+              "none",
+              "all",
+              "specific"
+            ]
+          },
+          "product_ids": {
+            "description": "UUIDs (or prefixed IDs). Required non-empty when product_scope=\"specific\".",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "plan_ids": {
+            "description": "UUIDs (or prefixed IDs). Required non-empty when plan_scope=\"specific\".",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "codes": {
+            "description": "Optional inline batch mint at create time. kind=\"generated\" only — rejected for kind=\"promo\". When omitted, the coupon is created with no codes; mint later via generate_coupon_codes.",
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 500
+              },
+              "prefix": {
+                "description": "Letters/digits/dash. Trimmed + uppercased on save.",
+                "type": "string"
+              },
+              "length": {
+                "description": "Total code length (prefix + random suffix). Must leave >=4 random chars after the prefix.",
+                "type": "integer",
+                "minimum": 8,
+                "maximum": 32
+              },
+              "expires_at": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "count"
+            ]
+          },
+          "idempotency_key": {
+            "description": "Idempotency key to prevent duplicate creation on retry.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "annotations": {
+        "title": "Create coupon",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_coupons",
+      "title": "List coupons",
+      "description": "List coupons for the merchant. Supports pagination, filtering by active flag, kind, and archive state. Returns the coupon objects in the standard list envelope.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ending_before": {
+            "description": "UUID cursor for backward pagination (use cursors.previous from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "active": {
+            "description": "Filter by active flag. Omit to include both active and inactive.",
+            "type": "boolean"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "generated",
+              "promo"
+            ]
+          },
+          "archived": {
+            "description": "Archive filter. Default omits archived. \"true\" returns only archived, \"all\" returns both.",
+            "type": "string",
+            "enum": [
+              "true",
+              "false",
+              "all"
+            ]
+          },
+          "sort": {
+            "description": "Sort spec. Allowed fields: created_at, updated_at, name, percentage, amount. Default created_at:desc. Format: \"field:asc\" or \"field:desc\".",
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "title": "List coupons",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "retrieve_coupon",
+      "title": "Retrieve coupon",
+      "description": "Retrieve a single coupon by ID.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Coupon ID (UUID or prefixed ID)."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Retrieve coupon",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "update_coupon",
+      "title": "Update coupon",
+      "description": "Update fields on an existing coupon. Discount terms (percentage, amount, duration) lock once the coupon has its first redemption — attempts to change locked fields return 422. Scope and limit fields stay editable.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Coupon ID."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 280
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "percentage": {
+            "description": "Percent off, 0 < x <= 100. Exactly one of percentage or amount must be provided.",
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          },
+          "amount": {
+            "description": "Flat amount off, in CENTS. Exactly one of percentage or amount must be provided. Requires currency; rejected for kind-agnostic percentage-off coupons.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "description": "ISO-4217 alpha-3 (e.g. \"USD\"). Defaults to USD. Required-context for amount-off; rejected with a non-USD value when paired with percentage (percentage is currency-agnostic).",
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "max_discount_amount": {
+            "description": "Per-redemption cap in CENTS. Percentage-off coupons only — rejected for amount-off (the fixed value already plays the role of a cap).",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "duration": {
+            "description": "Discount lifetime on a subscription: \"once\" = first charge only, \"repeating\" = first N cycles (set duration_in_cycles), \"forever\" = every cycle. Defaults to \"once\".",
+            "type": "string",
+            "enum": [
+              "once",
+              "repeating",
+              "forever"
+            ]
+          },
+          "duration_in_cycles": {
+            "description": "Required when duration=\"repeating\"; must be omitted otherwise.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "minimum_amount": {
+            "description": "Minimum order subtotal in CENTS required for the coupon to apply.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "first_time_customer_only": {
+            "description": "When true, only customers with zero prior paid orders may redeem.",
+            "type": "boolean"
+          },
+          "max_redemptions": {
+            "description": "Total redemptions allowed across all codes minted under this coupon.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "max_redemptions_per_code": {
+            "description": "Per-code redemption cap. Only meaningful for kind=\"generated\"; rejected for kind=\"promo\" (use max_redemptions to cap the shared code).",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "max_redemptions_per_customer": {
+            "description": "Per-customer redemption cap (across all codes of this coupon).",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "starts_at": {
+            "description": "ISO 8601 date-time. Coupon is inert before this moment.",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          },
+          "expires_at": {
+            "description": "ISO 8601 date-time. Must be strictly after starts_at when both are provided.",
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          },
+          "product_scope": {
+            "description": "Product applicability. \"specific\" requires product_ids non-empty. At least one of product_scope/plan_scope must be non-\"none\".",
+            "type": "string",
+            "enum": [
+              "none",
+              "all",
+              "specific"
+            ]
+          },
+          "plan_scope": {
+            "description": "Plan (subscription) applicability. \"specific\" requires plan_ids non-empty. At least one of product_scope/plan_scope must be non-\"none\".",
+            "type": "string",
+            "enum": [
+              "none",
+              "all",
+              "specific"
+            ]
+          },
+          "product_ids": {
+            "description": "UUIDs (or prefixed IDs). Required non-empty when product_scope=\"specific\".",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "plan_ids": {
+            "description": "UUIDs (or prefixed IDs). Required non-empty when plan_scope=\"specific\".",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Update coupon",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "archive_coupon",
+      "title": "Archive coupon",
+      "description": "Soft-archive a coupon. Existing redemptions are preserved; the coupon stops accepting new redemptions and drops out of the default list. Naturally idempotent — archiving an already-archived coupon returns success.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Coupon ID."
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Archive coupon",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "unarchive_coupon",
+      "title": "Unarchive coupon",
+      "description": "Remove the archive flag on a coupon. The coupon returns to the default list but stays paused (`active: false`) — archiving sets `active: false` and unarchive does not flip it back, so call update_coupon with `{ active: true }` to actually resume redemptions. Naturally idempotent.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Coupon ID."
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Unarchive coupon",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "generate_coupon_codes",
+      "title": "Generate coupon codes",
+      "description": "Mint a batch of coupon codes under an existing coupon. Provide either `count` (server-generated random codes, optionally shaped by `prefix`/`length`) OR `codes` (caller-supplied literal strings) — never both. Rejected for kind=\"promo\" (which has a single shared code minted at create time).",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Coupon ID."
+          },
+          "count": {
+            "description": "Random-mint path. 1-500 per call.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "codes": {
+            "description": "Custom-mint path: caller-supplied codes. Each must match /^[A-Z0-9-]{8,50}$/i; trimmed + uppercased on save. prefix/length are rejected on this path.",
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "prefix": {
+            "description": "Only valid on the `count` path. Trimmed + uppercased.",
+            "type": "string"
+          },
+          "length": {
+            "description": "Only valid on the `count` path. Must leave >=4 random chars after the prefix.",
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 32
+          },
+          "expires_at": {
+            "description": "Per-batch expiry applied to every minted code. Independent of the coupon-level expires_at.",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "Generate coupon codes",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_coupon_codes",
+      "title": "List coupon codes",
+      "description": "List the codes minted under a single coupon, with pagination and a redeemed filter.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Coupon ID."
+          },
+          "limit": {
+            "default": 10,
+            "description": "Number of results to return (1–100, default 10)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for forward pagination (use cursors.next from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "ending_before": {
+            "description": "UUID cursor for backward pagination (use cursors.previous from a previous response)",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "redeemed": {
+            "description": "Filter by whether the code has any redemptions. Omit to include both.",
+            "type": "boolean"
+          },
+          "sort": {
+            "description": "Sort spec. Allowed fields: created_at, updated_at, redemption_count. Default created_at:desc.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "annotations": {
+        "title": "List coupon codes",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "validate_coupon",
+      "title": "Validate coupon",
+      "description": "Test whether a coupon code is currently redeemable in a given context (plan/product/customer/amount). Pure read — does NOT create a redemption. Redemption happens server-side when an order or subscription references the code. Returns { valid: true, ...terms } or { valid: false, reason }.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "description": "The redeemable code string. Trimmed + uppercased before lookup."
+          },
+          "plan_id": {
+            "description": "Plan ID to test plan-scope eligibility against.",
+            "type": "string"
+          },
+          "product_id": {
+            "description": "Product ID to test product-scope eligibility against.",
+            "type": "string"
+          },
+          "customer_id": {
+            "description": "Customer ID for per-customer caps and first-time-customer-only checks.",
+            "type": "string"
+          },
+          "amount": {
+            "description": "Order subtotal in CENTS. Used for minimum_amount eligibility.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "description": "ISO-4217. Only meaningful when amount is provided.",
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "annotations": {
+        "title": "Validate coupon",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_customer_and_subscribe",
+      "title": "Create customer and subscribe",
+      "description": "Onboarding composite: creates a new customer, attaches a card captured with EPD Elements, and creates a subscription — all in one operation. Requires a card_token (cct_...) from EPD Elements; the card is vaulted in EPD's secure vault (raw card data never reaches the API). Requires an idempotency_key. Creates a recurring billing relationship. If the subscription step fails, the just-created customer + payment method are automatically rolled back; if rollback itself fails, the response includes a partial_rollback_failed flag with the orphaned IDs.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "first_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "E.164 format"
+          },
+          "company": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "card_token": {
+            "type": "string",
+            "pattern": "^cct_[0-9a-f]{48}$",
+            "description": "Single-use card-capture token (cct_...) from the EPD Elements browser SDK. Your frontend captures the card with a publishable key and exchanges it for this token; expires 15 minutes after capture and can be used once."
+          },
+          "billing_details": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "address1": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "address2": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "state": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "zip": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "country": {
+                "description": "ISO 3166-1 alpha-2, e.g. \"US\"",
+                "type": "string",
+                "maxLength": 2
+              },
+              "email": {
+                "type": "string",
+                "maxLength": 200,
+                "format": "email",
+                "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              },
+              "phone": {
+                "type": "string",
+                "maxLength": 40
+              }
+            },
+            "description": "Cardholder billing details stored with the card. Some processors require a full billing address to vault; name/email/phone fall back to the customer record when omitted."
+          },
+          "plan_id": {
+            "type": "string",
+            "description": "Plan ID to subscribe to — use list_plans to find options"
+          },
+          "billing_cycle": {
+            "type": "object",
+            "properties": {
+              "interval": {
+                "type": "string",
+                "enum": [
+                  "day",
+                  "month"
+                ]
+              },
+              "interval_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 365
+              },
+              "anchor_day": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 31
+              }
+            },
+            "required": [
+              "interval",
+              "interval_count"
+            ]
+          },
+          "start_date": {
+            "description": "ISO 8601 date, defaults to today",
+            "type": "string"
+          },
+          "billing_cycles": {
+            "description": "0 = unlimited",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "REQUIRED — prevents duplicate customer/subscription creation on retries"
+          }
+        },
+        "required": [
+          "email",
+          "first_name",
+          "last_name",
+          "phone",
+          "card_token",
+          "plan_id",
+          "billing_cycle",
+          "idempotency_key"
+        ]
+      },
+      "annotations": {
+        "title": "Create customer and subscribe",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "process_order",
+      "title": "Process order",
+      "description": "Validates a customer then creates and processes a payment order in one step. Charges a card on the merchant's gateway. Requires an idempotency_key. On gateway failure the order row remains persisted with status=\"failed\" so you can audit the attempt — there is no automatic rollback. Returns a success flag and any failure reason.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer ID — must already exist"
+          },
+          "payment_method_id": {
+            "type": "string",
+            "description": "UUID of the payment method to charge"
+          },
+          "items": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "product_id": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9999
+                }
+              },
+              "required": [
+                "product_id",
+                "quantity"
+              ]
+            }
+          },
+          "currency": {
+            "description": "ISO 4217 lowercase, e.g. \"usd\"",
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "metadata": {
+            "description": "Up to 50 key-value pairs (max 40-char keys, 500-char values)",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "REQUIRED — prevents duplicate charges"
+          }
+        },
+        "required": [
+          "customer_id",
+          "payment_method_id",
+          "items",
+          "idempotency_key"
+        ]
+      },
+      "annotations": {
+        "title": "Process order",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "cancel_subscription_and_report",
+      "title": "Cancel subscription and report",
+      "description": "Cancels a subscription and returns a billing summary — cycles completed and total amount billed. Useful for understanding the revenue impact of a cancellation.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "subscription_id": {
+            "type": "string",
+            "description": "Subscription ID (UUID)"
+          },
+          "idempotency_key": {
+            "description": "Re-cancelling the same subscription is a no-op even without a key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subscription_id"
+        ]
+      },
+      "annotations": {
+        "title": "Cancel subscription and report",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_customer_financial_summary",
+      "title": "Get customer financial summary",
+      "description": "Returns a holistic financial overview for a customer: profile, payment methods, subscriptions, recent orders, recent transactions, and lifetime value.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "Customer ID (UUID)"
+          },
+          "include_transactions": {
+            "description": "Whether to fetch recent transactions (default true)",
+            "default": true,
+            "type": "boolean"
+          },
+          "transaction_limit": {
+            "description": "Number of recent transactions to include (default 20)",
+            "default": 20,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "customer_id"
+        ]
+      },
+      "annotations": {
+        "title": "Get customer financial summary",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_revenue_summary",
+      "title": "Get revenue summary",
+      "description": "Returns aggregate revenue totals (gross sales, refunds, net) for a date range. Paginates through up to 10,000 transactions per side (sales and refunds). If the range exceeds that, the response sets \"truncated\": true — narrow the date range to get a complete total. All amounts are in cents.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "description": "Inclusive lower bound — ISO 8601 datetime with timezone, e.g. \"2026-01-01T00:00:00Z\""
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "description": "Exclusive upper bound — ISO 8601 datetime with timezone, e.g. \"2026-02-01T00:00:00Z\""
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "annotations": {
+        "title": "Get revenue summary",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "list_past_due_subscriptions",
+      "title": "List past-due subscriptions",
+      "description": "Lists subscriptions in past_due status with customer and plan info expanded. Use this for dunning workflows — the list of customers who need outreach due to failed payments.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "limit": {
+            "description": "Number of results to return (default 20)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "starting_after": {
+            "description": "UUID cursor for next-page pagination",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        }
+      },
+      "annotations": {
+        "title": "List past-due subscriptions",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "refund_transaction",
+      "title": "Refund transaction",
+      "description": "Refund a transaction by its ID. Looks up the transaction, resolves its linked order, then processes the refund. Amount is in cents; omit for a full refund. Requires an idempotency_key.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "transaction_id": {
+            "type": "string",
+            "description": "Transaction ID (UUID)"
+          },
+          "amount": {
+            "description": "Refund amount in cents. Omit for full refund.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "REQUIRED — prevents duplicate refunds on retries"
+          }
+        },
+        "required": [
+          "transaction_id",
+          "idempotency_key"
+        ]
+      },
+      "annotations": {
+        "title": "Refund transaction",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "setup_webhook_monitoring",
+      "title": "Setup webhook monitoring",
+      "description": "Creates a webhook endpoint pre-configured for a given event scope. A convenience tool for first-time integrators. The signing secret is returned in the response and will not be shown again.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "HTTPS endpoint URL (must start with https://)"
+          },
+          "scope": {
+            "default": "all",
+            "description": "\"all\" subscribes to every event; others scope to a resource domain",
+            "type": "string",
+            "enum": [
+              "all",
+              "orders",
+              "subscriptions",
+              "customers"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "annotations": {
+        "title": "Setup webhook monitoring",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "create_customer_and_charge",
+      "title": "Create customer and charge",
+      "description": "Onboarding composite: creates a new customer, attaches a card captured with EPD Elements, and charges them — all in one operation. Requires a card_token (cct_...) from EPD Elements; the card is vaulted in EPD's secure vault (raw card data never reaches the API). Requires an idempotency_key. Charges a card. On failure the just-created customer + payment method are automatically rolled back; if the rollback itself fails the response includes a partial_rollback_failed flag with the orphaned customer_id.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "first_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "last_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+[1-9]\\d{6,14}$",
+            "description": "E.164 format"
+          },
+          "company": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "card_token": {
+            "type": "string",
+            "pattern": "^cct_[0-9a-f]{48}$",
+            "description": "Single-use card-capture token (cct_...) from the EPD Elements browser SDK. Your frontend captures the card with a publishable key and exchanges it for this token; expires 15 minutes after capture and can be used once."
+          },
+          "billing_details": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "address1": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "address2": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "state": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "zip": {
+                "type": "string",
+                "maxLength": 20
+              },
+              "country": {
+                "description": "ISO 3166-1 alpha-2, e.g. \"US\"",
+                "type": "string",
+                "maxLength": 2
+              },
+              "email": {
+                "type": "string",
+                "maxLength": 200,
+                "format": "email",
+                "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              },
+              "phone": {
+                "type": "string",
+                "maxLength": 40
+              }
+            },
+            "description": "Cardholder billing details stored with the card. Some processors require a full billing address to vault; name/email/phone fall back to the customer record when omitted."
+          },
+          "items": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "product_id": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9999
+                }
+              },
+              "required": [
+                "product_id",
+                "quantity"
+              ]
+            },
+            "description": "Line items to charge — price is taken from the product catalog"
+          },
+          "currency": {
+            "description": "ISO 4217 lowercase, e.g. \"usd\" (default)",
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3,
+            "pattern": "^[a-z]{3}$"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "REQUIRED — prevents duplicate charges on retries"
+          }
+        },
+        "required": [
+          "email",
+          "first_name",
+          "last_name",
+          "phone",
+          "card_token",
+          "items",
+          "idempotency_key"
+        ]
+      },
+      "annotations": {
+        "title": "Create customer and charge",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "refund_and_cancel",
+      "title": "Refund and cancel",
+      "description": "Cancel an active subscription and issue a full refund on the customer's most recent succeeded order. Subscription cancellation runs first to stop billing immediately; the refund follows. If cancellation fails, neither step is committed. If cancellation succeeds but refund fails, the response sets `refund_status: \"failed\"` with the original-order ID so the caller can retry the refund manually. Requires an idempotency_key.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "subscription_id": {
+            "type": "string",
+            "description": "Subscription ID (UUID)"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "REQUIRED — prevents duplicate refund or cancel operations on retries"
+          }
+        },
+        "required": [
+          "subscription_id",
+          "idempotency_key"
+        ]
+      },
+      "annotations": {
+        "title": "Refund and cancel",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "retry_failed_charge",
+      "title": "Retry failed charge",
+      "description": "Retrieve a failed transaction and re-attempt the charge against the same or a specified payment method. Reconstructs the original order from the failed transaction. Requires an idempotency_key.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "transaction_id": {
+            "type": "string",
+            "description": "Failed transaction ID (UUID)"
+          },
+          "payment_method_id": {
+            "description": "UUID of a different payment method to use. Omit to retry with the same payment method.",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "REQUIRED — prevents duplicate charges on retries"
+          }
+        },
+        "required": [
+          "transaction_id",
+          "idempotency_key"
+        ]
+      },
+      "annotations": {
+        "title": "Retry failed charge",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    }
+  ]
+}

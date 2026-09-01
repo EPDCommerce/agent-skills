@@ -62,7 +62,7 @@ Two cautions on that path:
 
 - Step 2 is the only step in this repository that handles a card number, and the
   only one that leaves the MCP surface. `secure.epd.com` is PCI-scoped; the MCP
-  tools deliberately are not. See [`SAFETY.md` rule 8](../../SAFETY.md).
+  tools deliberately are not. See [`SAFETY.md` rule 8](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
 - **Step 2 cannot be safely retried.** With the same key and a byte-identical
   body it returns `409 idempotency_key_conflict`. On a timeout, call
   `list_payment_methods` for the customer and look for the card before doing

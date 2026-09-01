@@ -109,7 +109,7 @@ mistake. Ask the human for all three at once.
 There is no `missing_field` code. An absent required argument comes back as
 `invalid_type` with `received undefined`. Detect missing arguments by that
 phrase in `field_errors`, not by a distinct code — and then apply
-[`SAFETY.md` rule 5](../../SAFETY.md): stop and ask, never guess the value.
+[`SAFETY.md` rule 5](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md): stop and ask, never guess the value.
 
 ## Codes observed
 
@@ -138,7 +138,7 @@ On MCP it almost always means something else: **the key is restricted**, and
 restricted keys cannot reach the MCP endpoint at all. They return zero tools and
 are refused even for `ping`. If this appears against `api.epd.com/mcp`, the fix
 is a full-access key, not a wider scope. See the permissions section of
-[`SAFETY.md`](../../SAFETY.md).
+[`SAFETY.md`](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
 
 ## Idempotency errors differ by surface
 

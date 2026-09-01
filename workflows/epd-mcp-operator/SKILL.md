@@ -1,6 +1,6 @@
 ---
 name: epd-mcp-operator
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than a single domain workflow — which tool to reach for, whether a call is safe to make, test-vs-live mode, idempotency, rate limits, and permission errors. Triggers when the user asks "which EPD tool should I use", "am I in test or live", "is this safe to run", when a call returns insufficient_permissions or 429, or before the first write of a session. Skip when the task is a specific domain workflow — load the owning skill named in the routing table below.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than the steps of a domain workflow — which tool to reach for and whether it can be called at all, composite versus primitive, whether a call is safe to make, test-vs-live mode, idempotency and retries, rate limits, and permission errors. Triggers when the user names an EPD tool and asks whether to use it ("should I use create_customer_and_charge", "is process_order the right one"), asks which tool to reach for, asks whether a composite beats the primitives or whether a tool works headlessly, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out and it is unclear whether to retry, or before the first write of a session. Skip when the tool choice is already settled and only the domain steps remain — load the owning skill named in the routing table below. Tool-selection and safety questions load this skill first even when they sit inside a domain workflow.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key. Restricted keys cannot reach the MCP endpoint.
 metadata:
   version: 1.0.0
@@ -21,7 +21,7 @@ issues a refund. Establish the mode, check the tier, then hand off using the
 routing table below.
 
 Two things to know before reading further. The confirmation policy lives in
-[`SAFETY.md`](../../SAFETY.md) and is not repeated here; this skill tells you how
+[`SAFETY.md`](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md) and is not repeated here; this skill tells you how
 to apply it, not what it says. And the MCP server ships its own `instructions`
 block to every session — money in minor units, bare UUIDs with no `cus_` style
 prefixes, pagination defaults — which this skill does not restate. Where the two
@@ -49,7 +49,7 @@ The Phase A skill map assigns all 67 tools to nine workflow skills. Five do not
 exist yet and this table will name them as they land. **Until then, do not route
 to them** — handle the task here, using
 [`references/tiers.md`](references/tiers.md) for the tier and
-[`SAFETY.md`](../../SAFETY.md) for the confirmation, and say plainly that no
+[`SAFETY.md`](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md) for the confirmation, and say plainly that no
 dedicated skill covers it yet.
 
 | If the task is | Will load | Tools |
@@ -90,7 +90,7 @@ intent.
 
 This is the first thing you do in a session, before any other rule can be
 applied. Test and live are the same 67 tools against different money. Every
-confirmation requirement in [`SAFETY.md`](../../SAFETY.md) is calibrated to
+confirmation requirement in [`SAFETY.md`](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md) is calibrated to
 which one you are in, so an agent that does not know its mode cannot correctly
 apply any of them.
 
@@ -180,7 +180,7 @@ is this" but "am I about to move this specific amount of real money".
 
 ### Safety tiers and the confirmation protocol
 
-**The policy lives in [`SAFETY.md`](../../SAFETY.md). This section does not
+**The policy lives in [`SAFETY.md`](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md). This section does not
 repeat it.** What follows is the mechanics: how to find a tool's tier, and how
 to actually run a confirmation once you know it.
 
@@ -258,7 +258,7 @@ propose a partial one.
 
 ### Idempotency — and the five tools that cannot
 
-The rule is in [`SAFETY.md` rule 3](../../SAFETY.md). Here is how to apply it.
+The rule is in [`SAFETY.md` rule 3](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md). Here is how to apply it.
 
 #### One key per logical operation
 
@@ -472,7 +472,7 @@ Three consequences:
 - **A long chain holds the whole session.** Nothing can be parked while you wait
   for a human, which is why an unattended run has to pre-flight the entire plan
   and refuse to start rather than stopping halfway. See
-  [`SAFETY.md`](../../SAFETY.md).
+  [`SAFETY.md`](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
 - **A timeout tells you nothing about the outcome.** There is no job to poll and
   no status to query. Recovery is always: read state back, or retry with the
   same idempotency key where the tool has one.
@@ -514,7 +514,7 @@ at it. Use the primitives instead:
 ```
 
 Step 2 is the only step in this repository that handles a card number, and the
-only one that leaves the MCP surface. See [`SAFETY.md` rule 8](../../SAFETY.md)
+only one that leaves the MCP surface. See [`SAFETY.md` rule 8](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md)
 and the retry caveat in the idempotency section above — that step **cannot** be
 safely retried.
 
@@ -604,7 +604,7 @@ stale.
 - **Run domain workflows.** Onboarding, subscriptions, refunds, catalogue,
   coupons, webhooks and reporting each belong to their own skill. This one
   identifies the tier and hands off.
-- **Restate the confirmation policy.** [`SAFETY.md`](../../SAFETY.md) is the
+- **Restate the confirmation policy.** [`SAFETY.md`](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md) is the
   single source. If the two ever disagree, `SAFETY.md` wins and this file is
   wrong.
 - **Restate the server's `instructions` block.** Money units, bare UUIDs and

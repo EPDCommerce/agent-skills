@@ -96,6 +96,7 @@ const rows = tools.map((t) => ({
   hints: hintsOf(t.annotations),
   tier: tierOf(t.annotations),
   idem: idemOf(t),
+  idempotent: t.annotations.idempotentHint === true,
 }));
 
 const count = (label) => rows.filter((r) => r.tier.label === label).length;
@@ -130,6 +131,22 @@ p();
 p('`SAFETY.md` defines what each tier requires. This file only says which tool');
 p('sits in which tier, and shows the raw hints so the mapping can be checked');
 p('rather than taken on trust.');
+p();
+p('### `idempotentHint` does not set the tier');
+p();
+p('The fourth annotation is orthogonal to the other three. It does not decide how');
+p('much confirmation a call needs — it decides whether repeating the call is safe,');
+p('which is a different question and only matters after something has already gone');
+p('wrong.');
+p();
+const nonIdem = rows.filter((r) => !r.idempotent);
+p(`${rows.length - nonIdem.length} of the ${rows.length} tools declare it. The exceptions are:`);
+p();
+for (const r of nonIdem) p(`- \`${r.name}\` — ${r.tier.label}, and has no \`idempotency_key\` parameter either`);
+p();
+p('Those two send traffic to an external URL, so a repeat is a real second');
+p('delivery rather than a deduplicated no-op. Treat the absence of the hint as the');
+p('signal that a retry is a fresh side effect.');
 p();
 p('## Counts');
 p();

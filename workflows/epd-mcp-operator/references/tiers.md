@@ -18,6 +18,22 @@ hints, and the tier is a pure function of them:
 sits in which tier, and shows the raw hints so the mapping can be checked
 rather than taken on trust.
 
+### `idempotentHint` does not set the tier
+
+The fourth annotation is orthogonal to the other three. It does not decide how
+much confirmation a call needs — it decides whether repeating the call is safe,
+which is a different question and only matters after something has already gone
+wrong.
+
+65 of the 67 tools declare it. The exceptions are:
+
+- `test_webhook_endpoint` — T2 external, and has no `idempotency_key` parameter either
+- `replay_webhook_event` — T2 external, and has no `idempotency_key` parameter either
+
+Those two send traffic to an external URL, so a repeat is a real second
+delivery rather than a deduplicated no-op. Treat the absence of the hint as the
+signal that a retry is a fresh side effect.
+
 ## Counts
 
 | Tier | Tools |

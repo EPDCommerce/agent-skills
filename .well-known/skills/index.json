@@ -45,6 +45,17 @@
       ]
     },
     {
+      "name": "epd-mcp-operator",
+      "kind": "workflow",
+      "description": "Cross-cutting safety layer and router for the EPD Commerce MCP surface: tool selection, confirmation tiers, test-vs-live mode, idempotency, rate limiting, error envelopes, and permission errors. The workflow counterpart to epd-best-practices.",
+      "files": [
+        "workflows/epd-mcp-operator/SKILL.md",
+        "workflows/epd-mcp-operator/references/tiers.md",
+        "workflows/epd-mcp-operator/references/errors.md",
+        "workflows/epd-mcp-operator/references/composites.md"
+      ]
+    },
+    {
       "name": "epd-onboard-customer",
       "kind": "workflow",
       "description": "Operator-agent workflow over the EPD Commerce MCP server: vault a card, create the customer, attach the payment method, optionally make the first charge or start a subscription. References MCP tool names, not REST endpoints.",

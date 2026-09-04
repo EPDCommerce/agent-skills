@@ -45,9 +45,21 @@ function walk(dir, acc = []) {
 }
 
 const files = [...walk(path.join(ROOT, 'integration')), ...walk(path.join(ROOT, 'workflows'))];
-const skills = files.map((f) => {
+
+// Generated inventories are excluded from the coverage scan. references/tiers.md
+// lists all 67 tools in a table because that is its job, and counting those rows
+// as coverage would report every tool as documented while nothing had been
+// written about how to use any of them. An inventory says which tier a tool is
+// in; it does not teach the workflow. Marked by the "GENERATED FILE" banner, so
+// any future generated reference is skipped automatically.
+const generated = [];
+const skills = files.flatMap((f) => {
   const rel = path.relative(ROOT, f).split(path.sep).join('/');
   const text = fs.readFileSync(f, 'utf8');
+  if (/GENERATED FILE/.test(text.slice(0, 400))) {
+    generated.push(rel);
+    return [];
+  }
   const lines = text.split(/\r?\n/);
   let open = false;
   const inFence = lines.map((l) => {
@@ -57,7 +69,7 @@ const skills = files.map((f) => {
     }
     return open;
   });
-  return { file: rel, skill: rel.split('/').slice(0, 2).join('/'), lines, inFence };
+  return [{ file: rel, skill: rel.split('/').slice(0, 2).join('/'), lines, inFence }];
 });
 
 // ── pass 1: forward coverage ────────────────────
@@ -147,6 +159,10 @@ for (const s of skills) {
 // ── report ────────────────────────────────
 const pad = (s, n) => String(s).padEnd(n);
 const count = (d) => coverage.filter((c) => c.depth === d).length;
+
+if (generated.length) {
+  console.log(`excluded ${generated.length} generated inventory file(s): ${generated.join(', ')}\n`);
+}
 
 console.log('=== 1. FORWARD COVERAGE ===\n');
 for (const d of ['documented', 'heading-only', 'table-only', 'prose-only', 'absent']) {

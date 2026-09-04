@@ -9,9 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `epd-mcp-operator` — workflow skill. Safety layer and router for the MCP
+  surface: mode detection, confirmation tiers, idempotency, rate limiting,
+  error envelopes, composite-tool guidance, and routing to the domain skills.
+  References cover the per-tool tier table, observed error codes, and all 11
+  composite tools.
+- `SAFETY.md` — agent behaviour policy. Four confirmation tiers derived from
+  the server's own annotations, cross-cutting rules, unattended-run policy, and
+  the stated limits of what the policy can enforce.
+- `scripts/gen-tiers.mjs` (`npm run gen:tiers`) — generates the per-tool tier
+  reference from the `tools/list` snapshot so it cannot drift from the server.
 - `audit/` — Phase A coverage audit. Live `tools/list` snapshot, tool-by-tool
   coverage matrix, proposed 12-skill map with routing, and measured API key
   permissions. Analysis only; no skill content changes.
+
+### Fixed
+
+- `audit/coverage.mjs` — exclude generated inventory files from the coverage
+  scan. `references/tiers.md` lists every tool by design, which the scanner was
+  counting as documentation and reporting zero uncovered tools.
 
 ## [0.1.0] - 2026-05-12
 

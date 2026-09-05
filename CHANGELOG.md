@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `epd-transaction-triage` — workflow skill. Read-only diagnosis of a failed
+  charge, sorting the eight observed decline codes into safe-to-retry,
+  never-retry, and needs-a-human. Hands the retry off rather than performing it.
+- `epd-webhook-ops` — workflow skill. Endpoint registration, secret rotation
+  with its 24-hour overlap window, delivery-log inspection, event replay, and
+  schema version migration with preview and compare before the bump.
+- `epd-catalog` — workflow skill. Products, plans and one-off orders, including
+  the shipping-address rule that applies when any single line item requires
+  shipping.
+- `epd-coupons` — workflow skill. Promo and generated coupons, code minting
+  within the 500-per-call cap, validation, and the archive lifecycle where
+  unarchiving does not by itself restore redeemability.
+- `epd-reporting` — workflow skill. Revenue totals, per-customer financial
+  history, and month-end reconciliation against the transaction list. Read-only;
+  no write tool is reachable from it.
 - `epd-mcp-operator` — workflow skill. Safety layer and router for the MCP
   surface: mode detection, confirmation tiers, idempotency, rate limiting,
   error envelopes, composite-tool guidance, and routing to the domain skills.

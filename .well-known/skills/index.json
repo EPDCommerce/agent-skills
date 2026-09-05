@@ -72,6 +72,46 @@
       ]
     },
     {
+      "name": "epd-webhook-ops",
+      "kind": "workflow",
+      "description": "Operating webhook endpoints on a live EPD Commerce account: registration, secret rotation with its 24-hour overlap window, delivery-log inspection, event replay, and schema version migration.",
+      "files": [
+        "workflows/epd-webhook-ops/SKILL.md"
+      ]
+    },
+    {
+      "name": "epd-transaction-triage",
+      "kind": "workflow",
+      "description": "Read-only diagnosis of a failed EPD Commerce charge: sorts a decline into safe-to-retry, never-retry, or a configuration problem, and hands off the retry rather than performing it.",
+      "files": [
+        "workflows/epd-transaction-triage/SKILL.md"
+      ]
+    },
+    {
+      "name": "epd-catalog",
+      "kind": "workflow",
+      "description": "Products, plans and one-off orders over the EPD Commerce MCP server: catalog setup, product images, plan lookup, and the line-item and shipping-address constraints that reject an order.",
+      "files": [
+        "workflows/epd-catalog/SKILL.md"
+      ]
+    },
+    {
+      "name": "epd-coupons",
+      "kind": "workflow",
+      "description": "Discounts end to end over the EPD Commerce MCP server: creating promo and generated coupons, minting code batches, validating a code before use, and archiving or reviving a coupon.",
+      "files": [
+        "workflows/epd-coupons/SKILL.md"
+      ]
+    },
+    {
+      "name": "epd-reporting",
+      "kind": "workflow",
+      "description": "Read-only reporting over the EPD Commerce MCP server: revenue totals for a period, per-customer financial history, and month-end reconciliation against the transaction list. Reaches no write tool.",
+      "files": [
+        "workflows/epd-reporting/SKILL.md"
+      ]
+    },
+    {
       "name": "epd-refunds",
       "kind": "workflow",
       "description": "Operator-agent workflow over the EPD Commerce MCP server: decision tree across refund_order, refund_transaction, and refund_and_cancel.",

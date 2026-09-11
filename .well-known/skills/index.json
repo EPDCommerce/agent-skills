@@ -82,7 +82,7 @@
     {
       "name": "epd-transaction-triage",
       "kind": "workflow",
-      "description": "Read-only diagnosis of a failed EPD Commerce charge: sorts a decline into safe-to-retry, never-retry, or a configuration problem, and hands off the retry rather than performing it.",
+      "description": "Read-only diagnosis of a failed EPD Commerce charge: sorts a decline into safe-to-retry, never-retry, or needs-a-human, and hands off the retry rather than performing it.",
       "files": [
         "workflows/epd-transaction-triage/SKILL.md"
       ]
@@ -98,7 +98,7 @@
     {
       "name": "epd-coupons",
       "kind": "workflow",
-      "description": "Discounts end to end over the EPD Commerce MCP server: creating promo and generated coupons, minting code batches, validating a code before use, and archiving or reviving a coupon.",
+      "description": "Discounts end to end over the EPD Commerce MCP server: creating promo and generated coupons, minting code batches, validating a code before use, and archiving or restoring a coupon, where restoring takes two calls.",
       "files": [
         "workflows/epd-coupons/SKILL.md"
       ]

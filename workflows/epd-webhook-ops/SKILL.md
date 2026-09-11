@@ -19,21 +19,18 @@ in the merchant's code, that skill; if the fix is on the account, this one.
 
 ## Tiers
 
-What each tier requires is defined once in
-[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md) and
-is not repeated here. This table only says which tool sits where.
+Tiers come from
+[`references/tiers.md`](../epd-mcp-operator/references/tiers.md), generated from
+the `tools/list` snapshot by `npm run gen:tiers` so it cannot drift. What each
+tier requires is defined once in
+[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
+Do not hand-maintain a tier list here.
 
-| Tier | Tools |
-|---|---|
-| **T0** | `list_webhook_endpoints`, `get_webhook_endpoint`, `list_webhook_events`, `list_webhook_delivery_logs`, `list_webhook_versions`, `preview_webhook_payload`, `compare_webhook_versions` |
-| **T2** | `create_webhook_endpoint`, `update_webhook_endpoint`, `upgrade_webhook_version`, `downgrade_webhook_version`, `setup_webhook_monitoring` |
-| **T2 external** | `test_webhook_endpoint`, `replay_webhook_event` |
-| **T3** | `delete_webhook_endpoint`, `rotate_webhook_secret` |
-
-Five of these have **no `idempotency_key` parameter at all**:
-`test_webhook_endpoint`, `replay_webhook_event`, `upgrade_webhook_version`,
-`downgrade_webhook_version`, and every T0 read. The two external ones matter
-most — see below.
+The per-tool `idempotency_key` column lives in that same generated file. What is
+local to this group is the proportion — eleven of the sixteen have **no
+`idempotency_key` parameter at all**: the seven T0 reads, plus
+`test_webhook_endpoint`, `replay_webhook_event`, `upgrade_webhook_version` and
+`downgrade_webhook_version`. The two external ones matter most — see below.
 
 ## Routing
 
@@ -136,6 +133,14 @@ http://example.com/x   ->  validation_error, "URL must be a valid HTTPS endpoint
 enabled_events: []     ->  value_too_small, "expected array to have >=1 items"
 ```
 
+### Changing an endpoint
+
+`update_webhook_endpoint` changes the URL, the subscribed events or the
+description. Setting `disabled` stops deliveries but keeps the endpoint, so it
+is the reversible alternative to `delete_webhook_endpoint`, which is T3 and
+final. It also accepts `api_version`; make a version change through the
+preview, compare and upgrade sequence below instead.
+
 ### Event names are not validated
 
 This is the trap. `enabled_events: ["totally.made.up"]` is **accepted** and
@@ -146,10 +151,10 @@ There is no server-side check and no tool that lists valid event types, so a
 typo produces an endpoint that looks healthy in `list_webhook_endpoints` and is
 silently dead. `order.suceeded` will not error.
 
-So: after creating or updating an endpoint, confirm the event names back to the
-human character by character, and check `list_webhook_delivery_logs` once real
-traffic should have arrived. An empty delivery log on a new endpoint is the
-symptom.
+So: after `create_webhook_endpoint` or `update_webhook_endpoint`, confirm the
+event names back to the human character by character, and check
+`list_webhook_delivery_logs` once real traffic should have arrived. An empty
+delivery log on a new endpoint is the symptom.
 
 ## Schema versions
 
@@ -171,16 +176,17 @@ exists.
 Both are T0 and cost nothing:
 
 ```
-preview_webhook_payload   event_type + version  -> the exact payload shape
-compare_webhook_versions  event_type + from + to -> what changed
+preview_webhook_payload   event_type + version                     -> the exact payload shape
+compare_webhook_versions  event_type + from_version + to_version   -> what changed
 ```
 
 `preview_webhook_payload` returns `{ api_version, event_type, payload }` with a
 fully formed sample event, so a consumer can be tested against the new shape
 before anything is switched.
 
-Then upgrade. Both version tools **lack an idempotency key**, so on a timeout do
-not re-issue — read `get_webhook_endpoint` and check `api_version`.
+Then upgrade. Neither version tool takes an `idempotency_key`, but both are
+annotated `idempotentHint: true`, so a repeat has no additional effect. On a
+timeout, confirm with `get_webhook_endpoint` rather than assuming it was lost.
 
 Guard rails the server enforces:
 

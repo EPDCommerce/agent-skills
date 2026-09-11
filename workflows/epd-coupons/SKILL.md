@@ -12,12 +12,15 @@ metadata:
 Nine tools covering the whole life of a discount: create it, mint codes under
 it, check whether a code will work, and retire it.
 
-Tiers per
-[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md):
-`list_coupons`, `retrieve_coupon`, `list_coupon_codes` and `validate_coupon` are
-**T0**. `create_coupon`, `update_coupon`, `unarchive_coupon` and
-`generate_coupon_codes` are **T2** — plan, then confirm. `archive_coupon` is
-**T3**, because it stops a live promotion.
+Tiers come from
+[`references/tiers.md`](../epd-mcp-operator/references/tiers.md), generated from
+the `tools/list` snapshot by `npm run gen:tiers` so it cannot drift. What each
+tier requires is defined once in
+[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
+Do not hand-maintain a tier list here.
+
+The one worth carrying in your head before reading further: `archive_coupon` is
+the only T3 here, because it stops a live promotion.
 
 Every write here takes an optional `idempotency_key`. Pass it anyway.
 
@@ -55,7 +58,9 @@ before creating.
 
 ## Creating a coupon
 
-Only `name` is required, but the discount is not optional in practice:
+`name` is the only field the schema marks required. A discount is mandatory in
+practice — exactly one of `percentage` or `amount`. Scope is not, but state it
+anyway: omitted, it defaults to everything (see below).
 
 ```
 tool: create_coupon
@@ -65,11 +70,40 @@ input:
   percentage: 15
   duration: once
   minimum_amount: 5000
+  product_scope: all
+  plan_scope: all
   expires_at: "2026-09-30T23:59:59Z"
   idempotency_key: <UUID v4>
 ```
 
 Amounts are **cents**. `minimum_amount: 5000` is a $50 minimum, not $5000.
+
+### What the coupon applies to
+
+`product_scope` and `plan_scope` each take `none`, `all` or `specific`, and the
+schema puts the same paired requirement on both:
+
+> At least one of product_scope/plan_scope must be non-"none".
+
+A coupon scoped to neither products nor plans would discount nothing, so the
+constraint exists to stop a dead coupon being created.
+
+| Value | Applies to | Also needs |
+|---|---|---|
+| `none` | nothing in this class | — |
+| `all` | every product / every plan — **the default when omitted** | — |
+| `specific` | a named subset | `product_ids` / `plan_ids`, non-empty |
+
+`specific` with an empty or missing id list is rejected. Both id fields accept
+UUIDs or prefixed IDs.
+
+**Omitting both is accepted, and means everything.** Measured against sandbox: a
+`create_coupon` with neither field is created with `product_scope: "all"` and
+`plan_scope: "all"` — every product and every subscription plan, the widest
+scope there is. The schema does not say so: `kind`, `currency` and `duration`
+state their defaults in their descriptions, and these two do not. A coupon meant
+for one product, created without a scope, discounts the whole catalog and every
+plan. Pass both, every time.
 
 ### The rules the server enforces
 
@@ -82,6 +116,8 @@ All observed, with the exact message it returns:
 | `percentage: 101` | `value_too_large` — "expected number to be <=100" |
 | `max_discount_amount` on an amount-off coupon | `validation_error` — "Max_discount_amount is only applicable to percentage-off coupons." |
 | `duration: "repeating"` without `duration_in_cycles` | `validation_error` — "Duration_in_cycles is required when duration is 'repeating'." |
+| `product_scope: "none"` and `plan_scope: "none"` | `validation_error` — "At least one of product_scope or plan_scope must be non-"none"." |
+| Neither `product_scope` nor `plan_scope` | **accepted** — both stored as `"all"` |
 
 `duration` is about **subscriptions**, not calendar time: `once` discounts the
 first charge, `repeating` the first N cycles, `forever` every cycle. A user
@@ -118,6 +154,10 @@ count: 0         -> value_too_small    "expected number to be >=1"
 count AND codes  -> validation_error   "Provide only one of count or codes, not both."
 codes: ["SHORT"] -> validation_error   "Codes must be 8-50 characters: letters, numbers, or hyphens"
 ```
+
+Read a batch back with `list_coupon_codes`: it pages through the codes minted
+under one coupon and filters by `redeemed`, which is how to see what a campaign
+has actually used.
 
 ### Guardrail on volume
 
@@ -203,12 +243,15 @@ failure looks like a customer problem rather than an operator one.
 
 When asked to restore a coupon, do both, then `validate_coupon` to confirm — the
 validation is free and it is the only thing that proves the code actually works
-again.
+again. In between, `retrieve_coupon` shows `active` and `archived_at`, which is
+how to tell which of the two calls has landed.
 
 ## Terms lock after the first redemption
 
-`percentage`, `amount` and `duration` become immutable once the coupon has been
-redeemed once. Attempts return **422**.
+Edits go through `update_coupon`. `percentage`, `amount` and `duration` become
+immutable once the coupon has been redeemed once, and attempts return **422** —
+so check `total_redemptions` with `retrieve_coupon` first; above zero, the
+terms are already locked.
 
 Scope and limit fields — `max_redemptions`, `max_redemptions_per_customer`,
 product and plan scope, `expires_at` — stay editable.

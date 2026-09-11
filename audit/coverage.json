@@ -1,16 +1,16 @@
 {
-  "captured_at": "2026-09-01T20:54:47.257Z",
+  "snapshot_captured_at": "2026-08-25T21:41:47.267Z",
   "coverage": [
     {
       "name": "ping",
       "group": "Account",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 8,
+      "total": 9,
       "code": 1,
       "head": 1,
       "table": 0,
-      "prose": 6,
+      "prose": 7,
       "skills": [
         "workflows/epd-mcp-operator"
       ]
@@ -19,13 +19,15 @@
       "name": "get_account",
       "group": "Account",
       "tier": "T0 read",
-      "depth": "absent",
-      "total": 0,
+      "depth": "prose-only",
+      "total": 1,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 0,
-      "skills": []
+      "prose": 1,
+      "skills": [
+        "workflows/epd-mcp-operator"
+      ]
     },
     {
       "name": "upgrade_account_api_version",
@@ -153,11 +155,11 @@
       "group": "Products",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 2,
+      "total": 1,
       "code": 1,
       "head": 0,
       "table": 0,
-      "prose": 1,
+      "prose": 0,
       "skills": [
         "workflows/epd-catalog"
       ]
@@ -196,11 +198,11 @@
       "group": "Products",
       "tier": "T2 write",
       "depth": "prose-only",
-      "total": 3,
+      "total": 2,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 3,
+      "prose": 2,
       "skills": [
         "workflows/epd-catalog"
       ]
@@ -238,11 +240,11 @@
       "group": "Products",
       "tier": "T2 write",
       "depth": "prose-only",
-      "total": 5,
+      "total": 4,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 5,
+      "prose": 4,
       "skills": [
         "workflows/epd-catalog",
         "workflows/epd-mcp-operator"
@@ -253,11 +255,11 @@
       "group": "Plans",
       "tier": "T0 read",
       "depth": "prose-only",
-      "total": 2,
+      "total": 1,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 1,
       "skills": [
         "workflows/epd-catalog"
       ]
@@ -267,11 +269,11 @@
       "group": "Plans",
       "tier": "T0 read",
       "depth": "prose-only",
-      "total": 2,
+      "total": 1,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 1,
       "skills": [
         "workflows/epd-catalog"
       ]
@@ -344,13 +346,14 @@
       "name": "retry_order",
       "group": "Orders",
       "tier": "T3 destructive",
-      "depth": "table-only",
-      "total": 6,
-      "code": 0,
+      "depth": "documented",
+      "total": 13,
+      "code": 1,
       "head": 0,
       "table": 2,
-      "prose": 4,
+      "prose": 10,
       "skills": [
+        "workflows/epd-catalog",
         "workflows/epd-transaction-triage"
       ]
     },
@@ -472,8 +475,8 @@
       "total": 4,
       "code": 1,
       "head": 0,
-      "table": 3,
-      "prose": 0,
+      "table": 2,
+      "prose": 1,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-webhook-ops"
@@ -483,11 +486,11 @@
       "name": "list_webhook_endpoints",
       "group": "Webhook Endpoints",
       "tier": "T0 read",
-      "depth": "table-only",
-      "total": 2,
+      "depth": "prose-only",
+      "total": 1,
       "code": 0,
       "head": 0,
-      "table": 1,
+      "table": 0,
       "prose": 1,
       "skills": [
         "workflows/epd-webhook-ops"
@@ -498,34 +501,6 @@
       "group": "Webhook Endpoints",
       "tier": "T0 read",
       "depth": "table-only",
-      "total": 3,
-      "code": 0,
-      "head": 0,
-      "table": 2,
-      "prose": 1,
-      "skills": [
-        "workflows/epd-webhook-ops"
-      ]
-    },
-    {
-      "name": "update_webhook_endpoint",
-      "group": "Webhook Endpoints",
-      "tier": "T2 write",
-      "depth": "table-only",
-      "total": 1,
-      "code": 0,
-      "head": 0,
-      "table": 1,
-      "prose": 0,
-      "skills": [
-        "workflows/epd-webhook-ops"
-      ]
-    },
-    {
-      "name": "delete_webhook_endpoint",
-      "group": "Webhook Endpoints",
-      "tier": "T3 destructive",
-      "depth": "table-only",
       "total": 2,
       "code": 0,
       "head": 0,
@@ -536,14 +511,42 @@
       ]
     },
     {
+      "name": "update_webhook_endpoint",
+      "group": "Webhook Endpoints",
+      "tier": "T2 write",
+      "depth": "prose-only",
+      "total": 2,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 2,
+      "skills": [
+        "workflows/epd-webhook-ops"
+      ]
+    },
+    {
+      "name": "delete_webhook_endpoint",
+      "group": "Webhook Endpoints",
+      "tier": "T3 destructive",
+      "depth": "prose-only",
+      "total": 2,
+      "code": 0,
+      "head": 0,
+      "table": 0,
+      "prose": 2,
+      "skills": [
+        "workflows/epd-webhook-ops"
+      ]
+    },
+    {
       "name": "rotate_webhook_secret",
       "group": "Webhook Endpoints",
       "tier": "T3 destructive",
       "depth": "table-only",
-      "total": 5,
+      "total": 4,
       "code": 0,
       "head": 0,
-      "table": 2,
+      "table": 1,
       "prose": 3,
       "skills": [
         "workflows/epd-mcp-operator",
@@ -555,10 +558,10 @@
       "group": "Webhook Endpoints",
       "tier": "T2 external",
       "depth": "heading-only",
-      "total": 5,
+      "total": 4,
       "code": 0,
       "head": 1,
-      "table": 1,
+      "table": 0,
       "prose": 3,
       "skills": [
         "integration/epd-webhooks",
@@ -570,11 +573,11 @@
       "name": "upgrade_webhook_version",
       "group": "Webhook Endpoints",
       "tier": "T2 write",
-      "depth": "table-only",
-      "total": 3,
+      "depth": "prose-only",
+      "total": 2,
       "code": 0,
       "head": 0,
-      "table": 1,
+      "table": 0,
       "prose": 2,
       "skills": [
         "workflows/epd-mcp-operator",
@@ -585,11 +588,11 @@
       "name": "downgrade_webhook_version",
       "group": "Webhook Endpoints",
       "tier": "T2 write",
-      "depth": "table-only",
-      "total": 3,
+      "depth": "prose-only",
+      "total": 2,
       "code": 0,
       "head": 0,
-      "table": 1,
+      "table": 0,
       "prose": 2,
       "skills": [
         "workflows/epd-mcp-operator",
@@ -601,10 +604,10 @@
       "group": "Webhook Endpoints",
       "tier": "T2 external",
       "depth": "heading-only",
-      "total": 6,
+      "total": 5,
       "code": 0,
       "head": 1,
-      "table": 1,
+      "table": 0,
       "prose": 4,
       "skills": [
         "integration/epd-webhooks",
@@ -617,10 +620,10 @@
       "group": "Webhook Endpoints",
       "tier": "T0 read",
       "depth": "heading-only",
-      "total": 3,
+      "total": 2,
       "code": 0,
       "head": 1,
-      "table": 1,
+      "table": 0,
       "prose": 1,
       "skills": [
         "integration/epd-webhooks",
@@ -631,11 +634,11 @@
       "name": "list_webhook_delivery_logs",
       "group": "Webhook Endpoints",
       "tier": "T0 read",
-      "depth": "table-only",
-      "total": 6,
+      "depth": "prose-only",
+      "total": 5,
       "code": 0,
       "head": 0,
-      "table": 1,
+      "table": 0,
       "prose": 5,
       "skills": [
         "integration/epd-webhooks",
@@ -647,11 +650,11 @@
       "name": "list_webhook_versions",
       "group": "Webhook Versions",
       "tier": "T0 read",
-      "depth": "table-only",
-      "total": 3,
+      "depth": "prose-only",
+      "total": 2,
       "code": 0,
       "head": 0,
-      "table": 1,
+      "table": 0,
       "prose": 2,
       "skills": [
         "workflows/epd-mcp-operator",
@@ -663,10 +666,10 @@
       "group": "Webhook Versions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 4,
+      "total": 3,
       "code": 1,
       "head": 0,
-      "table": 1,
+      "table": 0,
       "prose": 2,
       "skills": [
         "integration/epd-webhooks",
@@ -678,10 +681,10 @@
       "group": "Webhook Versions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 2,
+      "total": 1,
       "code": 1,
       "head": 0,
-      "table": 1,
+      "table": 0,
       "prose": 0,
       "skills": [
         "workflows/epd-webhook-ops"
@@ -706,11 +709,11 @@
       "group": "Coupons",
       "tier": "T0 read",
       "depth": "prose-only",
-      "total": 2,
+      "total": 1,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 1,
       "skills": [
         "workflows/epd-coupons"
       ]
@@ -720,11 +723,11 @@
       "group": "Coupons",
       "tier": "T0 read",
       "depth": "prose-only",
-      "total": 1,
+      "total": 2,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 1,
+      "prose": 2,
       "skills": [
         "workflows/epd-coupons"
       ]
@@ -762,11 +765,11 @@
       "group": "Coupons",
       "tier": "T2 write",
       "depth": "table-only",
-      "total": 3,
+      "total": 2,
       "code": 0,
       "head": 0,
       "table": 1,
-      "prose": 2,
+      "prose": 1,
       "skills": [
         "workflows/epd-coupons"
       ]
@@ -776,11 +779,11 @@
       "group": "Coupons",
       "tier": "T2 write",
       "depth": "table-only",
-      "total": 2,
+      "total": 1,
       "code": 0,
       "head": 0,
       "table": 1,
-      "prose": 1,
+      "prose": 0,
       "skills": [
         "workflows/epd-coupons"
       ]
@@ -804,11 +807,11 @@
       "group": "Coupons",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 6,
+      "total": 5,
       "code": 1,
       "head": 0,
       "table": 1,
-      "prose": 4,
+      "prose": 3,
       "skills": [
         "workflows/epd-catalog",
         "workflows/epd-coupons"
@@ -934,10 +937,10 @@
       "group": "Composite",
       "tier": "T2 write",
       "depth": "heading-only",
-      "total": 4,
+      "total": 3,
       "code": 0,
       "head": 1,
-      "table": 2,
+      "table": 1,
       "prose": 1,
       "skills": [
         "workflows/epd-mcp-operator",
@@ -982,13 +985,14 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 12,
+      "total": 13,
       "code": 1,
       "head": 1,
       "table": 3,
-      "prose": 7,
+      "prose": 8,
       "skills": [
         "integration/epd-best-practices",
+        "workflows/epd-catalog",
         "workflows/epd-mcp-operator",
         "workflows/epd-subscriptions",
         "workflows/epd-transaction-triage"
@@ -999,7 +1003,7 @@
     {
       "skill": "workflows/epd-catalog",
       "file": "workflows/epd-catalog/SKILL.md",
-      "line": 39,
+      "line": 47,
       "tool": "create_product",
       "keys": [
         "name",
@@ -1013,7 +1017,7 @@
     {
       "skill": "workflows/epd-catalog",
       "file": "workflows/epd-catalog/SKILL.md",
-      "line": 115,
+      "line": 133,
       "tool": "create_order",
       "keys": [
         "customer_id",
@@ -1023,9 +1027,19 @@
       ]
     },
     {
+      "skill": "workflows/epd-catalog",
+      "file": "workflows/epd-catalog/SKILL.md",
+      "line": 172,
+      "tool": "retry_order",
+      "keys": [
+        "order_id",
+        "idempotency_key"
+      ]
+    },
+    {
       "skill": "workflows/epd-coupons",
       "file": "workflows/epd-coupons/SKILL.md",
-      "line": 61,
+      "line": 66,
       "tool": "create_coupon",
       "keys": [
         "name",
@@ -1033,6 +1047,8 @@
         "percentage",
         "duration",
         "minimum_amount",
+        "product_scope",
+        "plan_scope",
         "expires_at",
         "idempotency_key"
       ]
@@ -1040,7 +1056,7 @@
     {
       "skill": "workflows/epd-coupons",
       "file": "workflows/epd-coupons/SKILL.md",
-      "line": 145,
+      "line": 185,
       "tool": "validate_coupon",
       "keys": [
         "code",
@@ -1052,7 +1068,7 @@
     {
       "skill": "workflows/epd-mcp-operator",
       "file": "workflows/epd-mcp-operator/SKILL.md",
-      "line": 102,
+      "line": 94,
       "tool": "ping",
       "keys": []
     },
@@ -1226,7 +1242,7 @@
     {
       "skill": "workflows/epd-webhook-ops",
       "file": "workflows/epd-webhook-ops/SKILL.md",
-      "line": 117,
+      "line": 118,
       "tool": "create_webhook_endpoint",
       "keys": [
         "url",

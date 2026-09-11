@@ -1,6 +1,6 @@
 ---
 name: epd-catalog
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs to manage what is for sale or place a one-off order against it. Triggers when the user asks to create or update a product, change a price, manage product images, asks what plans exist or what a plan contains, asks to place or charge an order for a customer, or hits a shipping-address or line-item error while ordering. Skip when the task is recurring billing on a subscription - load epd-subscriptions. Skip when the task is discounting rather than pricing - load epd-coupons.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs to manage what is for sale or place a one-off order against it. Triggers when the user asks to create or update a product, change a price, manage product images, asks what plans exist or what a plan contains, asks to place or charge an order for a customer, asks to retry a failed charge on an existing order, or hits a shipping-address or line-item error while ordering. Skip when the task is recurring billing on a subscription - load epd-subscriptions. Skip when the task is discounting rather than pricing - load epd-coupons.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key.
 metadata:
   version: 1.0.0
@@ -9,15 +9,23 @@ metadata:
 
 # Products, plans and orders
 
-The catalog and the one-off purchase against it. Eleven tools: seven for
-products, two read-only for plans, and `create_order` / `process_order`.
+The catalog and the one-off purchase against it. Twelve tools: seven for
+products, two read-only for plans, and `create_order` / `process_order` /
+`retry_order`.
 
-Tiers per
-[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md):
-`list_products`, `get_product`, `list_plans` and `get_plan` are **T0**.
-`create_product`, `update_product`, `reorder_product_images` and `create_order`
-are **T2**. `delete_product`, `delete_product_image` and `process_order` are
-**T3** — the deletes are irreversible and `process_order` charges a card.
+Tiers come from
+[`references/tiers.md`](../epd-mcp-operator/references/tiers.md), generated from
+the `tools/list` snapshot by `npm run gen:tiers` so it cannot drift. What each
+tier requires is defined once in
+[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
+Do not hand-maintain a tier list here.
+
+Four here are T3, for two different reasons, and the distinction matters before
+you reach for one: `delete_product` and `delete_product_image` are irreversible,
+while `process_order` and `retry_order` charge a card. `create_order` charges a
+card too; it sits in T2 only because the server does not annotate it
+destructive. The plan printed before confirming it still states the amount —
+that is the expected effect T2 asks for.
 
 `reorder_product_images` has **no `idempotency_key` parameter**, so it cannot be
 safely retried on a timeout. Read the product back with `get_product` instead.
@@ -59,17 +67,27 @@ future order for that product is wrong. See the shipping constraint below.
 
 | Field | Rule |
 |---|---|
+| `name` | **3 to 80** characters |
+| `description` | **3 to 2000** characters |
 | `pricing.amount` | cents, minimum **1**. `0` returns `value_too_small`. `2999` is $29.99. |
 | `pricing.currency` | documented as lowercase ISO 4217; `"USD"` is also accepted |
-| `sku` | must match `/^[a-z0-9_-]+$/`. Uppercase or spaces return `invalid_format` |
+| `sku` | **3 to 30** characters, and must match `/^[a-z0-9_-]+$/`. Uppercase or spaces return `invalid_format` |
+| `availability` | one of `in_stock`, `out_of_stock`, `preorder` |
+| `category` | up to **100** characters |
 | `metadata` | up to 50 pairs, 40-char keys, 500-char values |
 
 A SKU is not a display name. `"Data Export Add-on"` is rejected;
-`data-export-addon` is fine.
+`data-export-addon` is fine — and at 17 characters it is inside the 30-character
+ceiling, which is the bound a descriptive SKU hits first. Lowercase and hyphens
+are easy to remember; the length is not, so check it before generating one.
 
 Price changes go through `update_product`. There is no price history and no
 scheduled change — the new price applies to the next order. Existing orders keep
 what they were charged.
+
+To find a product, `list_products` filters by `availability`, `category` and
+date range and takes a free-text `q`; `get_product` reads one by id. Read it
+back before any update or delete.
 
 ## Product images
 
@@ -139,10 +157,49 @@ Line-item rules, all observed:
 | `items: []` | `value_too_small` — "expected array to have >=1 items" |
 | unknown `product_id` | `resource_not_found`, naming the id |
 
-`create_order` is T2 and supports coupons and shipping. `process_order` is T3,
-supports neither, and leaves a failed order row behind with no rollback. Prefer
-`create_order` unless you specifically want the customer-validation step — see
-`epd-mcp-operator`'s composites section.
+Both create an order and charge the card. `create_order` is T2 and supports
+coupons and shipping. `process_order` is T3, supports neither, and leaves a
+failed order row behind with no rollback. Prefer `create_order` unless you
+specifically want the customer-validation step — see `epd-mcp-operator`'s
+composites section.
+
+## Retrying a failed order
+
+`retry_order` re-attempts a declined charge — or a failed refund — on an order
+that already exists, using **the card already on file**.
+
+```
+tool: retry_order
+input:
+  order_id: <uuid>
+  idempotency_key: <UUID v4>
+```
+
+Both fields are **required**. There is no third parameter: no amount, and
+critically **no payment-method switch**. To charge a different card you create a
+new order; there is no way to retry onto one.
+
+That single constraint decides when the tool is useful. A decline caused by the
+card itself — expired, lost or stolen, transaction not allowed — fails again
+identically, because it is the same card. `retry_order` is for the failures where
+nothing about the card was wrong: an issuer briefly unreachable, a temporary
+hold, a funds problem that may since have cleared.
+
+It is **T3**, annotated `destructiveHint: true`, and it moves money. Confirm the
+amount and the customer before calling, the same as `process_order`.
+
+### Subscription cycles
+
+A subscription cycle is itself an order, so `retry_order` also retries a failed
+recurring charge — and it **reconciles the cycle**, so the dunning cron will not
+charge the customer again on top of your manual retry. That reconciliation is
+the reason to prefer it over `retry_failed_charge` for anything sitting on a
+subscription; the alternative reconstructs the order and can leave the scheduled
+retry still armed.
+
+Diagnosing *why* the charge failed belongs to `epd-transaction-triage`, which is
+read-only and hands the retry here. Arrive with the failure class already
+established rather than retrying to find out.
 
 ## The shipping constraint
 
@@ -229,6 +286,10 @@ code worked once and now does not, this is the first thing to check.
   requires it.
 - **Retry `reorder_product_images` on a timeout.** No idempotency key — read the
   product back instead.
+- **Switch the card on `retry_order`.** There is no such parameter. A different
+  card means a new order.
+- **Decide *why* a charge failed.** That is `epd-transaction-triage`, which is
+  read-only. This skill performs the retry it hands over.
 - **Create or change a plan.** Read-only here.
 - **Start a subscription.** That is `epd-subscriptions`, even when the plan was
   looked up here.

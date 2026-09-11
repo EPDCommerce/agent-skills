@@ -10,14 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `epd-transaction-triage` — workflow skill. Read-only diagnosis of a failed
-  charge, sorting the eight observed decline codes into safe-to-retry,
+  charge, sorting the nine observed decline codes into safe-to-retry,
   never-retry, and needs-a-human. Hands the retry off rather than performing it.
 - `epd-webhook-ops` — workflow skill. Endpoint registration, secret rotation
   with its 24-hour overlap window, delivery-log inspection, event replay, and
   schema version migration with preview and compare before the bump.
 - `epd-catalog` — workflow skill. Products, plans and one-off orders, including
   the shipping-address rule that applies when any single line item requires
-  shipping.
+  shipping. Owns `retry_order`, which re-attempts a failed charge on the card
+  already on file and reconciles a subscription cycle so dunning will not
+  charge again.
 - `epd-coupons` — workflow skill. Promo and generated coupons, code minting
   within the 500-per-call cap, validation, and the archive lifecycle where
   unarchiving does not by itself restore redeemability.
@@ -43,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `audit/coverage.mjs` — exclude generated inventory files from the coverage
   scan. `references/tiers.md` lists every tool by design, which the scanner was
   counting as documentation and reporting zero uncovered tools.
+- `audit/coverage.mjs` — record the snapshot's capture time instead of the run
+  time, so `coverage.json` regenerates byte-identically and can be drift-checked.
+- `audit/` — `retry_order` counted under `epd-catalog`, which documents it,
+  rather than the read-only `epd-transaction-triage`, in both the matrix and the
+  skill map.
 
 ## [0.1.0] - 2026-05-12
 

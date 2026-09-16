@@ -1,6 +1,6 @@
 ---
 name: epd-subscriptions
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs to manage the subscription lifecycle on a merchant account — starting subscriptions on existing customers, changing payment method or billing cycle, canceling, and recovering past_due subscriptions through dunning. References MCP tool names (create_subscription, update_subscription, cancel_subscription, cancel_subscription_and_report, list_past_due_subscriptions, retry_failed_charge), not REST endpoints. Triggers when the user says "cancel a subscription", "list past-due subs", "retry the failed charge", or asks to change a customer's plan / payment method on a subscription. Skip when the user is signing up a brand-new customer — load epd-onboard-customer for that.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs to manage the subscription lifecycle on a merchant account — starting subscriptions on existing customers, changing payment method or billing cycle, canceling, and recovering past_due subscriptions through dunning. References MCP tool names (create_subscription, update_subscription, cancel_subscription, cancel_subscription_and_report, list_past_due_subscriptions, retry_failed_charge), not REST endpoints. Triggers when the user says "cancel a subscription", "list past-due subs", "retry the failed charge", or asks to change a customer's plan / payment method on a subscription. Skip when the user is signing up a brand-new customer — load epd-onboard-customer for that. Skip when a charge failed and nobody has diagnosed why yet — load epd-transaction-triage first.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
   version: 1.0.0
@@ -16,6 +16,13 @@ of EPD Commerce.
 
 This skill picks up where `epd-onboard-customer` left off: a subscription
 already exists, and the operator wants to change, recover, or end it.
+
+Tiers come from
+[`references/tiers.md`](../epd-mcp-operator/references/tiers.md), generated from
+the `tools/list` snapshot by `npm run gen:tiers` so it cannot drift. What each
+tier requires is defined once in
+[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
+Do not hand-maintain a tier list here.
 
 ## Subscription statuses
 
@@ -161,18 +168,19 @@ transactions to find the one that triggered the past-due state. Use
 
 ### 3. Decide on the path
 
-- **Hard card issue** (e.g. `transaction_not_allowed`, `expired_card`,
-  `incorrect_cvv`, `invalid_account`, `closed_card`, `lost_stolen_card`,
-  `fraud_suspected`) → get a new card on file. In a browser flow, capture a
-  `card_token` via EPD Elements and attach it with `add_payment_method`; for
-  a headless/back-office update, POST straight to `secure.epd.com` (which
-  creates the payment method directly) — see
+Classify the failure with `epd-transaction-triage` — it owns the
+hard/soft/ambiguous breakdown for the nine observed decline codes,
+sandbox-measured, and is the current source rather than a shorter list kept
+inline here. Two outcomes feed back into this skill:
+
+- **Hard, or ambiguous-and-needs-a-new-card** → get a new card on file
+  first. In a browser flow, capture a `card_token` via EPD Elements and
+  attach it with `add_payment_method`; for a headless/back-office update,
+  POST straight to `secure.epd.com` — see
   `epd-best-practices/references/security.md`. Then update the
   subscription's payment method, then retry.
-- **Soft / transient issue** (e.g. `processor_declined`, `insufficient_funds`,
-  `issuer_unavailable`, `do_not_honor`) → retry on the same payment method
-  with a delay. See `epd-best-practices/references/errors.md` for the
-  hard-vs-soft breakdown of every failure reason.
+- **Soft** → retry on the same payment method, on the schedule triage
+  recommends rather than immediately.
 
 ### 4. Retry
 
@@ -198,17 +206,22 @@ transaction.
 After a successful retry, fetch the subscription again (`get_subscription`)
 to confirm it transitioned out of `past_due`.
 
-## Confirmation prompts (destructive operations)
+## Confirmation prompts
 
-Tools annotated `destructiveHint: true` on this surface:
+Tiers and which tools are destructive come from `references/tiers.md` — see
+the pointer above; do not hand-list them here. `cancel_subscription`,
+`cancel_subscription_and_report` and `retry_failed_charge` are T3. Confirm
+each using the pattern in `epd-mcp-operator`'s "Running a confirmation"
+section.
 
-- `cancel_subscription`
-- `cancel_subscription_and_report`
-- `update_subscription` (when changing the payment method on a live
-  subscription — affects future billing)
-- `retry_failed_charge` (moves money)
+`update_subscription` is **T2**, not destructive — the server does not
+annotate a payment-method or billing-cycle change as `destructiveHint`.
+Confirming it anyway before a payment-method swap on a live subscription is
+still good practice, since it affects future billing — but that is an
+operator judgment call, not a server-stated requirement. Say so if you apply
+it, rather than citing it as a tier fact.
 
-Always confirm before invoking. Templates:
+Templates:
 
 > "This will cancel the $29.99/month Pro subscription for Alice Liddell,
 > effective immediately. No further charges. Proceed?"
@@ -216,13 +229,11 @@ Always confirm before invoking. Templates:
 > "This will retry the $29.99 charge for Alice that failed on 2026-04-30,
 > using the card ending in 4242. Proceed?"
 
-## Idempotency rules
+## Idempotency
 
-Same as everything else: UUID v4 per logical operation. Retry with the same
-key after a network/timeout failure to avoid double-execution.
-
+Mechanics are in `epd-mcp-operator`'s idempotency section / `SAFETY.md` rule 3.
 `update_subscription` accepts `idempotency_key` as optional — pass it
-anyway, especially for payment method swaps where the cost of a duplicate
+anyway, especially for payment-method swaps where the cost of a duplicate
 write is real.
 
 ## Common operator mistakes
@@ -245,4 +256,5 @@ write is real.
 
 - Refunds (including `refund_and_cancel`) → `epd-refunds`
 - New customer signup → `epd-onboard-customer`
-- Customer financial history → `get_customer_financial_summary`
+- Diagnosing why a charge failed → `epd-transaction-triage`
+- Customer financial history, revenue totals → `epd-reporting`

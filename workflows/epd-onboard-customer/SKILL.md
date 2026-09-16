@@ -1,6 +1,6 @@
 ---
 name: epd-onboard-customer
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs to onboard a new customer end-to-end — vault a card, create the customer record, attach the payment method, and optionally make the first charge or start a subscription. References MCP tool names (create_customer, add_payment_method, create_customer_and_charge, create_customer_and_subscribe), not REST endpoints. Triggers when the user says "onboard a customer", "sign up a new customer with a card", or chains together customer creation + payment method + first charge or subscription. Skip when the dev is integrating from their own backend — load the integration skill epd-best-practices instead.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs a customer's identity or payment methods managed — create, look up, update or delete the customer record, or attach and remove a card. Also owns the two composites that bundle a first charge or a first subscription into the same call as signup — create_customer_and_charge and create_customer_and_subscribe — for a genuinely new customer. References MCP tool names, not REST endpoints. Triggers when the user says "onboard a customer", "sign up a new customer with a card", "update the customer record", "remove their card", or chains customer creation with a first charge or subscription. Skip when the dev is integrating from their own backend — load the integration skill epd-best-practices instead. Skip when charging or starting a subscription for a customer who already exists — load epd-catalog or epd-subscriptions.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
   version: 1.0.0
@@ -14,6 +14,13 @@ writing integration code. Tools used here are MCP tool calls, not REST
 endpoints. The agent has been authenticated as the merchant — every action
 runs against their live (or sandbox) account.
 
+Tiers come from
+[`references/tiers.md`](../epd-mcp-operator/references/tiers.md), generated from
+the `tools/list` snapshot by `npm run gen:tiers` so it cannot drift. What each
+tier requires is defined once in
+[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
+Do not hand-maintain a tier list here.
+
 ## When to use which tool
 
 EPD Commerce provides composite tools that bundle the end-to-end onboarding into a
@@ -25,7 +32,7 @@ single idempotent operation. Prefer them when the workflow matches:
 | Sign up + start a recurring subscription            | `create_customer_and_subscribe`   |
 | Sign up but no charge yet (e.g. trial gated by email) | Primitives — see below           |
 | Customer exists; just add a card                    | `add_payment_method`              |
-| Customer exists with card; just charge them         | `create_order` or `process_order` |
+| Customer exists with card; just charge them         | `create_order` or `process_order` — see `epd-catalog` |
 
 Composite tools accept one `idempotency_key` covering the whole chain. On
 partial failure (e.g. customer created, charge declined), the response tells
@@ -216,25 +223,22 @@ Confirmation rule of thumb: if `error.code === "partial_rollback_failed"`,
 you have orphaned state and should escalate to the operator. Never silently
 swallow it.
 
-## Idempotency rules — same as REST, with one twist
+## Idempotency
 
-In MCP, `idempotency_key` is a **body parameter** in the tool input, not an
-HTTP header. Generate UUID v4 per logical operation. On retry, use the same
-key — the cached response comes back, no double-execution.
+Mechanics — one key per logical operation, MCP body param vs REST header, and
+composite tools caching the whole chain under one key — are in
+`epd-mcp-operator`'s idempotency section / `SAFETY.md` rule 3. Nothing here is
+onboarding-specific beyond what "Partial failures" above already covers.
 
-Composite tools cache the **whole chain's result** under one key, so a retry
-of a half-completed composite returns the partial-failure response, not a
-fresh execution.
+## Confirmation prompts
 
-## Confirming destructive operations
-
-`create_customer_and_charge` is annotated `destructiveHint: true` because it
-moves money. Confirm with the user before invoking:
+Both composites are T3 (see `references/tiers.md`) — confirm using the
+pattern in `epd-mcp-operator`'s "Running a confirmation" section: read what
+you have (the price, the card's last four), then echo it back before
+calling. Domain-specific templates:
 
 > "This will create customer Alice Liddell and charge $29.99 to the card
 > ending in 4242. Proceed?"
-
-For `create_customer_and_subscribe`, confirm the recurring nature:
 
 > "This will create customer Alice Liddell and start a $29.99/month
 > subscription billed on the 1st. Proceed?"
@@ -251,17 +255,10 @@ can find it in the dashboard.
    browser-captured `card_token`.** These tools have no other card input on
    the MCP surface. For a headless flow, go through `secure.epd.com`
    instead — see "Getting a card on file".
-3. **Using a semantic idempotency key like `"signup-alice"`.** Collides
-   trivially. Generate a UUID v4 per call.
-4. **Re-running a failed composite without the same idempotency key.**
-   Risk of duplicate customer or duplicate charge. Use the same key for
-   true retries; new key only for genuinely new attempts.
-5. **Skipping confirmation on charge tools.** Anything that moves money
-   should be confirmed before execution.
 
 ## Where to go next for the operator
 
+- Selling something to an existing customer, one-off order → `epd-catalog`
 - Subscription lifecycle (change plan, cancel, recover past_due) → `epd-subscriptions`
 - Refunds → `epd-refunds`
-- Customer financial summary, revenue reports → individual MCP tools
-  (`get_customer_financial_summary`, `get_revenue_summary`)
+- Customer financial summary, revenue reports → `epd-reporting`

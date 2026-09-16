@@ -1,6 +1,6 @@
 ---
 name: epd-best-practices
-description: Use when integrating EPD Commerce (EasyPayDirect) into a codebase via the v1 REST API. Triggers when imports use api.epd.com, when env vars EPD_API_KEY / EPD_WEBHOOK_SECRET appear, when file content matches a key prefix (epd_live_sk_, epd_test_sk_, epd_restricted_sk_live_, epd_restricted_sk_test_), or when the user mentions EPD Commerce / EasyPayDirect and asks how to charge a card / start a subscription / refund an order. Skip when the user is operating an EPD Commerce account via an MCP-connected agent — use the workflow skills under workflows/ for that.
+description: Use when integrating EPD Commerce (EasyPayDirect) into a codebase via the v1 REST API. Triggers when imports use api.epd.com, when env vars EPD_API_KEY / EPD_WEBHOOK_SECRET appear, when file content matches a key prefix (epd_live_sk_, epd_test_sk_, epd_restricted_sk_live_, epd_restricted_sk_test_), or when the user mentions EPD Commerce / EasyPayDirect and asks how to charge a card / start a subscription / refund an order. Skip when the user is operating an EPD Commerce account via an MCP-connected agent — load epd-mcp-operator, which routes to the domain workflow skill.
 compatibility: Requires an HTTP client + JSON parser in any backend language. Server-side only — secret keys must never reach a browser.
 metadata:
   version: 1.1.0
@@ -310,5 +310,5 @@ MCP server.
   `references/security.md` for how each works and <https://docs.api.epd.com/>
   for the full picture.
 - Won't generate webhook signature verification — load `epd-webhooks`.
-- Won't operate against a live EPD Commerce account — that's the workflow skills under
-  `workflows/`, loaded by an MCP-connected agent.
+- Won't operate against a live EPD Commerce account — that's `epd-mcp-operator`
+  and the domain workflow skills it routes to, loaded by an MCP-connected agent.

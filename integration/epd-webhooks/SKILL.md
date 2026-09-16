@@ -1,6 +1,6 @@
 ---
 name: epd-webhooks
-description: Use when configuring, verifying, or debugging EPD Commerce webhook endpoints in a backend integration. Triggers when the user mentions EPD Commerce webhooks, asks how to verify a webhook signature, sees an EPD-Signature header in a request, references the env var EPD_WEBHOOK_SECRET, or imports an HMAC library to handle EPD Commerce events. Routes to language-specific verifier scripts (Node, Python, PHP) and a debugging reference for delivery logs and replay. Skip when the user is configuring webhooks via an MCP-connected agent (use workflow skills) or working with a non-EPD Commerce webhook source.
+description: Use when configuring, verifying, or debugging EPD Commerce webhook endpoints in a backend integration. Triggers when the user mentions EPD Commerce webhooks, asks how to verify a webhook signature, sees an EPD-Signature header in a request, references the env var EPD_WEBHOOK_SECRET, or imports an HMAC library to handle EPD Commerce events. Routes to language-specific verifier scripts (Node, Python, PHP) and a debugging reference for delivery logs and replay. Skip when the user is configuring webhooks via an MCP-connected agent — load epd-webhook-ops for that. Skip when working with a non-EPD Commerce webhook source.
 compatibility: Server-side, any backend with HMAC-SHA256 + access to the raw HTTP body before JSON parsing.
 metadata:
   version: 1.0.0

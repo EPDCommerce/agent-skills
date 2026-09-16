@@ -1,6 +1,6 @@
 ---
 name: epd-refunds
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs to issue a refund — full or partial, on an order or transaction, optionally combined with subscription cancellation. References MCP tool names (refund_order, refund_transaction, refund_and_cancel), not REST endpoints. Triggers when the user says "refund this order", "refund $X to the customer", "cancel the subscription and refund the last charge", or asks about partial refunds. Skip when the user wants to cancel a subscription without a refund — load epd-subscriptions for that.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs to issue a refund — full or partial, on an order or transaction, optionally combined with subscription cancellation. References MCP tool names (refund_order, refund_transaction, refund_and_cancel), not REST endpoints. Triggers when the user says "refund this order", "refund $X to the customer", "cancel the subscription and refund the last charge", or asks about partial refunds. Skip when the user wants to cancel a subscription without a refund — load epd-subscriptions for that. Skip when a charge failed and nobody has diagnosed why yet — load epd-transaction-triage first.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
   version: 1.0.0
@@ -13,6 +13,13 @@ You are operating an EPD Commerce merchant account through the MCP server. Refun
 move money in the customer's direction and are **irreversible** — every
 tool here is annotated `destructiveHint: true`. Confirm with the user before
 invoking.
+
+Tiers come from
+[`references/tiers.md`](../epd-mcp-operator/references/tiers.md), generated from
+the `tools/list` snapshot by `npm run gen:tiers` so it cannot drift. What each
+tier requires is defined once in
+[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
+Do not hand-maintain a tier list here.
 
 ## Decision tree — which tool
 
@@ -157,10 +164,12 @@ Multiple partial refunds on the same order are allowed as long as the
 total stays at or under the original amount. The server tracks this; you
 don't need to.
 
-## Confirmation prompts (always required)
+## Confirmation prompts
 
-Refunds move money out of the merchant's account. Confirm before invoking
-any tool here. Templates:
+All three tools here are T3 (see `references/tiers.md`) — confirm using the
+pattern in `epd-mcp-operator`'s "Running a confirmation" section: read the
+object first, then echo the exact amount, currency, object ID and mode.
+Refund-specific templates:
 
 > "This will refund $15.00 to Alice Liddell on order <id>. The charge was
 > originally $29.99, so $14.99 will remain on the order. Proceed?"
@@ -175,29 +184,23 @@ any tool here. Templates:
 After execution, surface the refund ID / order ID so the user can locate it
 in the dashboard.
 
-## Idempotency rules
+## Idempotency
 
-UUID v4 per logical refund operation. **Always pass it.** Retrying a
-refund without the same key risks a duplicate refund. The composite
-(`refund_and_cancel`) caches the whole chain's result under one key — a
-retry of a half-completed composite returns the partial-failure response,
-not a fresh execution.
+Mechanics are in `epd-mcp-operator`'s idempotency section / `SAFETY.md` rule 3.
+One thing specific to this skill: `refund_and_cancel` caches the **whole
+chain's** result under one key — retrying a half-completed composite returns
+the partial-failure response, not a fresh execution.
 
 ## Common operator mistakes
 
-1. **Skipping confirmation on refund tools.** All three are
-   `destructiveHint: true`. Always confirm.
-2. **Passing dollar amounts instead of cents.** `amount: 29.99` is wrong;
+1. **Passing dollar amounts instead of cents.** `amount: 29.99` is wrong;
    `amount: 2999` is right. The server will reject decimals, but if you
    typed `2999` thinking it was $2,999 you just refunded a hundred times
    too much.
-3. **Using `refund_and_cancel` for a non-subscription refund.** It will
+2. **Using `refund_and_cancel` for a non-subscription refund.** It will
    either reject (no subscription) or do something the user didn't ask
    for. Use `refund_order` instead.
-4. **Recycling an idempotency key across different refund attempts.** A
-   different body with the same key returns `idempotency_key_mismatch`.
-   New intent → new key. Same intent retry → same key.
-5. **Issuing a partial refund larger than what's left.** The server
+3. **Issuing a partial refund larger than what's left.** The server
    rejects this — partial refunds across the same order can't exceed the
    original amount. Check `get_order` if uncertain.
 
@@ -205,6 +208,6 @@ not a fresh execution.
 
 - Subscription lifecycle (cancel without refund, retry past_due) →
   `epd-subscriptions`
-- Customer financial history → `get_customer_financial_summary`
-- Order/transaction lookup → `list_orders`, `list_transactions`,
-  `get_order`, `get_transaction`
+- Order/transaction lookup, or diagnosing a failure before refunding →
+  `epd-transaction-triage`
+- Revenue or customer financial totals → `epd-reporting`

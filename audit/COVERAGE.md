@@ -141,7 +141,7 @@ One remains open for `epd-mcp-operator`:
 | `update_subscription` | Subscriptions | idempotent | T2 write | optional | documented (epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
 | `cancel_subscription` | Subscriptions | destructive, idempotent | T3 destructive | optional | documented (epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
 | `list_transactions` | Transactions | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-refunds, epd-reporting, epd-subscriptions, epd-transaction-triage) | `epd-transaction-triage` | EXAMPLE |  |
-| `get_transaction` | Transactions | readOnly, idempotent | T0 read | — | table-only (epd-mcp-operator, epd-refunds, epd-reporting, epd-transaction-triage) | `epd-transaction-triage` | EXAMPLE |  |
+| `get_transaction` | Transactions | readOnly, idempotent | T0 read | — | table-only (epd-mcp-operator, epd-reporting, epd-transaction-triage) | `epd-transaction-triage` | EXAMPLE |  |
 | `create_webhook_endpoint` | Webhook Endpoints | idempotent | T2 write | optional | documented (epd-mcp-operator, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE |  |
 | `list_webhook_endpoints` | Webhook Endpoints | readOnly, idempotent | T0 read | — | prose-only (epd-webhook-ops) | `epd-webhook-ops` | REFERENCE |  |
 | `get_webhook_endpoint` | Webhook Endpoints | readOnly, idempotent | T0 read | — | table-only (epd-webhook-ops) | `epd-webhook-ops` | REFERENCE |  |
@@ -169,7 +169,7 @@ One remains open for `epd-mcp-operator`:
 | `create_customer_and_subscribe` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-mcp-operator, epd-onboard-customer, epd-subscriptions) | `epd-onboard-customer` | EXAMPLE | BROWSER ONLY — composite requires card_token. Server-side agents must use create_customer + secure.epd.com + create_subscription. |
 | `process_order` | Composite | destructive, idempotent | T3 destructive | required | heading-only (epd-best-practices, epd-catalog, epd-mcp-operator, epd-onboard-customer) | `epd-catalog` | EXAMPLE |  |
 | `cancel_subscription_and_report` | Composite | destructive, idempotent | T3 destructive | optional | documented (epd-best-practices, epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
-| `get_customer_financial_summary` | Composite | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-onboard-customer, epd-refunds, epd-reporting, epd-subscriptions) | `epd-reporting` | EXAMPLE |  |
+| `get_customer_financial_summary` | Composite | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-onboard-customer, epd-reporting, epd-subscriptions) | `epd-reporting` | EXAMPLE |  |
 | `get_revenue_summary` | Composite | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-onboard-customer, epd-reporting) | `epd-reporting` | EXAMPLE |  |
 | `list_past_due_subscriptions` | Composite | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
 | `refund_transaction` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-mcp-operator, epd-refunds) | `epd-refunds` | EXAMPLE |  |

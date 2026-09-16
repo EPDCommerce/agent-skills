@@ -300,11 +300,11 @@
       "group": "Orders",
       "tier": "T0 read",
       "depth": "prose-only",
-      "total": 3,
+      "total": 2,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 3,
+      "prose": 2,
       "skills": [
         "workflows/epd-refunds",
         "workflows/epd-transaction-triage"
@@ -315,11 +315,11 @@
       "group": "Orders",
       "tier": "T0 read",
       "depth": "prose-only",
-      "total": 4,
+      "total": 3,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 4,
+      "prose": 3,
       "skills": [
         "workflows/epd-refunds",
         "workflows/epd-transaction-triage"
@@ -437,11 +437,11 @@
       "group": "Transactions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 13,
+      "total": 12,
       "code": 1,
       "head": 1,
       "table": 4,
-      "prose": 7,
+      "prose": 6,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-refunds",
@@ -455,14 +455,13 @@
       "group": "Transactions",
       "tier": "T0 read",
       "depth": "table-only",
-      "total": 5,
+      "total": 4,
       "code": 0,
       "head": 0,
       "table": 2,
-      "prose": 3,
+      "prose": 2,
       "skills": [
         "workflows/epd-mcp-operator",
-        "workflows/epd-refunds",
         "workflows/epd-reporting",
         "workflows/epd-transaction-triage"
       ]
@@ -872,15 +871,14 @@
       "group": "Composite",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 8,
+      "total": 7,
       "code": 1,
       "head": 2,
       "table": 2,
-      "prose": 3,
+      "prose": 2,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-onboard-customer",
-        "workflows/epd-refunds",
         "workflows/epd-reporting",
         "workflows/epd-subscriptions"
       ]
@@ -1109,7 +1107,7 @@
     {
       "skill": "workflows/epd-refunds",
       "file": "workflows/epd-refunds/SKILL.md",
-      "line": 35,
+      "line": 42,
       "tool": "refund_order",
       "keys": [
         "order_id",
@@ -1120,7 +1118,7 @@
     {
       "skill": "workflows/epd-refunds",
       "file": "workflows/epd-refunds/SKILL.md",
-      "line": 52,
+      "line": 59,
       "tool": "refund_transaction",
       "keys": [
         "transaction_id",
@@ -1131,7 +1129,7 @@
     {
       "skill": "workflows/epd-refunds",
       "file": "workflows/epd-refunds/SKILL.md",
-      "line": 81,
+      "line": 88,
       "tool": "refund_and_cancel",
       "keys": [
         "subscription_id",

@@ -3,7 +3,7 @@ name: epd-webhooks
 description: Use when configuring, verifying, or debugging EPD Commerce webhook endpoints in a backend integration. Triggers when the user mentions EPD Commerce webhooks, asks how to verify a webhook signature, sees an EPD-Signature header in a request, references the env var EPD_WEBHOOK_SECRET, or imports an HMAC library to handle EPD Commerce events. Routes to language-specific verifier scripts (Node, Python, PHP) and a debugging reference for delivery logs and replay. Skip when the user is configuring webhooks via an MCP-connected agent — load epd-webhook-ops for that. Skip when working with a non-EPD Commerce webhook source.
 compatibility: Server-side, any backend with HMAC-SHA256 + access to the raw HTTP body before JSON parsing.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   api_version: "2026-02-11"
 ---
 
@@ -45,14 +45,31 @@ Three reference implementations live in `scripts/`:
 - [`scripts/verify_python.py`](./scripts/verify_python.py) — Python, stdlib only.
 - [`scripts/verify_php.php`](./scripts/verify_php.php) — PHP, zero deps.
 
-Each script exports a single `verify_webhook` function that accepts:
+Each script exports one function — `verifyWebhook` in Node, `verify_webhook`
+in Python and PHP (PHP namespace `Epd\Webhooks`) — that accepts:
 
 - `payload` — raw request body as a string or bytes object
 - `signature_header` — value of the `EPD-Signature` header
 - `secret` — the endpoint's `whsec_...` secret
 - `tolerance_seconds` — optional, default 300
 
-Returns `True` / `false` (or throws on tampering, depending on language idiom).
+It never throws. It returns a **result object**, not a boolean:
+
+| Language | Accepted | Rejected |
+|---|---|---|
+| Node | `{ valid: true }` | `{ valid: false, reason }` |
+| Python | `VerifyResult(valid=True)` | `VerifyResult(valid=False, reason=...)` |
+| PHP | `['valid' => true]` | `['valid' => false, 'reason' => ...]` |
+
+**Test `valid`, never the result itself.** An object, a dataclass instance and
+a non-empty array are all truthy, so `if (!verifyWebhook(...))` is never true
+and a forged request sails through. `reason` is one of
+`missing_signature_header`, `missing_secret`, `malformed_signature_header`,
+`timestamp_outside_tolerance`, `malformed_signature_hex` or
+`signature_mismatch`. Log it; don't return it to the caller.
+
+Run any script directly to execute its self-test; it exits non-zero if a case
+fails.
 
 Use the script that matches the dev's stack. If their stack is something
 else (Go, Rust, Ruby, Java), generate equivalent code from the spec at the
@@ -69,14 +86,25 @@ Content-Type: application/json
 
 {
   "url": "https://api.your-app.com/webhooks/epd",
-  "events": ["order.succeeded", "subscription.canceled", "transaction.refunded"],
+  "enabled_events": ["order.succeeded", "order.refunded", "subscription.canceled"],
   "description": "Production webhook for accounting reconciliation"
 }
 ```
 
-Response includes `secret: "whsec_<64 hex>"` — **save this immediately**, it
-is shown only once on creation. If the dev loses it, they must rotate the
-secret to get a new one.
+The field is `enabled_events`, not `events` — the API rejects `events` with
+"Property events should not exist". Patterns work too: `order.*`, or `*` for
+everything. The URL must be HTTPS. Event types are the ones in the API
+reference's "Supported Event Types" table (`order.*`, `subscription.*`,
+`customer.*`, `coupon.*`); there are no `transaction.*` events — a payment
+arrives as `order.succeeded` or `order.failed`.
+
+The response includes `signing_secret: "whsec_..."` — **save it
+immediately.** It is returned only on creation, never by a later read, list or
+update. If it is lost, rotate: `POST /v1/webhook_endpoints/{id}/rotate_secret`
+returns `new_signing_secret`, and both secrets stay valid for a grace period —
+24 hours by default, `grace_period_hours` 1–72 on the REST call. During that
+window, give the receiver both secrets and accept a request if either one
+verifies; drop the old one once `previous_secret_valid_until` has passed.
 
 ## Critical: read the raw body BEFORE parsing JSON
 
@@ -90,6 +118,7 @@ Pattern by framework:
 
 ```js
 import express from 'express';
+import { verifyWebhook } from './verify_node.js'; // scripts/verify_node.js
 
 const app = express();
 
@@ -98,12 +127,15 @@ app.post(
   '/webhooks/epd',
   express.raw({ type: 'application/json' }),
   (req, res) => {
-    const valid = verifyWebhook(
-      req.body.toString('utf8'),
+    const { valid, reason } = verifyWebhook(
+      req.body,
       req.get('EPD-Signature'),
       process.env.EPD_WEBHOOK_SECRET,
     );
-    if (!valid) return res.sendStatus(401);
+    if (!valid) {
+      console.warn('rejected webhook:', reason);
+      return res.sendStatus(401);
+    }
     const event = JSON.parse(req.body.toString('utf8'));
     // ... handle event
     res.sendStatus(200);
@@ -111,10 +143,20 @@ app.post(
 );
 ```
 
+`verify_node.js` is CommonJS; the named import works from an ES module because
+Node exposes `module.exports` properties as named exports. From CommonJS, use
+`const { verifyWebhook } = require('./verify_node.js')`.
+
 ### FastAPI (Python)
 
 ```python
+import json
+import logging
+import os
+
 from fastapi import FastAPI, Request, HTTPException
+
+from verify_python import verify_webhook  # scripts/verify_python.py
 
 app = FastAPI()
 
@@ -122,7 +164,9 @@ app = FastAPI()
 async def epd_webhook(request: Request):
     raw = await request.body()  # bytes — DO NOT use request.json()
     signature = request.headers.get("epd-signature", "")
-    if not verify_webhook(raw, signature, os.environ["EPD_WEBHOOK_SECRET"]):
+    result = verify_webhook(raw, signature, os.environ["EPD_WEBHOOK_SECRET"])
+    if not result.valid:
+        logging.warning("rejected webhook: %s", result.reason)
         raise HTTPException(401)
     event = json.loads(raw)
     # ... handle event
@@ -132,12 +176,22 @@ async def epd_webhook(request: Request):
 ### Laravel (PHP)
 
 ```php
-// In routes/web.php — add the middleware that preserves raw body:
+// routes/api.php (served under /api) — the api group has no CSRF middleware.
+// In routes/web.php, VerifyCsrfToken rejects EPD's POST before this runs
+// unless the path is excluded from it.
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use function Epd\Webhooks\verify_webhook;
+
+require_once base_path('scripts/verify_php.php'); // or autoload it via composer "files"
+
 Route::post('/webhooks/epd', function (Request $request) {
     $raw = $request->getContent();   // raw body, not $request->all()
     $signature = $request->header('EPD-Signature', '');
 
-    if (!verify_webhook($raw, $signature, env('EPD_WEBHOOK_SECRET'))) {
+    $result = verify_webhook($raw, $signature, (string) env('EPD_WEBHOOK_SECRET'));
+    if (!$result['valid']) {
+        Log::warning('rejected webhook', ['reason' => $result['reason']]);
         abort(401);
     }
     $event = json_decode($raw, true);
@@ -152,14 +206,16 @@ match" before realizing their framework re-serialized the body.
 
 ## Idempotency on receive — handle duplicates
 
-EPD Commerce retries webhook delivery on non-2xx responses. Your handler **will**
-receive the same event more than once eventually:
+EPD Commerce retries webhook delivery on non-2xx responses — seven attempts,
+backing off from immediate to 24 hours, before the event is dead-lettered.
+Your handler **will** receive the same event more than once eventually:
 
 - Network blips during initial delivery
 - Your endpoint returning 5xx briefly
-- Manual replay from the dashboard or `replay_webhook_event` MCP tool
+- Manual replay from the dashboard, the REST replay route, or the
+  `replay_webhook_event` MCP tool
 
-Every event has an `id` (e.g. `evt_<uuid>`). Make your handler idempotent on
+Every event has an `id` (e.g. `evt_...`). Make your handler idempotent on
 this ID:
 
 ```ts
@@ -211,6 +267,11 @@ your queue without asking EPD Commerce to redeliver.
    safe; 200-then-process is not.
 6. **Logging the full event body**. May contain PII. Log `event.id` and
    `event.type`, not the body.
+7. **Testing the verifier's return value for truthiness.** The scripts return
+   a result object, which is always truthy — `if (!verifyWebhook(...))` never
+   rejects anything. Read `valid` (see "Verifier scripts" above). If you write
+   your own verifier that returns a boolean, keep the call sites consistent
+   with whichever shape you chose.
 
 ## When to load the debugging reference
 
@@ -220,3 +281,7 @@ Switch to [`references/debugging.md`](./references/debugging.md) when:
 - You need to inspect the EPD Commerce dashboard's delivery log for failed events
 - You're upgrading a webhook endpoint to a newer event schema version
 - You need to manually replay an event for testing
+
+For registering, rotating, replaying or migrating endpoints on a live account
+through an MCP-connected agent rather than from your own code, load
+`epd-webhook-ops`.

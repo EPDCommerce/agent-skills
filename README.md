@@ -37,8 +37,8 @@ skills invoke MCP tools against real accounts.
 
 | Skill                  | Purpose                                                                |
 |------------------------|------------------------------------------------------------------------|
-| `epd-onboard-customer` | Vault card → create customer → add payment method → charge or sub.    |
-| `epd-subscriptions`    | Lifecycle: start, change, cancel, recover past_due via dunning.        |
+| `epd-onboard-customer` | Customer lifecycle: create, look up, update, delete; add/remove cards. |
+| `epd-subscriptions`    | Lifecycle: start, change, cancel, recover a failed renewal (dunning).  |
 | `epd-refunds`          | Decision tree across `refund_order`, `refund_transaction`, etc.        |
 
 ## Install

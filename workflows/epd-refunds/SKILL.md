@@ -3,7 +3,7 @@ name: epd-refunds
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to issue a refund — full or partial, on an order or transaction, optionally combined with subscription cancellation. References MCP tool names (refund_order, refund_transaction, refund_and_cancel), not REST endpoints. Triggers when the user says "refund this order", "refund $X to the customer", "cancel the subscription and refund the last charge", or asks about partial refunds. Skip when the user wants to cancel a subscription without a refund — load epd-subscriptions for that. Skip when a charge failed and nobody has diagnosed why yet — load epd-transaction-triage first.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   api_version: "2026-02-11"
 ---
 
@@ -93,9 +93,14 @@ input:
 
 Two-phase composite:
 
-1. **Cancel** the subscription. Allowed from `active` or `past_due`;
-   rejected against `canceled` / `completed`.
-2. **Full refund** on the customer's most recent **succeeded** order.
+1. **Cancel** the subscription. The tool's own description names an
+   **active** subscription. An already-canceled one is refused with
+   `invalid_state` and nothing is refunded (checked in sandbox,
+   18 September 2026). A subscription in dunning is still `active` — there is
+   no separate past-due status to check for.
+2. **Full refund** on the customer's most recent **succeeded** order. Read
+   that order first (`list_orders` below) so the confirmation can name the
+   amount — the tool does not take one.
 
 Cancellation runs first so billing stops even if the refund half hits an
 issue.
@@ -151,9 +156,26 @@ error. If the operator hits this, escalate to the dashboard or EPD Commerce supp
 If the user says "refund the customer's last payment" (no subscription
 context), don't reach for `refund_and_cancel`. Instead:
 
-1. `list_orders` filtered by `customer_id`, sorted desc by `created_at`.
-2. Find the most recent `succeeded` order.
+```
+tool: list_orders
+input:
+  customer_id: <customer uuid>
+  status: succeeded,partially_refunded
+  sort: created_at[desc]
+  limit: 1
+```
+
+1. Take the one order returned. `partially_refunded` is included because
+   what is left on it is still refundable.
+2. Read its `total` and any earlier refunds (`get_order` with
+   `expand: transactions` — refunds show as `type: "refund"` with negative
+   amounts) so the confirmation states what is actually left.
 3. Call `refund_order` on it.
+
+Check the `status` of what comes back. An unrecognised status value in a
+list filter is dropped silently rather than rejected (see
+`epd-subscriptions`), so never refund an order just because a filtered list
+returned it.
 
 `refund_and_cancel` is specifically the subscription-closeout composite —
 using it for non-subscription refunds is the wrong tool.
@@ -206,7 +228,7 @@ the partial-failure response, not a fresh execution.
 
 ## Where to go next
 
-- Subscription lifecycle (cancel without refund, retry past_due) →
+- Subscription lifecycle (cancel without refund, recover a failed renewal) →
   `epd-subscriptions`
 - Order/transaction lookup, or diagnosing a failure before refunding →
   `epd-transaction-triage`

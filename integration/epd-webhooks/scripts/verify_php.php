@@ -59,10 +59,17 @@ function verify_webhook(
     $hmacKey = str_starts_with($secret, SIGNING_SECRET_PREFIX)
         ? substr($secret, strlen(SIGNING_SECRET_PREFIX))
         : $secret;
+    // Same shape check as the Node and Python verifiers, so all three return
+    // the same reason for the same input.
+    if (!ctype_xdigit($signatureHex) || strlen($signatureHex) % 2 !== 0) {
+        return ['valid' => false, 'reason' => 'malformed_signature_hex'];
+    }
     $expected = hash_hmac('sha256', $signedPayload, $hmacKey);
 
-    // hash_equals is constant-time and length-safe.
-    if (!hash_equals($expected, $signatureHex)) {
+    // hash_equals is constant-time and length-safe. hash_hmac returns lowercase
+    // hex, so normalise the header's case the way bytes.fromhex and
+    // Buffer.from(…, 'hex') do.
+    if (!hash_equals($expected, strtolower($signatureHex))) {
         return ['valid' => false, 'reason' => 'signature_mismatch'];
     }
     return ['valid' => true];
@@ -106,8 +113,22 @@ if (PHP_SAPI === 'cli' && realpath($_SERVER['argv'][0] ?? '') === __FILE__) {
     $sig = hash_hmac('sha256', $ts . '.' . $body, $hmacKey);
     $header = "t={$ts},v1={$sig}";
 
-    echo "valid signature: ", var_export(verify_webhook($body, $header, $secret), true), PHP_EOL;
-    echo "tampered body:   ", var_export(verify_webhook($body . 'x', $header, $secret), true), PHP_EOL;
-    echo "expired:         ", var_export(verify_webhook($body, "t=" . ($ts - 1000) . ",v1={$sig}", $secret), true), PHP_EOL;
-    echo "malformed:       ", var_export(verify_webhook($body, 'not a signature', $secret), true), PHP_EOL;
+    // The result is a non-empty array, so it is always truthy. Callers must
+    // test ['valid'], never the result itself. Every case below asserts on it.
+    $cases = [
+        ['valid signature', verify_webhook($body, $header, $secret), true, null],
+        ['uppercase hex', verify_webhook($body, "t={$ts},v1=" . strtoupper($sig), $secret), true, null],
+        ['tampered body', verify_webhook($body . 'x', $header, $secret), false, 'signature_mismatch'],
+        ['wrong secret', verify_webhook($body, $header, 'whsec_other'), false, 'signature_mismatch'],
+        ['expired', verify_webhook($body, "t=" . ($ts - 1000) . ",v1={$sig}", $secret), false, 'timestamp_outside_tolerance'],
+        ['malformed header', verify_webhook($body, 'not a signature', $secret), false, 'malformed_signature_header'],
+        ['non-hex signature', verify_webhook($body, "t={$ts},v1=zz" . substr($sig, 2), $secret), false, 'malformed_signature_hex'],
+    ];
+    $failed = 0;
+    foreach ($cases as [$label, $result, $valid, $reason]) {
+        $ok = $result['valid'] === $valid && ($result['reason'] ?? null) === $reason;
+        $failed += $ok ? 0 : 1;
+        echo ($ok ? 'ok   ' : 'FAIL '), str_pad($label, 18), ' ', json_encode($result), PHP_EOL;
+    }
+    exit($failed ? 1 : 0);
 }

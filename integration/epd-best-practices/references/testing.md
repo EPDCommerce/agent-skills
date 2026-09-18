@@ -25,21 +25,40 @@ payment method produce the deterministic result below.
 | `card_mastercard`          | `status: "succeeded"` (Mastercard).                                                   |
 | `card_amex`                | `status: "succeeded"` (American Express).                                             |
 | `card_discover`            | `status: "succeeded"` (Discover).                                                     |
-| `card_visa_declined`       | `status: "failed"`, `failure_reason: "transaction_not_allowed"` (Visa decline).       |
-| `card_mastercard_declined` | `status: "failed"`, `failure_reason: "transaction_not_allowed"` (Mastercard decline). |
-| `card_insufficient_funds`  | `status: "failed"`, `failure_reason: "insufficient_funds"`.                           |
-| `card_expired`             | `status: "failed"`, `failure_reason: "expired_card"`.                                 |
-| `card_processing_error`    | `status: "failed"`, `failure_reason: "processor_declined"` (network/processing).      |
-| `card_cvv_mismatch`        | `status: "failed"`, `failure_reason: "incorrect_cvv"`.                                |
+| `card_visa_declined`       | `status: "failed"`, `failure_code: "processor_declined"`.                             |
+| `card_mastercard_declined` | `status: "failed"`, `failure_code: "processor_declined"`.                             |
+| `card_insufficient_funds`  | `status: "failed"`, `failure_code: "processor_declined"`.                             |
+| `card_expired`             | `status: "failed"`, `failure_code: "processor_declined"`.                             |
+| `card_processing_error`    | `status: "failed"`, `failure_code: "processor_declined"`.                             |
+| `card_cvv_mismatch`        | `status: "failed"`, `failure_code: "processor_declined"`.                             |
 | `card_chargeback`          | Charge **succeeds** initially. A chargeback can be simulated separately via the dashboard — **no automatic chargeback webhook fires**. |
 
 > Tokens are matched on the literal string. You can also pass a raw numeric
 > `billing_id` (16-digit string) in sandbox, but tokens are stable and
 > self-documenting — prefer them.
 
-The full failure_reason enum is in `errors.md` ("Failure reasons on declined
-orders"). Branch on `order.status === "failed"` first, then on
-`order.failure_reason`.
+### The decline tokens do not produce distinct codes
+
+Every decline token above returns the **same** result: HTTP 201, `status:
+"failed"`, `failure_code: "processor_declined"`, `failure_reason:
+"processor decline"`. Checked against sandbox for all six on 18 September
+2026; the names describe the decline each was meant to simulate, not what
+it returns today.
+
+So a sandbox test proves *that* your decline branch runs, not *which* decline
+it handled. Two consequences:
+
+- **Don't assert on a specific decline code in a sandbox test.** It passes
+  for the wrong reason today and breaks if EPD start differentiating them.
+- **To exercise classification logic, fixture the codes directly.** The codes
+  that do occur in real transaction history — `insufficient_funds`,
+  `do_not_honor`, `expired_card`, `issuer_unavailable`, `incorrect_cvv`,
+  `transaction_not_allowed`, `card_limit_exceeded`, `lost_stolen_card` — are
+  listed with their classes in `errors.md` ("Decline codes on failed orders").
+
+Branch on `order.status === "failed"` first, then on `order.failure_code`.
+`failure_reason` is a human-readable sentence and not stable enough to
+switch on.
 
 ## Testing the headless path (`secure.epd.com`)
 
@@ -50,6 +69,11 @@ generic always-succeeds Visa test PAN) with any future expiry and any CVC.
 Use your sandbox secret key (`epd_test_sk_...`) on the request. The response
 is the same payment method object shape as the browser flow; its `id` feeds
 into `create_order` / `create_subscription` the same way.
+
+This path has **no declining card number.** `4000 0000 0000 0002`, the
+conventional decline PAN, was vaulted and charged successfully when checked
+on 18 September 2026. To test a decline, attach one of the `card_…_declined`
+tokens above to a separate customer instead.
 
 For a browser-based (`card_token`) integration, sandbox testing runs through
 the same EPD Elements flow as production, initialized with a **test**
@@ -111,6 +135,11 @@ Each test creates its own customer + payment method. Sharing fixtures means
 one test failing leaves the next in an unknown state. Sandbox is fast — the
 overhead of creating fresh state per test is negligible.
 
+This matters most for decline tests. On 18 September 2026 a customer that had
+just had three declines in a row then declined on `card_visa` as well, which
+succeeds on a fresh customer. Keep each decline on its own customer, or your
+"succeeds" test can fail for a reason that has nothing to do with it.
+
 ### 3. Clean up explicitly
 
 Sandbox accounts accumulate data. At the end of each test (or at the end of
@@ -132,9 +161,11 @@ afterEach(async () => {
 
 - **Blocked** with `customer_has_active_subscriptions` (400) if the customer
   has any subscription in `active` or `paused` state. Cancel them first.
-- **Soft-delete** (archived; `deleted_at` set) if the customer has any orders
-  — historical data is preserved.
-- **Hard-delete** (row removed) if the customer has no orders.
+- **Soft-delete** if the customer has any orders — historical data is
+  preserved. `GET /v1/customers/{id}` then returns 404, and the customer only
+  shows up in `GET /v1/customers?deleted=true`.
+- **Hard-delete** (row removed) if the customer has no orders — not even
+  `deleted=true` finds it afterwards.
 
 Re-calling `DELETE` on an already-soft-deleted customer returns the same
 success payload — safe to retry.

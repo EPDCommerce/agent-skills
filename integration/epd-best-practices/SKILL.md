@@ -1,9 +1,9 @@
 ---
 name: epd-best-practices
-description: Use when integrating EPD Commerce (EasyPayDirect) into a codebase via the v1 REST API. Triggers when imports use api.epd.com, when env vars EPD_API_KEY / EPD_WEBHOOK_SECRET appear, when file content matches a key prefix (epd_live_sk_, epd_test_sk_, epd_restricted_sk_live_, epd_restricted_sk_test_), or when the user mentions EPD Commerce / EasyPayDirect and asks how to charge a card / start a subscription / refund an order. Skip when the user is operating an EPD Commerce account via an MCP-connected agent — load epd-mcp-operator, which routes to the domain workflow skill.
+description: Use when integrating EPD Commerce (EasyPayDirect) into a codebase via the v1 REST API. Triggers when imports use api.epd.com, when env vars EPD_API_KEY / EPD_WEBHOOK_SECRET appear, when file content matches a key prefix (epd_live_sk_, epd_test_sk_, epd_restricted_sk_live_, epd_restricted_sk_test_), or when the user mentions EPD Commerce / EasyPayDirect and asks how to charge a card / start a subscription / refund an order. Skip when the user is operating an EPD Commerce account via an MCP-connected agent — load epd-mcp-operator, which routes to the domain workflow skill. Skip when this is a first integration with nothing built yet — load epd-quickstart. Skip when the task is writing or debugging a webhook receiver — load epd-webhooks.
 compatibility: Requires an HTTP client + JSON parser in any backend language. Server-side only — secret keys must never reach a browser.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -95,14 +95,21 @@ X-EPD-Idempotency-Key: 8f9a4d2e-7b1c-4f3a-9e2d-5c8a1b7d9e3f
 Rules — get these wrong and you double-charge customers:
 
 1. One fresh UUID v4 per **logical operation** (one charge, one refund, one signup).
-2. Format: 16–64 alphanumeric characters, hyphens and underscores allowed. UUID
-   v4 is the recommended default.
-3. On network failure or 5xx, retry with the **same** key. The cached response
-   is returned for **24 hours**.
-4. Reusing a key with a **different request body** returns **HTTP 422** with
-   error code `idempotency_key_mismatch` — generate a new key for a new intent.
-5. A request still in-flight returns **HTTP 409** with code `idempotency_key_in_use`.
-   Wait (250 ms – 2 s), then retry with the same key.
+2. Format: 16–64 alphanumeric characters, hyphens and underscores allowed —
+   anything else is `400 invalid_idempotency_key`. UUID v4 is the recommended
+   default.
+3. On network failure or 5xx, retry with the **same** key. That is what stops a
+   retry from charging twice — never mint a new key for a retry.
+4. Reusing a key with a **different request body** returns **HTTP 409** with
+   error code `idempotency_key_conflict`. Something changed between attempts —
+   find out what before sending anything else.
+5. Reusing a key with the **same** body returns **HTTP 409** with code
+   `request_in_progress`. The API reference says a repeat within 24 hours
+   returns the original response; in sandbox it did not — a same-key,
+   same-body repeat got `request_in_progress` 1.5 seconds later on
+   18 September 2026, and still at +90 seconds in August. Treat it as "the
+   first attempt may have gone through": look the resource up before doing
+   anything else, and do not spin on it.
 6. Never use semantic strings (`"order-123"`, `"signup-feb"`). They collide.
 
 > **MCP vs REST:** in the EPD MCP server, `idempotency_key` is a body parameter
@@ -151,9 +158,10 @@ Retry strategy:
 
 - 5xx and network errors → retry with the **same** `X-EPD-Idempotency-Key`,
   exponential backoff, max 3 attempts.
-- 4xx (except 409 `idempotency_key_in_use`) → never retry. The request is
-  wrong, retrying won't fix it.
 - 429 (rate limited) → respect `Retry-After` header, then retry with the same key.
+- 409 `request_in_progress` → don't retry; read the resource back (see
+  idempotency rule 5).
+- Every other 4xx → never retry. The request is wrong, retrying won't fix it.
 
 ### IDs
 
@@ -224,8 +232,16 @@ Numeric and date filters use bracket notation, **not** snake_case suffixes:
 Operators: `[gt]`, `[gte]`, `[lt]`, `[lte]`.
 
 **Unknown query parameters return 400.** EPD Commerce list endpoints use a strict
-schema — you can't sneak a `page=2` or `amount_gte=...` past the validator. If
-your filter does nothing, you'll see a `validation_error`, not silent success.
+schema — you can't sneak a `page=2` or `amount_gte=...` past the validator; it
+comes back as `validation_error` with a `field_errors[].code` of
+`unknown_parameter`.
+
+**Unknown filter *values* do not.** A `status` the endpoint doesn't recognise
+is dropped silently: `GET /v1/subscriptions?status=past_due` returned all 130
+sandbox subscriptions on 18 September 2026 — active, canceled, paused and
+completed alike — and `status=active,past_due` returned just the active ones.
+Check the rows you get back against the filter you sent before acting on
+them.
 
 ### Money & locale
 
@@ -238,8 +254,21 @@ your filter does nothing, you'll see a `validation_error`, not silent success.
 ### Rate limiting
 
 Public API: per-merchant throttling enforced. On 429, respect the `Retry-After`
-response header (seconds) before retrying. The MCP endpoint is additionally
-throttled at 60 requests / minute at the HTTP layer.
+response header (seconds) before retrying.
+
+Three independent buckets apply, on REST and MCP alike, and every request
+decrements all three:
+
+| Headers | Limit | Window |
+|---|---|---|
+| `x-ratelimit-limit` / `-remaining` | 100 | rolling 60 s |
+| `x-ratelimit-limit-data` / `-remaining-data` | 60 | rolling 60 s |
+| `x-ratelimit-limit-global` / `-remaining-global` | 1000 | fixed 1 hour |
+
+Pace on the **smallest** `remaining` value — the unsuffixed header is the
+loosest and overstates your headroom. The hourly bucket is the one that ends
+long jobs: 1000 an hour is about 17 requests a minute sustained, so a batch
+running at the 60-a-minute data limit uses the hour up in about 17 minutes.
 
 ## Schema lookup — endpoints not deep-covered here
 
@@ -289,12 +318,16 @@ structured partial-failure responses:
 | `retry_failed_charge`            | Reconstructs a failed transaction's order and retries            |
 
 > **These exist as MCP tools only — there are no REST equivalents.** REST
-> integrations chain primitives themselves: `create_customer` →
-> `add_payment_method` → `create_order`. The composites are exposed for
-> agents that need server-side orchestration with one idempotency key
-> covering the whole chain. `process_order` differs from `create_order` only
-> by adding pre-flight customer validation; in REST you'd do a `GET
-> /v1/customers/{id}` yourself before posting the order.
+> integrations chain primitives themselves: `POST /v1/customers` → a card on
+> file (an EPD Elements `card_token` attached with
+> `POST /v1/customers/{id}/payment_methods`, or `secure.epd.com` for a
+> headless flow) → `POST /v1/orders`. The composites are exposed for agents
+> that need server-side orchestration with one idempotency key covering the
+> whole chain. `process_order` differs from `create_order` only by adding
+> pre-flight customer validation; in REST you'd do a `GET
+> /v1/customers/{id}` yourself before posting the order. The one retry REST
+> does have is `POST /v1/orders/{id}/retry` — see
+> `references/subscriptions.md`.
 
 If your dev is using REST, point them at `references/payments.md` for the
 chained-primitive pattern. If they want the composite behavior, they need the

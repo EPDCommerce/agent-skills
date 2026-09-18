@@ -58,7 +58,7 @@
     {
       "name": "epd-onboard-customer",
       "kind": "workflow",
-      "description": "Operator-agent workflow over the EPD Commerce MCP server: vault a card, create the customer, attach the payment method, optionally make the first charge or start a subscription. References MCP tool names, not REST endpoints.",
+      "description": "Customer lifecycle over the EPD Commerce MCP server: create, look up, update and delete customers, attach and remove cards, and the two browser-only composites that bundle signup with a first charge or subscription. References MCP tool names, not REST endpoints.",
       "files": [
         "workflows/epd-onboard-customer/SKILL.md"
       ]
@@ -66,7 +66,7 @@
     {
       "name": "epd-subscriptions",
       "kind": "workflow",
-      "description": "Operator-agent workflow over the EPD Commerce MCP server: start subscriptions on existing customers, change payment method or billing cycle, cancel, recover past_due via the dunning loop.",
+      "description": "Operator-agent workflow over the EPD Commerce MCP server: start subscriptions on existing customers, change payment method or billing cycle, cancel, and recover a failed renewal through the dunning loop without charging twice.",
       "files": [
         "workflows/epd-subscriptions/SKILL.md"
       ]

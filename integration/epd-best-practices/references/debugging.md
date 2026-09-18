@@ -31,11 +31,11 @@ Branch on what's present:
 | `validation_error`     | **absent**     | **absent** | **Server-side ORM rejection.** Body already passed validation.            | **Stop permuting the body.** Capture `request_id`; escalate. See "Pre-flight" below.       |
 | `invalid_<resource>_id`| —              | set     | ID format wrong (e.g. you sent `pm_<uuid>` to `payment_method_id`)            | Strip / add the prefix per the resource. Payment methods take bare UUIDs only.             |
 | `resource_not_found`   | —              | optional| Resource doesn't exist for this merchant, or is soft-deleted, or wrong tenant | Check it via `GET /v1/<resource>/{id}`. Don't assume "I created it yesterday → it exists." |
-| `missing_api_key` / `invalid_api_key` | — | — | Auth header missing or wrong prefix/value | Re-check the `Authorization` header. See "Environment-mismatch heuristic" below.  |
+| `missing_api_key` / `invalid_api_key` / `invalid_api_key_format` | — | — | Auth header missing, or wrong prefix/value | Re-check the `Authorization` header. See "Environment-mismatch heuristic" below.  |
 | `insufficient_permissions` | —          | —       | Restricted key without scope, or wrong IP / environment for the key            | Widen the key's scope or use a full secret key. Check `message` for IP / env detail.       |
-| `idempotency_key_mismatch` | —          | —       | Reusing a key with a **different body** (HTTP 422)                            | Generate a new UUID v4. Never reuse a key for a different cart / intent.                   |
-| `idempotency_key_in_use` | —            | —       | Same key, still being processed (HTTP 409)                                    | Short backoff (250 ms – 2 s), retry with the **same** key.                                 |
-| order body has `status: "failed"` with `failure_reason` set (e.g. `transaction_not_allowed`, `insufficient_funds`, `expired_card`) | — | — | Issuer rejected the card — **this is a 200 OK, not an error envelope** | Surface to the customer. Don't auto-retry — let them pick a different card. See `errors.md` for the full failure_reason enum. |
+| `idempotency_key_conflict` | —          | —       | Reusing a key with a **different body** (HTTP 409)                            | Find out what changed between attempts before sending anything else. Never reuse a key for a different cart / intent. |
+| `request_in_progress` | —               | —       | Same key and body seen before (HTTP 409) — the first attempt may have gone through | Don't spin on it. Read the resource back before doing anything else. See `errors.md`.   |
+| order body has `status: "failed"` with `failure_code` set (e.g. `insufficient_funds`, `expired_card`, `processor_declined`) | — | — | Issuer rejected the card — **this is a 2xx, not an error envelope** | Surface to the customer. Don't auto-retry — let them pick a different card. See `errors.md` for the decline codes. |
 | `internal_error`       | —              | —       | Server fault — not retriable by changing the body                             | Capture `request_id`; escalate. Treat the same as "validation_error with no field_errors". |
 
 ## The fingerprint that costs people hours
@@ -88,8 +88,8 @@ hour of permuting JSON:
 
 ```http
 GET /v1/account                                            → confirms the key is valid & which env you're in
-GET /v1/customers/{customer_id}                            → exists? is `deleted_at` null?
-GET /v1/customers/{customer_id}/payment_methods            → does the PM you're sending appear in this list?
+GET /v1/customers/{customer_id}                            → exists? (a deleted customer is a 404 here)
+GET /v1/customers/{customer_id}?expand=payment_methods     → does the PM you're sending appear in `payment_methods`?
 GET /v1/products/{product_id}                              → exists? still owned by this merchant?
 ```
 
@@ -133,7 +133,7 @@ Never log:
 |--------------------------------------------------------------------------|------------------------------------------------------------------------|
 | `field_errors` is present                                                 | Fix the body — you have everything you need.                          |
 | `code` is `invalid_<resource>_id`, `idempotency_*`, etc. (envelope errors) | Fix it client-side per the table above.                               |
-| HTTP 200 with order `status: "failed"` and a `failure_reason`             | Not an envelope error — surface to the customer; pick a different card.|
+| HTTP 2xx with order `status: "failed"` and a `failure_code`              | Not an envelope error — surface to the customer; pick a different card.|
 | `resource_not_found` for an ID you "know" exists                          | Run `GET /v1/<resource>/{id}` — assumption is probably wrong.         |
 | `validation_error` with no `field_errors` / no `param`                    | Escalate with `request_id`. Do not permute the body.                  |
 | `internal_error` / 5xx                                                    | Retry with the **same** idempotency key, exponential backoff, max 3.  |

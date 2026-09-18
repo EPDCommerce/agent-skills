@@ -17,9 +17,13 @@ A correct EPD Commerce HTTP wrapper must:
    header. If the caller supplied one, use it. Otherwise generate a UUID v4.
    Expose the resolved key on the response object so callers can log it for
    support tickets and retries.
-4. On 5xx or network error, retry with the **same** idempotency key,
-   exponential backoff, max 3 attempts.
-5. On 4xx (except 409 `idempotency_key_in_use`), throw immediately — no retry.
+4. On 429, 5xx or network error, retry with the **same** idempotency key,
+   max 3 attempts — sleeping `Retry-After` seconds when the response has
+   one, exponential backoff otherwise.
+5. On any other 4xx, throw immediately — no retry. That includes
+   `409 request_in_progress`: the first attempt may already have gone
+   through, so the caller should look the resource up rather than loop (see
+   `errors.md`).
 6. Parse `error.request_id` from the response body and include it in any
    thrown error message. EPD Commerce support looks up requests by this ID.
 7. Send and receive JSON. Do not URL-encode bodies — POST `application/json`.
@@ -31,7 +35,9 @@ import { randomUUID } from 'node:crypto';
 
 const EPD_BASE_URL = 'https://api.epd.com';
 const EPD_API_VERSION = '2026-02-11';
-const RETRY_STATUSES = new Set([500, 502, 503, 504]);
+// 429 is retried after Retry-After; see backoffMs. 409 request_in_progress is
+// deliberately absent — the first attempt may have succeeded, so surface it.
+const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 export class EpdError extends Error {
   constructor(
@@ -107,9 +113,7 @@ export class EpdClient {
           parsed?.error?.field_errors,
         );
 
-        const retriable =
-          RETRY_STATUSES.has(res.status) ||
-          (res.status === 409 && parsed?.error?.code === 'idempotency_key_in_use');
+        const retriable = RETRY_STATUSES.has(res.status);
 
         if (!retriable || attempt === maxAttempts) throw err;
         await sleep(backoffMs(attempt, res.headers.get('retry-after')));
@@ -165,7 +169,9 @@ import httpx
 
 EPD_BASE_URL = "https://api.epd.com"
 EPD_API_VERSION = "2026-02-11"
-RETRY_STATUSES = {500, 502, 503, 504}
+# 429 is retried after Retry-After. 409 request_in_progress is deliberately
+# absent: the first attempt may have succeeded, so surface it to the caller.
+RETRY_STATUSES = {429, 500, 502, 503, 504}
 
 
 class EpdError(Exception):
@@ -222,9 +228,7 @@ class EpdClient:
                 pass
             err = body.get("error", {})
             code = err.get("code", "unknown")
-            retriable = res.status_code in RETRY_STATUSES or (
-                res.status_code == 409 and code == "idempotency_key_in_use"
-            )
+            retriable = res.status_code in RETRY_STATUSES
             if not retriable or attempt == 3:
                 raise EpdError(
                     err.get("message", f"HTTP {res.status_code}"),
@@ -255,7 +259,9 @@ class EpdClient
 {
     private const BASE_URL = 'https://api.epd.com';
     private const API_VERSION = '2026-02-11';
-    private const RETRY_STATUSES = [500, 502, 503, 504];
+    // 429 is retried after Retry-After. 409 request_in_progress is deliberately
+    // absent: the first attempt may have succeeded, so surface it to the caller.
+    private const RETRY_STATUSES = [429, 500, 502, 503, 504];
 
     private Client $http;
 
@@ -297,8 +303,7 @@ class EpdClient
 
                 $err = $body['error'] ?? [];
                 $code = $err['code'] ?? 'unknown';
-                $retriable = in_array($status, self::RETRY_STATUSES, true) ||
-                             ($status === 409 && $code === 'idempotency_key_in_use');
+                $retriable = in_array($status, self::RETRY_STATUSES, true);
 
                 if (!$retriable || $attempt === 3) {
                     throw new EpdException(

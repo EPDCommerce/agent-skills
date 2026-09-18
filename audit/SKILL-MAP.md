@@ -16,7 +16,7 @@ mechanically, not by eye.
 | `epd-mcp-operator` | workflow | new | 3 | Master router and safety layer for the MCP surface. Tool selection, confirmation tiers, key mode, idempotency, rate limits, permission errors. |
 | `epd-onboard-customer` | workflow | revised | 10 | Customer lifecycle: create, look up, update, delete, and attach or remove payment methods. |
 | `epd-catalog` | workflow | new | 12 | Products, plans, images, placing one-off orders, and retrying a failed one. |
-| `epd-subscriptions` | workflow | revised | 8 | Subscription lifecycle: start, change billing cycle or payment method, cancel, and recover past_due through dunning. |
+| `epd-subscriptions` | workflow | revised | 8 | Subscription lifecycle: start, change billing cycle or payment method, cancel, and recover a failed renewal through dunning. |
 | `epd-refunds` | workflow | revised | 3 | Issuing refunds — full or partial, on an order or a transaction, optionally with cancellation. |
 | `epd-transaction-triage` | workflow | new | 4 | Read-only diagnosis of a failed charge: soft decline safe to retry, hard decline that must not be, or a config error wearing a decline's clothes. |
 | `epd-webhook-ops` | workflow | new | 16 | Operating webhook endpoints on a live account: registration, secret rotation, replay, delivery logs, and version migration. |
@@ -104,7 +104,7 @@ Products, plans, images, placing one-off orders, and retrying a failed one.
 
 ### `epd-subscriptions`
 
-Subscription lifecycle: start, change billing cycle or payment method, cancel, and recover past_due through dunning.
+Subscription lifecycle: start, change billing cycle or payment method, cancel, and recover a failed renewal through dunning.
 
 **Triggers on:** _"start a subscription"_ · _"cancel the subscription"_ · _"change the billing cycle"_ · _"past due"_ · _"dunning"_ · _"retry the failed charge"_ · _"move them to a different plan"_
 
@@ -227,18 +227,25 @@ must stay disjoint.
 4 pair(s) are only reachable in 3+ hops. None share more than one term, so
 vocabulary carries them — but none of those shared terms may be used alone as a trigger.
 
+## Shipped skills against this map
+
+Everything above checks the plan. This reads the shipped `SKILL.md` files: every
+`Skip when` target above must be named in that skill's frontmatter description, which
+is all an agent sees before loading it. The router is the exception — its routes are
+the table in its body.
+
+All 12 skills carry every planned route.
+
 ## Notes against the existing six
 
-- `epd-webhooks` already carries a `Skip when ... use workflow skills` clause, but it
-  names no specific skill. It should name `epd-webhook-ops` once that exists.
-- `epd-best-practices` currently says to skip to "the workflow skills under workflows/".
-  With nine workflow skills that is no longer actionable — it should route to
-  `epd-mcp-operator`, which then routes onward.
-- `epd-onboard-customer` describes itself as covering "first charge or subscription".
-  Under this map it owns the customer and its payment methods only; charging is
-  `epd-catalog` and recurring is `epd-subscriptions`. Its description narrows.
-- `epd-subscriptions` and `epd-refunds` already cross-reference each other correctly;
-  both need a new clause pointing at `epd-transaction-triage` for diagnosis.
-- All six inherit the safety layer from `epd-mcp-operator` rather than restating it,
-  which is what removes the duplication Phase D is budgeted to strip.
+Raised in Phase A against the six skills that predate this map. The status is
+computed from the shipped files each time this runs.
+
+| Note | Status |
+|---|---|
+| `epd-webhooks` names no specific skill in its Skip-when clause; it should name `epd-webhook-ops`. | resolved |
+| `epd-best-practices` skips to "the workflow skills under workflows/", which is not actionable with nine of them; it should route to `epd-mcp-operator`. | resolved |
+| `epd-onboard-customer` claims "first charge or subscription"; it should own the customer and its cards, routing charges to `epd-catalog` and recurring billing to `epd-subscriptions`. | resolved |
+| `epd-subscriptions` and `epd-refunds` need a clause pointing at `epd-transaction-triage` for diagnosis. | resolved |
+| The workflow skills among the six take tiers from `epd-mcp-operator` and `references/tiers.md` instead of hand-listing destructive tools. | resolved |
 

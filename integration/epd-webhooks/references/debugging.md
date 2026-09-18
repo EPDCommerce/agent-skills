@@ -88,13 +88,24 @@ have to know based on the route.
 
 ### 5. Did the secret rotate?
 
-If the dev rotated the secret in the dashboard but didn't deploy the new
-secret to production, the verifier still has the old key. EPD Commerce supports a
-brief overlap window during rotation, but only if you complete the rotation
-flow correctly.
+A rotation (`POST /v1/webhook_endpoints/{id}/rotate_secret`) keeps both
+secrets valid for a grace period — **24 hours** by default, 1–72 via
+`grace_period_hours` on the REST call, always 24 through the MCP tool. The
+response's `previous_secret_valid_until` is the deadline. Signatures that
+start failing at that moment mean the new secret never reached production.
+While the window is open, the receiver should hold both secrets and accept a
+request if either verifies.
 
-Confirm the secret in your secret store matches the one currently shown in
-the dashboard for this endpoint.
+Two things break it sooner:
+
+- **A second rotation inside the window.** It restarts the 24 hours from the
+  new secret and drops the original immediately, so a receiver still on the
+  original fails at once. Check `has_pending_rotation` on the endpoint before
+  rotating again.
+- **The wrong secret in the store.** The secret is returned only once, by the
+  create or rotate call. There is nothing to compare against afterwards — if
+  the stored value is in doubt, rotate once and deploy the new value within
+  the window.
 
 ## Delivery failure — EPD Commerce can't reach you
 
@@ -104,105 +115,160 @@ Symptom: the dashboard's delivery log shows **timeouts**, **DNS errors**, or
 ### Check the dashboard delivery log
 
 `GET /v1/webhook_endpoints/{id}/delivery_logs` (or `list_webhook_delivery_logs`
-via MCP). The log entries include:
+via MCP). Each entry carries:
 
-- HTTP status returned
-- Response body (truncated)
-- Latency
-- Error reason if delivery failed before reaching the endpoint
+- `event_id` and `attempt` — which event, and which of its up to seven tries
+- `http_status_code` — what your endpoint returned; null if it was never reached
+- `response_time_ms`
+- `error_message` — why delivery failed before or at your endpoint
 
-Filter by `status: failed` to see only the broken deliveries.
+The route takes `limit` and `starting_after` only. To see just the broken
+deliveries, page through and keep the entries whose `http_status_code` is
+null or outside 2xx.
 
 ### Replay specific events
 
-Use `POST /v1/webhook_events/{id}/replay` (or `replay_webhook_event` via MCP)
-to retrigger a delivery. Useful when:
+```http
+POST /v1/webhook_endpoints/{id}/events/{eventId}/replay HTTP/1.1
+X-EPD-Idempotency-Key: <uuid v4>
+Content-Type: application/json
+
+{ "confirm": true }
+```
+
+(Or `replay_webhook_event` via MCP.) Events are addressed through their
+endpoint; there is no account-wide event route. `confirm: true` is required,
+and so is the idempotency header — the route returns
+`missing_idempotency_key` without it. An optional `api_version` replays the
+event at a different schema version. Useful when:
 
 - You fixed a bug and want to backfill the events you missed.
 - You're testing a new endpoint with historical data.
 
-Replays count as new delivery attempts in the log.
+Replays count as new delivery attempts in the log, and your handler will see
+an event it may already have processed — which is why it must dedupe on
+`event.id`.
 
 ### Test endpoint reachability
 
 ```http
 POST /v1/webhook_endpoints/{id}/test HTTP/1.1
+Content-Type: application/json
+
+{ "event_type": "order.succeeded" }
 ```
 
-(Or `test_webhook_endpoint` via MCP.) EPD Commerce sends a synthetic event to your
-endpoint — useful to verify reachability without waiting for a real event.
+(Or `test_webhook_endpoint` via MCP.) EPD Commerce sends a synthetic event to
+your endpoint — useful to verify reachability without waiting for a real
+event. The body is optional; `event_type` defaults to `test.webhook`.
 
 ## Event not firing — you expected a webhook that didn't arrive
 
-Symptom: customer was charged but you never got a `transaction.succeeded`.
+Symptom: customer was charged but you never got an `order.succeeded`.
 
-### Check your subscription list
+### Check the endpoint's event list
 
 ```http
 GET /v1/webhook_endpoints/{id}
 ```
 
-The response includes `events: [...]`. If `transaction.succeeded` isn't in the
-list, the endpoint won't receive it. Update the endpoint:
+The response includes `enabled_events: [...]`. If `order.succeeded` isn't
+covered — by name, by `order.*`, or by `*` — the endpoint won't receive it.
+Update the endpoint:
 
 ```http
 PATCH /v1/webhook_endpoints/{id} HTTP/1.1
+X-EPD-Idempotency-Key: <uuid v4>
+Content-Type: application/json
+
 {
-  "events": ["transaction.succeeded", "transaction.failed", ...]
+  "enabled_events": ["order.succeeded", "order.failed", "order.refunded"]
 }
 ```
 
+There are no `transaction.*` event types. Charges surface as `order.*` events
+and recurring charges as `subscription.charged`.
+
 ### Check the underlying object actually changed
 
-A webhook fires when an object reaches a state. If a charge is `pending` and
-never settles, you won't get `transaction.succeeded` — because that hasn't
-happened. Look at the order/transaction object directly to confirm the
-state change you expected.
+A webhook fires when an object reaches a state. If an order is `pending` and
+never settles, you won't get `order.succeeded` — because that hasn't
+happened. Look at the order object directly to confirm the state change you
+expected.
 
-### Use `list_webhook_events`
+### List the events sent to the endpoint
 
-`GET /v1/webhook_events?type=transaction.succeeded&created_at[gte]=...` shows
-**all events** EPD Commerce generated for your account — separate from delivery
-attempts. If the event isn't in this list, no webhook will fire (because
-there's nothing to send). If it is, but no delivery log entry exists,
-something dropped the event between the source and the delivery worker —
+`GET /v1/webhook_endpoints/{id}/events` (or `list_webhook_events` via MCP)
+lists the events EPD generated **for this endpoint**, separately from the
+delivery attempts. There is no account-wide `/v1/webhook_events` route — it
+returns 404. If the event isn't in this list, no webhook will fire, because
+there's nothing to send: check `enabled_events` above. If it is listed but has
+no delivery log entry, something dropped it between generation and delivery —
 contact EPD Commerce support with the `event.id`.
 
 ## Version upgrades
 
-Each webhook endpoint has its own pinned event schema version. To preview a
-new version's payload before upgrading:
+Each webhook endpoint has its own pinned event schema version (the
+endpoint's `api_version`). Webhook schema versions are dated independently of
+the API version — the sandbox currently lists one, `2026-02-10`, while the API
+is `2026-02-11`. List what exists before choosing a target:
 
 ```http
-POST /v1/webhook_endpoints/{id}/preview_payload HTTP/1.1
+GET /v1/webhook_versions HTTP/1.1
+```
+
+Each entry has `version`, `status` (`current`, `supported`, `deprecated`,
+`sunset`), `is_latest` and a `changelog`. Below, `<target>` is a `version`
+from that list.
+
+To compare two versions before deciding:
+
+```http
+POST /v1/webhook_versions/compare HTTP/1.1
+Content-Type: application/json
+
 {
   "event_type": "order.succeeded",
-  "version": "2026-08-15"
+  "from_version": "2026-02-10",
+  "to_version": "<target>"
 }
 ```
 
-(Or `preview_webhook_payload` via MCP.) Returns what the payload **would**
-look like at the requested version. Diff against your current version's
-payload before upgrading to know what your handler needs to change.
+(Or `compare_webhook_versions` via MCP, same three fields.) Returns the
+payload at each version so you can diff them. `from` / `to` are rejected.
+
+To preview one version's payload:
+
+```http
+POST /v1/webhook_versions/preview HTTP/1.1
+Content-Type: application/json
+
+{
+  "event_type": "order.succeeded",
+  "api_version": "<target>"
+}
+```
+
+(Or `preview_webhook_payload` via MCP, where the same field is called
+`version`.) Neither call is scoped to an endpoint.
 
 To upgrade:
 
 ```http
 POST /v1/webhook_endpoints/{id}/upgrade_version HTTP/1.1
+X-EPD-Idempotency-Key: <uuid v4>
+Content-Type: application/json
+
 {
-  "version": "2026-08-15"
+  "api_version": "<target>",
+  "confirm": true
 }
 ```
 
-Downgrade is symmetric: `POST .../downgrade_version`.
-
-To compare two versions before deciding:
-
-```http
-GET /v1/webhook_endpoints/versions/compare?from=2026-02-11&to=2026-08-15
-```
-
-Shows the diff in event schemas between the two versions.
+Both body fields are required, and the route returns
+`missing_idempotency_key` without the header. `version` is rejected — that is
+the MCP tool's field name, not the REST one. Downgrade is symmetric:
+`POST .../downgrade_version` with the same body.
 
 ## What to log on receive
 

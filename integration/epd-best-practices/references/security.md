@@ -172,9 +172,13 @@ same care as API keys:
 - Server-side only.
 - Stored in a secret manager.
 - One per webhook endpoint — don't share across endpoints.
-- Rotate via the rotate flow (issue new → deploy → drain old grace period →
-  revoke). The EPD Commerce webhook endpoint config supports a brief overlap window
-  where both old and new secrets verify; use it during rotation.
+- Rotate with `POST /v1/webhook_endpoints/{id}/rotate_secret`: it returns
+  `new_signing_secret`, and both secrets stay valid for a grace period — 24
+  hours by default, 1–72 via `grace_period_hours`. Deploy the new secret
+  inside that window; the old one stops verifying on its own at
+  `previous_secret_valid_until`, with no separate revoke step. Don't rotate
+  again while `has_pending_rotation` is true — a second rotation drops the
+  original secret immediately.
 
 See the `epd-webhooks` skill for verification implementation.
 

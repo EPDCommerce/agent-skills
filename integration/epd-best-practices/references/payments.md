@@ -196,7 +196,11 @@ Filter parameters:
 
 - `customer_id` — exact UUID (with or without prefix).
 - `status` — comma-separated list. Values: `succeeded`, `failed`, `pending`,
-  `voided`, `partially_refunded`, `refunded`, `chargeback`.
+  `voided`, `partially_refunded`, `refunded`, `chargeback`. Merchants with the ACH
+  (bank-account) rail enabled also see `processing`, while a bank debit is in flight,
+  and `returned`, when the customer's bank sends one back after settlement. Treat
+  `returned` as money that did not arrive: it is a bank return, not a card decline,
+  so it carries a NACHA return code rather than a decline reason.
 - `created_at[gt]`, `created_at[gte]`, `created_at[lt]`, `created_at[lte]` —
   ISO 8601 strings.
 - `amount[gt]`, `amount[gte]`, `amount[lt]`, `amount[lte]` — integer cents.

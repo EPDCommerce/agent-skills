@@ -46,6 +46,12 @@ Body:
 |----------|----------|-------------------------------------------------------------------------------------------------------|
 | `amount` | no       | Integer cents, 1–99,999,999. Omit for a **full refund**. Server-validated; >outstanding returns 400.  |
 
+> An ACH (bank-account) order refunds through this same endpoint, with two
+> differences: the debit must have settled first, so an order still `processing`
+> cannot be refunded yet, and the refund is full-amount only. Omit `amount`, or
+> send exactly the outstanding total; anything less returns a `validation_error`
+> on `amount`.
+
 > The DTO is `amount`-only. **Do not send `reason`, `metadata`, or other
 > fields** — `forbidNonWhitelisted` is on and any extra property returns
 > `validation_error`. If you need a free-text note, log it on your side

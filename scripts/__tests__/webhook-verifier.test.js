@@ -60,7 +60,8 @@ test('a rejection is still a truthy object — callers must read .valid', () => 
 });
 
 test('the epd-webhooks examples test `valid`, never the result object', () => {
-  const skill = fs.readFileSync(path.join(SKILL_DIR, 'SKILL.md'), 'utf8');
+  // Normalise line endings: a Windows checkout with core.autocrlf has CRLF.
+  const skill = fs.readFileSync(path.join(SKILL_DIR, 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
   const fences = [...skill.matchAll(/```(js|python|php)\n([\s\S]*?)```/g)].map(([, lang, code]) => ({ lang, code }));
   const examples = fences.filter(({ code }) => /verify_?[wW]ebhook\(/.test(code));
   assert.equal(examples.length, 3, 'expected one framework example per verifier language');

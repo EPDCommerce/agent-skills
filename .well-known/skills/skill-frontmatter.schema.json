@@ -14,8 +14,8 @@
     "description": {
       "type": "string",
       "minLength": 40,
-      "maxLength": 2048,
-      "description": "Triggering description. Should follow the 'Use when ... Triggers when ... Skip when ...' pattern."
+      "maxLength": 1024,
+      "description": "Triggering description. Should follow the 'Use when ... Triggers when ... Skip when ...' pattern. 1024 is the Agent Skills specification limit."
     },
     "compatibility": {
       "type": "string",

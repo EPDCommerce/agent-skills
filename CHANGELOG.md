@@ -67,14 +67,25 @@ them, and names the Phase C skills it hands off to.
   `epd-transaction-triage` instead of a disagreeing inline list. Documents
   `cancellation_reason` / `cancellation_notes` and re-cancel behaviour.
 - `epd-refunds` 1.1.0 — the "refund the last charge" lookup is a validated
-  call; `refund_and_cancel` preconditions match the server.
+  call; `refund_and_cancel` preconditions match the server. The opening no
+  longer says every tool it uses is destructive: the three refund tools are,
+  and the three lookups are read-only.
 - `epd-best-practices` 1.2.0 — routes to `epd-quickstart` and `epd-webhooks`
   as well as `epd-mcp-operator`; rate limiting documents the three buckets.
 - `epd-quickstart` 1.1.0 — routes MCP operators away; the decline step uses a
   sandbox input that actually declines.
-- `epd-webhooks` 1.1.0 — routes MCP endpoint operations to `epd-webhook-ops`.
+- `epd-webhooks` 1.1.0 — routes MCP endpoint operations to `epd-webhook-ops`,
+  which inherits the safety layer from `epd-mcp-operator`.
 - `epd-mcp-operator` 1.0.1 — drops the note that five tools were uncovered,
-  and the cross-references that described the pre-revision skills.
+  and the cross-references that described the pre-revision skills. The
+  description is trimmed from 1088 to 1020 characters, inside the Agent Skills
+  limit of 1024, with every trigger kept.
+- Skill frontmatter schema — `description` is capped at 1024 characters, the
+  Agent Skills limit, instead of 2048, so `npm run check` fails on an
+  over-length description.
+- CI — the webhook verifier self-tests no longer run with
+  `continue-on-error`, so a failing Node, Python or PHP verifier fails the
+  build. All three pass locally (Node 24, Python 3.13, PHP 8.3).
 
 ### Fixed
 

@@ -10,9 +10,11 @@ metadata:
 # Refunds through the EPD Commerce MCP server
 
 You are operating an EPD Commerce merchant account through the MCP server. Refunds
-move money in the customer's direction and are **irreversible** — every
-tool here is annotated `destructiveHint: true`. Confirm with the user before
-invoking.
+move money in the customer's direction and are **irreversible** — the three
+refund tools, `refund_order`, `refund_transaction` and `refund_and_cancel`, are
+annotated `destructiveHint: true`. Confirm with the user before invoking them.
+The lookups used to find the order (`get_order`, `list_orders`,
+`list_transactions`) are read-only.
 
 Tiers come from
 [`references/tiers.md`](../epd-mcp-operator/references/tiers.md), generated from

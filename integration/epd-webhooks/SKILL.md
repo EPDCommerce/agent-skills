@@ -284,4 +284,5 @@ Switch to [`references/debugging.md`](./references/debugging.md) when:
 
 For registering, rotating, replaying or migrating endpoints on a live account
 through an MCP-connected agent rather than from your own code, load
-`epd-webhook-ops`.
+`epd-webhook-ops`. It takes its confirmation tiers and idempotency rules from
+`epd-mcp-operator`, so they are not repeated here.

@@ -33,36 +33,28 @@ case flagged under composite tools below.
 This skill is the safety layer, not the workflow. Once you know the mode and the
 tier, hand off.
 
-### Available now
-
 | If the task is | Load |
 |---|---|
 | Creating or updating a customer, attaching or removing a card | `epd-onboard-customer` |
 | Starting, changing, cancelling a subscription, or dunning `past_due` | `epd-subscriptions` |
 | Money going back to a customer — full, partial, order or transaction | `epd-refunds` |
+| Products, plans, images, placing a one-off order or retrying a failed one | `epd-catalog` |
+| Diagnosing why a charge failed, before deciding anything | `epd-transaction-triage` |
+| Webhook endpoints on the account — registration, rotation, replay, versions | `epd-webhook-ops` |
+| Coupons, promo codes, bulk code generation | `epd-coupons` |
+| Revenue over a period, month-end, per-customer totals | `epd-reporting` |
 | Writing backend code against `api.epd.com/v1` rather than operating an account | `epd-best-practices` |
 | Writing or debugging a webhook receiver — signatures, raw body, HMAC | `epd-webhooks` |
 
-### Proposed, not yet in this repository
-
-The Phase A skill map assigns all 67 tools to nine workflow skills. Five do not
-exist yet and this table will name them as they land. **Until then, do not route
-to them** — handle the task here, using
+Every workflow skill in the Phase A map now exists — route to them. If a task
+genuinely matches no row above, handle it here: use
 [`references/tiers.md`](references/tiers.md) for the tier and
-[`SAFETY.md`](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md) for the confirmation, and say plainly that no
-dedicated skill covers it yet.
+[`SAFETY.md`](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md) for the confirmation, and say
+plainly that no dedicated skill covers it.
 
-| If the task is | Will load | Tools |
-|---|---|---|
-| Products, plans, images, placing a one-off order | `epd-catalog` | 11 |
-| Diagnosing why a charge failed, before deciding anything | `epd-transaction-triage` | 5 |
-| Webhook endpoints on the account — registration, rotation, replay, versions | `epd-webhook-ops` | 16 |
-| Coupons, promo codes, bulk code generation | `epd-coupons` | 9 |
-| Revenue over a period, month-end, per-customer totals | `epd-reporting` | 2 |
-
-That gap is the honest state of the repository, not an oversight: 40 of the 67
-tools have no worked example anywhere today, which is what Phases C and D exist
-to fix.
+Five of the 67 tools are not yet named in any skill, all on the customer and
+payment-method surface that `epd-onboard-customer` owns. Its Phase D revision
+is where they get covered.
 
 ### Two boundaries worth stating
 
@@ -116,6 +108,10 @@ input: {}
 
 `environment` and `is_sandbox` are the authoritative answer. Read both — they
 should agree, and disagreement is a reason to stop rather than pick one.
+
+`get_account` returns the same account fields — `merchant_id`, `name`,
+`api_version`, `latest_api_version`, `is_sandbox` — without `environment`,
+so `ping` is still the call for mode.
 
 `ping` also answers a question worth asking early: **`api_version: null` means
 the account is not pinned** and floats on whatever is current, so behaviour can

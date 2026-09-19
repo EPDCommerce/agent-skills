@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Mechanical coverage audit: the 67 live MCP tools against the 6 shipped skills.
+ * Mechanical coverage audit: the 67 live MCP tools against every shipped skill.
  *
  * Usage:  node audit/coverage.mjs
  */
@@ -17,7 +17,8 @@ const GROUPS = [
   ['Webhook Endpoints', 12], ['Webhook Versions', 3], ['Coupons', 9], ['Composite', 11],
 ];
 
-const tools = JSON.parse(fs.readFileSync(SNAPSHOT, 'utf8')).tools;
+const snapshot = JSON.parse(fs.readFileSync(SNAPSHOT, 'utf8'));
+const tools = snapshot.tools;
 const byName = new Map(tools.map((t) => [t.name, t]));
 
 const groupOf = new Map();
@@ -209,6 +210,9 @@ for (const a of argIssues) {
 
 fs.writeFileSync(
   path.join(ROOT, 'audit', 'coverage.json'),
-  JSON.stringify({ captured_at: new Date().toISOString(), coverage, examples, argIssues, ghosts: Object.fromEntries([...ghosts].map(([k, v]) => [k, [...v]])) }, null, 2) + '\n',
+  // Provenance is the SNAPSHOT's capture time, not this run's. A wall-clock
+  // timestamp here changes on every run, which makes the file impossible to
+  // drift-check in CI — regenerating would always show a diff.
+  JSON.stringify({ snapshot_captured_at: snapshot._snapshot?.captured_at ?? null, coverage, examples, argIssues, ghosts: Object.fromEntries([...ghosts].map(([k, v]) => [k, [...v]])) }, null, 2) + '\n',
 );
 console.log('\nwrote audit/coverage.json');

@@ -63,8 +63,8 @@ const SKILLS = [
   },
   {
     name: 'epd-catalog', kind: 'workflow', status: 'new',
-    owns: 11,
-    purpose: 'Products, plans, images, and placing one-off orders.',
+    owns: 12,
+    purpose: 'Products, plans, images, placing one-off orders, and retrying a failed one.',
     triggers: ['create a product', 'change the price', 'product images', 'what plans exist', 'place an order', 'sell them the', 'SKU'],
     skip: [
       ['discounting rather than pricing', 'epd-coupons'],
@@ -93,7 +93,7 @@ const SKILLS = [
   },
   {
     name: 'epd-transaction-triage', kind: 'workflow', status: 'new',
-    owns: 5,
+    owns: 4,
     purpose: 'Read-only diagnosis of a failed charge: soft decline safe to retry, hard decline that must not be, or a config error wearing a decline\'s clothes.',
     triggers: ['why did this fail', 'declined', 'decline code', 'the charge did not go through', 'is it safe to retry', 'do_not_honor', 'insufficient_funds'],
     skip: [

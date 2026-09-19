@@ -27,9 +27,9 @@ const OWNER = {
   'epd-catalog': [
     'create_product', 'list_products', 'get_product', 'update_product', 'delete_product',
     'delete_product_image', 'reorder_product_images', 'list_plans', 'get_plan',
-    'create_order', 'process_order',
+    'create_order', 'process_order', 'retry_order',
   ],
-  'epd-transaction-triage': ['list_orders', 'get_order', 'retry_order', 'list_transactions', 'get_transaction'],
+  'epd-transaction-triage': ['list_orders', 'get_order', 'list_transactions', 'get_transaction'],
   'epd-refunds': ['refund_order', 'refund_transaction', 'refund_and_cancel'],
   'epd-subscriptions': [
     'create_subscription', 'list_subscriptions', 'get_subscription', 'update_subscription',
@@ -75,7 +75,7 @@ const NOTES = {
   upgrade_account_api_version: 'Destructive and account-wide. Sandbox account currently has api_version=null (floating on latest), so the Aug 31 release lands automatically.',
   rotate_webhook_secret: 'Needs the overlap-window procedure written before the rotate call, not after.',
   archive_coupon: 'Archive vs delete distinction must be explicit — unarchive_coupon exists, so archive is reversible and should not be described as deletion.',
-  retry_order: 'Was missing from the published docs when this audit ran; added 27 Aug. Destructive and retries money movement, so it needs the soft/hard decline split from epd-transaction-triage.',
+  retry_order: 'Was missing from the published docs when this audit ran; added 27 Aug. Destructive and moves money, so it belongs to epd-catalog, which owns order_id-addressed tools. epd-transaction-triage is read-only by construction and cannot hold it — it diagnoses the decline and hands the retry over.',
   test_webhook_endpoint: 'openWorldHint — calls an external URL. No idempotency_key parameter exists.',
   replay_webhook_event: 'openWorldHint — calls an external URL. No idempotency_key parameter exists.',
   reorder_product_images: 'Write tool with no idempotency_key parameter — the "idempotency_key on every write" rule needs a stated exception here.',

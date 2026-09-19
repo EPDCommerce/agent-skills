@@ -15,10 +15,10 @@ mechanically, not by eye.
 | `epd-webhooks` | integration | existing | — | Writing and debugging a webhook receiver — HMAC-SHA256 verification, replay protection, raw-body handling. |
 | `epd-mcp-operator` | workflow | new | 3 | Master router and safety layer for the MCP surface. Tool selection, confirmation tiers, key mode, idempotency, rate limits, permission errors. |
 | `epd-onboard-customer` | workflow | revised | 10 | Customer lifecycle: create, look up, update, delete, and attach or remove payment methods. |
-| `epd-catalog` | workflow | new | 11 | Products, plans, images, and placing one-off orders. |
+| `epd-catalog` | workflow | new | 12 | Products, plans, images, placing one-off orders, and retrying a failed one. |
 | `epd-subscriptions` | workflow | revised | 8 | Subscription lifecycle: start, change billing cycle or payment method, cancel, and recover past_due through dunning. |
 | `epd-refunds` | workflow | revised | 3 | Issuing refunds — full or partial, on an order or a transaction, optionally with cancellation. |
-| `epd-transaction-triage` | workflow | new | 5 | Read-only diagnosis of a failed charge: soft decline safe to retry, hard decline that must not be, or a config error wearing a decline's clothes. |
+| `epd-transaction-triage` | workflow | new | 4 | Read-only diagnosis of a failed charge: soft decline safe to retry, hard decline that must not be, or a config error wearing a decline's clothes. |
 | `epd-webhook-ops` | workflow | new | 16 | Operating webhook endpoints on a live account: registration, secret rotation, replay, delivery logs, and version migration. |
 | `epd-coupons` | workflow | new | 9 | Discounts end to end: create, validate, bulk-generate codes, archive and unarchive. |
 | `epd-reporting` | workflow | new | 2 | Read-only aggregates: revenue over a period, per-customer financial summaries, month-end reconciliation. |
@@ -93,7 +93,7 @@ Customer lifecycle: create, look up, update, delete, and attach or remove paymen
 
 ### `epd-catalog`
 
-Products, plans, images, and placing one-off orders.
+Products, plans, images, placing one-off orders, and retrying a failed one.
 
 **Triggers on:** _"create a product"_ · _"change the price"_ · _"product images"_ · _"what plans exist"_ · _"place an order"_ · _"sell them the"_ · _"SKU"_
 

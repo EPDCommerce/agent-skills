@@ -43,6 +43,7 @@ test('rejects each failure with its own reason', () => {
     [BODY, `v1=${sig}`, SECRET, 'malformed_signature_header'],
     [BODY, `t=${ts},v1=zz${sig.slice(2)}`, SECRET, 'malformed_signature_hex'],
     [BODY, `t=${ts},v1=${sig.slice(1)}`, SECRET, 'malformed_signature_hex'],
+    [BODY, `t=${ts},v1=`, SECRET, 'malformed_signature_hex'],
     [BODY, `t=${ts},v1=${sig.slice(2)}`, SECRET, 'signature_mismatch'],
     [BODY, '', SECRET, 'missing_signature_header'],
     [BODY, `t=${ts},v1=${sig}`, '', 'missing_secret'],

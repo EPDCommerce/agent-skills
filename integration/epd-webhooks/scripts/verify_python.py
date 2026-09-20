@@ -67,6 +67,9 @@ def verify_webhook(
     hmac_key = secret[len(SIGNING_SECRET_PREFIX):] if secret.startswith(SIGNING_SECRET_PREFIX) else secret
     expected = hmac.new(hmac_key.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
 
+    if not signature_hex:
+        return VerifyResult(False, "malformed_signature_hex")
+
     try:
         expected_b = bytes.fromhex(expected)
         actual_b = bytes.fromhex(signature_hex)
@@ -121,6 +124,7 @@ if __name__ == "__main__":
         ("expired", verify_webhook(body, f"t={ts - 1000},v1={sig}", secret), False, "timestamp_outside_tolerance"),
         ("malformed header", verify_webhook(body, "not a signature", secret), False, "malformed_signature_header"),
         ("non-hex signature", verify_webhook(body, f"t={ts},v1=zz{sig[2:]}", secret), False, "malformed_signature_hex"),
+        ("empty signature", verify_webhook(body, f"t={ts},v1=", secret), False, "malformed_signature_hex"),
     ]
     failed = 0
     for label, result, valid, reason in cases:

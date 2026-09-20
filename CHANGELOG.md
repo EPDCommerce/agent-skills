@@ -116,6 +116,13 @@ them, and names the Phase C skills it hands off to.
   `try/catch`; malformed hex now gets its own reason. PHP now accepts
   uppercase hex like Node and Python. All three self-tests assert and exit
   non-zero on failure.
+- `epd-webhooks` scripts — the three verifiers disagreed on an empty `v1=`
+  signature: Node called it `malformed_signature_header`, Python let it reach
+  the comparison and reported `signature_mismatch`, PHP called it
+  `malformed_signature_hex`. All three now return `malformed_signature_hex`,
+  and each self-test covers the case so CI holds them to the same answer. All
+  three already rejected the payload, so this changes the reason, not the
+  verdict.
 
 - `audit/coverage.mjs` — exclude generated inventory files from the coverage
   scan. `references/tiers.md` lists every tool by design, which the scanner was

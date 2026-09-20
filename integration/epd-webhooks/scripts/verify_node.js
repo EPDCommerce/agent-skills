@@ -82,7 +82,7 @@ function parseSignatureHeader(header) {
       signature = v;
     }
   }
-  if (timestamp == null || !signature) return null;
+  if (timestamp == null || signature == null) return null;
   return { timestamp, signature };
 }
 
@@ -107,6 +107,7 @@ if (require.main === module) {
     ['expired', verifyWebhook(body, `t=${ts - 1000},v1=${sig}`, secret), false, 'timestamp_outside_tolerance'],
     ['malformed header', verifyWebhook(body, 'not a signature', secret), false, 'malformed_signature_header'],
     ['non-hex signature', verifyWebhook(body, `t=${ts},v1=zz${sig.slice(2)}`, secret), false, 'malformed_signature_hex'],
+    ['empty signature', verifyWebhook(body, `t=${ts},v1=`, secret), false, 'malformed_signature_hex'],
   ];
   let failed = 0;
   for (const [label, result, valid, reason] of cases) {

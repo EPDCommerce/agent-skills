@@ -123,6 +123,7 @@ if (PHP_SAPI === 'cli' && realpath($_SERVER['argv'][0] ?? '') === __FILE__) {
         ['expired', verify_webhook($body, "t=" . ($ts - 1000) . ",v1={$sig}", $secret), false, 'timestamp_outside_tolerance'],
         ['malformed header', verify_webhook($body, 'not a signature', $secret), false, 'malformed_signature_header'],
         ['non-hex signature', verify_webhook($body, "t={$ts},v1=zz" . substr($sig, 2), $secret), false, 'malformed_signature_hex'],
+        ['empty signature', verify_webhook($body, "t={$ts},v1=", $secret), false, 'malformed_signature_hex'],
     ];
     $failed = 0;
     foreach ($cases as [$label, $result, $valid, $reason]) {

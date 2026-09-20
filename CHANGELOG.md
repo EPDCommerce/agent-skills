@@ -70,6 +70,9 @@ them, and names the Phase C skills it hands off to.
   call; `refund_and_cancel` preconditions match the server. The opening no
   longer says every tool it uses is destructive: the three refund tools are,
   and the three lookups are read-only.
+  Its description now guards the code-vs-operate boundary the operator skill
+  calls the easiest routing mistake to make: "how do I refund an order" is
+  `epd-best-practices`, "refund order A1B2C3D4" is this skill.
 - `epd-best-practices` 1.2.0 — routes to `epd-quickstart` and `epd-webhooks`
   as well as `epd-mcp-operator`; rate limiting documents the three buckets.
 - `epd-quickstart` 1.1.0 — routes MCP operators away; the decline step uses a

@@ -73,11 +73,16 @@ them, and names the Phase C skills it hands off to.
   Its description now guards the code-vs-operate boundary the operator skill
   calls the easiest routing mistake to make: "how do I refund an order" is
   `epd-best-practices`, "refund order A1B2C3D4" is this skill.
-- `epd-transaction-triage` 1.0.0 — its description now routes a card that keeps
-  failing on a subscription renewal to `epd-subscriptions`. `audit/SKILL-MAP.md`
-  claimed triage "explicitly routes recurring failures here"; its only route to
-  subscriptions was conditioned on money having to move, so a diagnosis question
-  about a repeating renewal failure stayed in triage. The map's claim is now true.
+- `epd-transaction-triage` 1.0.0 — its description now routes a failure on a
+  subscription renewal to `epd-subscriptions`. `audit/SKILL-MAP.md` claimed triage
+  "explicitly routes recurring failures here"; its only route to subscriptions was
+  conditioned on money having to move, so a diagnosis question about a renewal
+  failure stayed in triage. The map's claim is now true.
+- `epd-subscriptions` 1.1.0 — its hand-off to `epd-transaction-triage` is now scoped
+  to a one-off charge, and it claims renewal failures outright. Without that, the
+  two skills' Skip-when clauses both matched a repeating renewal failure and an
+  agent could bounce between them. The pair now splits on one axis: one-off charge
+  to triage, anything on a renewal to subscriptions, including the first one.
 - `epd-best-practices` 1.2.0 — routes to `epd-quickstart` and `epd-webhooks`
   as well as `epd-mcp-operator`; rate limiting documents the three buckets.
 - `epd-quickstart` 1.1.0 — routes MCP operators away; the decline step uses a

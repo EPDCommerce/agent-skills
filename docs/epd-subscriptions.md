@@ -150,10 +150,62 @@ input:
   limit: 100
 ```
 
-Keeping only rows where `attempt_count > 0` or `next_retry_at` is set: **four**
-subscriptions, not the 130 the past-due tool would have handed me.
+Keeping only rows where `attempt_count > 0` or `next_retry_at` is set leaves
+**four**, not the 130 the past-due tool would have handed me:
 
-Reading each failed cycle's order and running the codes through
+| Customer | Subscription | Amount | `attempt_count` | `next_retry_at` |
+|---|---|---|---|---|
+| Alice Liddell | `4d6a4b2f-…` | $39.99 | 2 | 25 Sep 10:00Z |
+| Bob Carroll | `9f8c2e11-…` | $29.99 | 3 | 24 Sep 10:00Z |
+| Carol Dodgson | `57174562-…` | $89.00 | 1 | 24 Sep 02:00Z |
+| Dan Tenniel | `2c963f66-…` | $19.99 | 1 | 26 Sep 10:00Z |
+
+The status does not carry the decline code, so classifying each one takes two
+more reads: the subscription's failed cycle, then that cycle's order. Eight
+calls for the four. Here is Carol's, since she is where this ends up:
+
+```
+tool: get_subscription
+input:
+  id: 57174562-b3fc-2c96-3f66-afa63fa85f64
+  expand: cycles
+```
+
+```json
+{
+  "id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
+  "status": "active",
+  "plan": { "name": "SMS Pack", "amount": 8900, "currency": "usd" },
+  "payment_method": { "id": "8e107c5a-3d0b-4e42-9f8c-2e114d6a4b2f",
+                      "card": { "brand": "visa", "last4": "4242" } },
+  "cycles": [
+    { "cycle_number": 3, "status": "succeeded", "amount": 8900 },
+    { "cycle_number": 4, "status": "failed", "amount": 8900,
+      "order_id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d" }
+  ]
+}
+```
+
+```
+tool: get_order
+input:
+  id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+  expand: transactions
+```
+
+```json
+{
+  "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+  "status": "failed", "total": 8900,
+  "failure_code": "issuer_unavailable",
+  "attempt_count": 1,
+  "next_retry_at": "2026-09-24T02:00:00.000Z",
+  "subscription_id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
+  "subscription_cycle": 4
+}
+```
+
+The other three were read the same way. Running all four codes through
 [`epd-transaction-triage`](./epd-transaction-triage.md):
 
 | Customer | Amount | Code | Class | `next_retry_at` |
@@ -191,11 +243,12 @@ reconciles the cycle, so the dunning cron will not also charge her on the 24th.
 `retry_failed_charge` reconstructs the order and does not claim to reconcile
 anything, which would leave the scheduled attempt armed on top of mine.
 
-> I'm about to retry the **$89.00 USD** charge for **Carol Dodgson** that failed
-> on 2026-09-22, on the Visa ending **4242** already on order
-> `1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d`, in **LIVE** mode. This reconciles the
-> billing cycle, so the retry scheduled for 24 Sep will not also charge her.
-> This moves real money. Proceed?
+> I'm about to call **`retry_order`** on order
+> `1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d` — cycle 4 of **Carol Dodgson**'s SMS
+> Pack subscription — re-charging **$89.00 USD** to the **Visa ending 4242**
+> already on that order, in **LIVE** mode. It reconciles the cycle, so the
+> attempt scheduled for **24 Sep 02:00Z** will not also charge her. This moves
+> real money. Proceed?
 
 **Billing manager:** Go.
 
@@ -214,15 +267,32 @@ input:
 Succeeded. Confirming rather than assuming:
 
 ```
-tool: get_subscription
+tool: get_order
 input:
-  id: 57174562-b3fc-2c96-3f66-afa63fa85f64
-  expand: cycles
+  id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
 ```
 
-Cycle 4 now reads `status: "succeeded"`, and the order's `next_retry_at` is
-`null` — so the scheduled attempt on the 24th is stood down. **Carol is
-recovered and will not be charged twice.**
+```json
+{
+  "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+  "status": "succeeded", "total": 8900,
+  "failure_code": null,
+  "attempt_count": 2,
+  "next_retry_at": null,
+  "subscription_id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
+  "subscription_cycle": 4
+}
+```
+
+`next_retry_at` is `null` and the cycle 4 order reads `succeeded`, so the
+attempt scheduled for the 24th is stood down. **Carol is recovered and will not
+be charged twice.**
+
+That last read is the one worth not skipping. `retry_order` returning
+`succeeded` says the charge went through; it does not say the cycle reconciled.
+`next_retry_at` going `null` is the field that does, and it is the difference
+between telling you she is recovered and telling you she is about to be charged
+again.
 
 Three still open: Alice on schedule for the 25th, Bob and Dan needing new cards.
 Nothing is left sitting in the retry loop without a decision attached.
@@ -235,12 +305,19 @@ Nothing is left sitting in the retry loop without a decision attached.
   reasoning shown at each step.
 - **The broken tool was named and not used blindly**, with the measurement
   behind the claim.
+- **The drill-down was shown, not asserted.** Every value in the
+  confirmation — the order ID, the amount, the card, the scheduled retry — is
+  visible in a response above it. The cost was stated too: two reads per
+  subscription, eight for the four. `SAFETY.md` rule 4 is what makes a T3
+  confirmation meaningful, and it applies to the reads that fill it.
 - **Classification happened before any charge**, and produced three different
   answers, only one of which was "retry".
-- **The tool choice was justified on reconciliation**, which is the difference
-  between one charge and two.
-- **The result was verified by reading the cycle back**, including
-  `next_retry_at`, rather than trusting a `succeeded` response.
+- **The confirmation named the tool.** The paragraph above it argues
+  `retry_order` over `retry_failed_charge`; a confirmation that says neither
+  leaves the human approving the argument rather than the call.
+- **The result was verified by reading the order back**, including
+  `next_retry_at`, rather than trusting the `succeeded` response — which reports
+  the charge, not the reconciliation.
 
 ## Where it hands off
 

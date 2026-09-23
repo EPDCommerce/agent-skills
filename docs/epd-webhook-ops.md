@@ -70,6 +70,15 @@ migration — breaks the instant the second rotation lands. So "rotate again to 
 safe" is the opposite of safe, and the skill checks `has_pending_rotation`
 before rotating.
 
+**Read that rule for what it actually says, though.** It bites when the consumer
+is still on the original. Once the new secret is deployed, a second rotation
+does something different: it makes the *deployed* secret "previous" — still
+valid for 24 hours, so nothing breaks — and drops the original immediately.
+That is a legitimate way to close a leak window early, at the cost of starting
+another migration. Refusing it as "no security gain" would be wrong; the gain is
+real and so is the cost. It is a risk decision for the human, and the agent's
+job is to state both sides rather than to hide behind the rule.
+
 ### Event names are not validated
 
 `enabled_events: ["totally.made.up"]` is **accepted** and stored verbatim. The
@@ -170,9 +179,34 @@ are as the skill documents them; URLs and IDs are placeholders.
 
 **Platform engineer:** We think our signing secret leaked in a log. Rotate it.
 
-**Agent:** That is a T3 call, and before I plan it I need to know whether a
-rotation is already in flight — a second rotation inside the window kills the
-original secret immediately, which is usually the one still deployed.
+**Agent:** Two things before I can plan that. Secrets are per-endpoint, so
+"our signing secret" is only unambiguous if there is one endpoint — and rotating
+the wrong one breaks a working consumer while leaving the leak open. And I need
+to know whether a rotation is already in flight.
+
+```
+tool: list_webhook_endpoints
+input:
+  limit: 20
+```
+
+```json
+{
+  "data": [
+    { "id": "c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f",
+      "url": "https://api.acme.com/webhooks/epd", "status": "enabled" },
+    { "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "url": "https://staging.acme.com/webhooks/epd", "status": "enabled" }
+  ]
+}
+```
+
+Two endpoints, production and staging, each with its own secret. Which one
+leaked?
+
+**Platform engineer:** Production.
+
+**Agent:**
 
 ```
 tool: get_webhook_endpoint
@@ -195,11 +229,11 @@ No pending rotation, so this is clean. Note there is no `signing_secret` in that
 response — it is write-only after creation, which is also why a leak means
 rotation rather than "check what it was".
 
-> I'm about to rotate the signing secret for endpoint
-> `c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f` → **https://api.acme.com/webhooks/epd**,
-> in **LIVE** mode. The current secret keeps verifying for **24 hours**, then
-> stops. Your receiver must accept both during that window. This is
-> irreversible and the new secret is shown once. Proceed?
+> I'm about to call **`rotate_webhook_secret`** on endpoint
+> `c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f` → **https://api.acme.com/webhooks/epd**
+> (production, not staging), in **LIVE** mode. The current secret keeps verifying
+> for **24 hours**, then stops. Your receiver must accept both during that
+> window. This is irreversible and the new secret is shown once. Proceed?
 
 **Platform engineer:** Yes.
 
@@ -238,43 +272,78 @@ its own.
 **Platform engineer:** Deployed. Can you rotate once more so we're definitely
 clear of the leaked one?
 
-**Agent:** No — and this is the case the skill is most explicit about.
+**Agent:** That would work, and it is a trade rather than a no. Let me be exact,
+because the usual advice here is "never rotate twice" and that is not quite the
+rule.
 
-The leaked secret is **already dead** as far as the window is concerned: it
-became "previous" at rotation and expires at 14:12 tomorrow. A second rotation
-right now would make the secret you just deployed the new "previous" and drop
-the original immediately — but it would also start a fresh 24-hour window and
-leave your receiver one rotation behind again, for no security gain. The leaked
-value stops working at the same moment either way.
+**The leaked secret is still live.** It became "previous" at rotation and keeps
+verifying until 14:12 tomorrow. That is the overlap working as designed, and it
+is also exactly what is worrying you.
 
-What I can do instead is confirm the new secret is actually verifying, which is
-the thing that is genuinely unknown right now:
+**A second rotation would kill it now.** The secret you just deployed becomes
+the new "previous" — still valid 24 hours, so your receiver keeps working — and
+the original is dropped immediately. The rule against rotating twice exists for
+consumers still running the original, who break the instant it lands. You have
+deployed, so that case does not apply to you.
+
+**The cost is another migration.** You would be back to a 24-hour clock and a
+third secret to ship.
+
+So it comes down to whether a leaked production secret being live for another 22
+hours is a risk you want to carry. If the leak was in a log with broad reach,
+close it now. If it was internal and another deploy is expensive, let the window
+expire. That is your call, not mine.
+
+Before you decide, let me confirm the secret you deployed is actually verifying —
+that is the one thing genuinely unknown right now, and it is free:
 
 ```
 tool: list_webhook_delivery_logs
 input:
-  endpoint_id: c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f
+  id: c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f
   limit: 20
 ```
 
-Last 20 deliveries, all `2xx`, most recent four minutes ago and after your
-deploy. **The new secret is working.** If you want the leaked one dead sooner
-than 14:12 tomorrow, that is a question for EPD support — there is no tool on
-this surface that shortens the window.
+```json
+{
+  "data": [
+    { "event_type": "order.succeeded", "response_status": 200,
+      "delivered_at": "2026-09-23T14:16:41.882Z" },
+    { "event_type": "order.succeeded", "response_status": 200,
+      "delivered_at": "2026-09-23T14:15:09.104Z" }
+  ],
+  "has_more": true
+}
+```
+
+Twenty deliveries, all `200`, the most recent four minutes ago — after your
+deploy. **The secret you shipped is verifying.** So a second rotation is safe to
+do; it is only a question of whether it is worth doing.
+
+Say the word and I will put the plan up.
 
 ---
 
 ### What the transcript demonstrates
 
+- **"Our signing secret" was disambiguated before anything rotated.** Secrets
+  are per-endpoint; there were two endpoints. Rotating the wrong one breaks a
+  working consumer and leaves the leak open.
 - **`has_pending_rotation` was checked before planning**, not after.
-- **The confirmation named the URL as well as the ID**, and stated the 24-hour
-  consequence in the same breath as asking.
+- **The confirmation named the tool, the URL and which environment** — not just
+  the ID. `rotate_webhook_secret` on production and on staging are the same call
+  with very different consequences.
 - **The secret was surfaced immediately and prominently**, with the reason it
-  cannot be recovered.
-- **The deadline was given as a timestamp**, because the window started at the
-  call.
-- **The second rotation was refused with its mechanism**, and replaced with the
-  check that answers the engineer's actual worry.
+  cannot be recovered, and **the deadline was given as a timestamp**, because
+  the window started at the call rather than when the engineer reads it.
+- **The second rotation was answered accurately instead of refused by reflex.**
+  The blanket rule — never rotate twice inside the window — protects consumers
+  still on the original. This consumer had deployed, so the rule did not apply,
+  and a second rotation genuinely would close the leak early. Refusing it as
+  "no security gain" would have been false, and hiding a real option behind a
+  rule the agent had not checked applies is worse than saying no.
+- **The risk decision went to the human**, with both costs named, rather than
+  being made for them.
 
 ## Where it hands off
 

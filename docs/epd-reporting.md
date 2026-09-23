@@ -168,9 +168,22 @@ table are the sandbox measurements the skill records; the rest is placeholder.
 
 **Finance:** What did we take in July? I need it for the board pack.
 
-**Agent:** One note before the number: this session is connected in **test**
-mode, so what follows is sandbox data. If the board pack needs live figures,
-stop me here — a sandbox total looks exactly like a real one on a slide.
+**Agent:** Before I quote a figure for a board pack, let me confirm which
+account this is. A sandbox total looks exactly like a real one on a slide, and
+I am not willing to assert the mode from memory.
+
+```
+tool: ping
+input: {}
+```
+
+```json
+{ "merchant_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "name": "Demo Company", "environment": "test", "is_sandbox": true }
+```
+
+**Connected to Demo Company in test mode.** So everything below is sandbox
+data. If the board pack needs live figures, stop me here.
 
 **Finance:** Understood, it's the process I'm checking. Carry on.
 
@@ -241,15 +254,35 @@ wrong by 17.
 
 **Finance:** Someone will ask why it doesn't match our transaction export.
 
-**Agent:** Then reconcile it before they do, in this order — filter first,
-numbers second:
+**Agent:** Then reconcile it before they do. The rule is filter first, numbers
+second — and the filter that should reproduce gross is the narrow one:
 
-| Filter on `list_transactions` | Count | Sum |
+```
+tool: list_transactions
+input:
+  type: sale
+  status: succeeded
+  created_after: "2026-07-01T00:00:00Z"
+  created_before: "2026-08-01T00:00:00Z"
+  limit: 100
+```
+
+Paged to the end: **425 rows summing to 53,356,800** — exactly
+`transaction_count` and `gross_cents`. That is the row that matters, because it
+is the one a finance export is trying to reproduce.
+
+The other three filters explain the disagreement rather than resolve it, and
+**I have not run them** — each is its own set of pages. Here is what to expect,
+from when this account's reconciliation was last measured:
+
+| Filter on `list_transactions` | Expect | Against |
 |---|---|---|
-| `type=sale`, `status=succeeded` | 425 | 53,356,800 → matches gross |
-| `type=refund` | 17 | −2,169,273 → matches refunds, sign flipped |
-| `status=succeeded`, all types | 442 | 51,187,527 → matches net |
-| **no filter** | 546 | 70,382,976 → **matches nothing** |
+| `type=refund` | 17 rows, −2,169,273 | `refund_count` / `refunded_cents`, sign flipped |
+| `status=succeeded`, all types | 442 rows, 51,187,527 | `net_cents` |
+| **no filter** | 546 rows, 70,382,976 | **nothing** |
+
+Say the word and I will run them against today's data rather than quoting the
+last measurement.
 
 That last row is the one an export usually produces, and it is the one that
 starts the argument. Both numbers are correct; they answer different questions.
@@ -257,16 +290,24 @@ starts the argument. Both numbers are correct; they answer different questions.
 Refunds are stored negative and reported positive, which is the other sign
 people trip over when they sum an export by hand.
 
-One pacing note: that reconciliation was five pages at 100 rows each, so five
-calls against the 60-per-minute data bucket. A full year would be closer to
-sixty and worth pacing against the 1000-per-hour limit.
+One pacing note: the query above was five pages at 100 rows each. Running all
+four filters is about **seventeen** pages, which is still comfortable against
+the 60-per-minute data bucket — but a full year at this volume is closer to
+sixty pages per filter, and that is where the 1000-per-hour ceiling starts to
+decide how long the job takes.
 
 ---
 
 ### What the transcript demonstrates
 
-- **The mode was stated before the number**, because a sandbox figure on a board
-  slide is the failure this prevents.
+- **The mode was established before the number, not asserted.** `ping` ran
+  first. "Stated the mode" and "checked the mode" are different claims, and a
+  sandbox figure on a board slide is the failure this prevents.
+- **Figures it fetched were separated from figures it was quoting.** The
+  reconciliation's first row was run and shown; the other three were labelled
+  as the last measurement, with an offer to re-run. Presenting a remembered
+  number as this session's result is the same defect as recomputing a total and
+  calling it EPD's — the guide refuses that one two sections up.
 - **`truncated` was read and reported**, not skipped because the range looked
   small.
 - **Chargebacks were raised unprompted**, with the accounting decision left to

@@ -55,15 +55,22 @@ shows a number that was actually measured — the 425-of-546 July reconciliation
 the 24-hour rotation overlap, the nine observed decline codes — the surrounding
 guide says so.
 
-A transcript shows the confirmation prompts in full. That is deliberate: the
-prompt is the control, and the only way to review a control is to see the words
-it uses.
+Where the work has a confirmation, the transcript shows it in full. Six of the
+twelve skills can write, and those six print the exact words — the prompt is the
+control, and the only way to review a control is to see the words it uses. The
+other six are read-only or generate code, so their transcripts show the
+reasoning and the refusals instead.
+
+Every value a transcript puts in a confirmation was read back from a response
+shown above it. That is [`SAFETY.md`](../SAFETY.md) rule 4, and it applies to
+the guides as much as to the agents: a confirmation whose numbers came from
+nowhere teaches the reader that inventing them is acceptable.
 
 ## Conventions used throughout
 
 | Convention | Meaning |
 |---|---|
-| **T0 / T1 / T2 / T3** | Confirmation tiers, defined in [`SAFETY.md`](../SAFETY.md). T0 reads freely; T3 needs an echoed amount, currency, object ID and key mode. |
+| **T0 / T1 / T2 / T3** | Confirmation tiers, defined in [`SAFETY.md`](../SAFETY.md). T0 reads freely. T2 and T3 both print a plan first — **naming the tool**, the arguments, the key mode and the expected effect — and T3 adds the exact amount, currency and object ID. |
 | `tool_name` | An MCP tool on the EPD Commerce server. The per-tool tier table is [`references/tiers.md`](../workflows/epd-mcp-operator/references/tiers.md). |
 | `POST /v1/...` | A REST endpoint on `https://api.epd.com`. Integration skills generate code against these; workflow skills do not call them. |
 | Amounts | Integer minor units throughout. `2999` is $29.99. |
@@ -72,13 +79,24 @@ it uses.
 ## Keeping these honest
 
 A guide that drifts from its skill is worse than no guide, because it reads as
-authority. Three things hold them together:
+authority. Four things hold them together:
 
-- `npm run check` fails if a skill has no guide, if a guide names a skill that
-  does not exist, if a guide is missing one of the five sections, or if any
-  relative link in the repository's Markdown points at a file that is not
-  there.
-- Tier claims are never typed into a guide as facts about the server. They
+- **`npm run check` fails** if a skill has no guide or a guide names a skill
+  that does not exist; if a guide's frontmatter disagrees with the manifest on
+  `skill`, `surface` or `api_version`; if a guide is missing one of the six
+  sections, does not link to its `SKILL.md`, or is not listed on this page; or
+  if any relative Markdown link in the repository — **including its anchor** —
+  points at something that is not there.
+- **Code in a guide is executed, not just read.** The `epd-webhooks` example is
+  covered by `scripts/__tests__/webhook-verifier.test.js`, which fails the build
+  if it regresses to the truthiness bug it diagnoses, or stops passing a real
+  signing secret.
+- **Tier claims are never typed into a guide as facts about the server.** They
   point at the generated table, which regenerates with `npm run gen:tiers`.
-- The confirmation policy lives in [`SAFETY.md`](../SAFETY.md) alone. If a
+- **The confirmation policy lives in [`SAFETY.md`](../SAFETY.md) alone.** If a
   guide and `SAFETY.md` disagree, `SAFETY.md` wins and the guide is a bug.
+
+What none of that catches is a transcript that invents an identifier or quotes a
+figure it never fetched. Those are read by a human, and every guide here has
+been audited for them once — see the `fix(docs):` commits for what that turned
+up.

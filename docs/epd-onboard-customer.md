@@ -22,6 +22,15 @@ new customer.
 `get_customer`, `update_customer`, `delete_customer`, plus
 `list_payment_methods`, `add_payment_method` and `delete_payment_method`.
 
+**`create_customer` requires four fields, and `phone` is the one that catches
+people.** `email`, `first_name`, `last_name` and `phone` are all required, and
+`phone` must be E.164 — `+14155551234`. Most signup forms treat a phone number
+as optional, so it is the field a back-office or phone-line onboarding is most
+likely to be missing. Under [`SAFETY.md`](../SAFETY.md) rule 5 that is a stop,
+not a guess: ask for it rather than filling a plausible number to see what
+happens. Both composites require the same four, plus `card_token` and their own
+arguments.
+
 **The two signup composites**, `create_customer_and_charge` and
 `create_customer_and_subscribe`. Both are T3, both take one idempotency key
 covering the whole chain, and both attempt to roll the customer back if the
@@ -174,8 +183,18 @@ input:
 
 No match, so this is a genuine signup.
 
-> I'm about to create customer **Alice Liddell** (alice@example.com) in **LIVE**
-> mode. This is a live-config write. Proceed?
+One thing I am missing before I can create her: **`phone` is required on
+`create_customer`**, in E.164 — `+14155551234`. You gave me a name, an email and
+a card. I am not going to invent a number or leave it out to see what happens;
+what is hers?
+
+**Ops:** +447700900123.
+
+**Agent:**
+
+> I'm about to call **`create_customer`** for **Alice Liddell**
+> (alice@example.com, +447700900123) in **LIVE** mode. This creates the customer
+> record and nothing else — no card, no subscription. Proceed?
 
 **Ops:** Yes.
 
@@ -185,6 +204,7 @@ input:
   email: alice@example.com
   first_name: Alice
   last_name: Liddell
+  phone: "+447700900123"
   idempotency_key: 8f9a4d2e-7b1c-4f3a-9e2d-5c8a1b7d9e3f
 ```
 
@@ -229,6 +249,14 @@ call here.
 - **The pasted PAN was never echoed.**
 - **A lookup preceded the create**, because duplicates are refused after the
   fact.
+- **A missing required field stopped the work.** `phone` is required and Ops had
+  not supplied one. `SAFETY.md` rule 5 calls filling it with a plausible guess
+  the single most common agent failure on structured input, and the cost of
+  asking is one message.
+- **The confirmation named the tool**, not just the intent. T2 and T3 both
+  require the tool name in the plan, because "create the customer" and "create
+  the customer and charge her" read almost identically and are `create_customer`
+  and `create_customer_and_charge`.
 - **The un-retryable step was flagged before it ran**, not diagnosed afterwards.
 - **The result was verified by reading the cards back** — the one check that
   catches a double-vault.

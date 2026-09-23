@@ -6,7 +6,9 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const SKILL_DIR = path.resolve(__dirname, '..', '..', 'integration', 'epd-webhooks');
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const SKILL_DIR = path.join(REPO_ROOT, 'integration', 'epd-webhooks');
+const GUIDE = path.join(REPO_ROOT, 'docs', 'epd-webhooks.md');
 const { verifyWebhook } = require(path.join(SKILL_DIR, 'scripts', 'verify_node.js'));
 
 const SECRET = 'whsec_test1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
@@ -72,5 +74,36 @@ test('the epd-webhooks examples test `valid`, never the result object', () => {
   for (const { lang, code } of examples) {
     assert.doesNotMatch(code, truthiness, `${lang} example tests the result object for truthiness`);
     assert.match(code, readsValid[lang], `${lang} example does not read the valid field`);
+  }
+});
+
+test('the epd-webhooks guide shows exactly one truthiness bug, and fixes it', () => {
+  // The guide's transcript diagnoses `if (!result)`, so exactly one example may
+  // contain it — the broken one being explained. If the corrected snippet ever
+  // regresses to the same shape, the count goes to two and this fails.
+  const guide = fs.readFileSync(GUIDE, 'utf8').replace(/\r\n/g, '\n');
+  const js = [...guide.matchAll(/```js\n([\s\S]*?)```/g)].map(([, code]) => code);
+  const callsVerifier = js.filter((code) => /verifyWebhook\(/.test(code));
+  assert.ok(callsVerifier.length >= 2, 'expected the broken example and its fix');
+
+  const truthiness = callsVerifier.filter((code) => /if\s*\(\s*!\s*result\s*\)/.test(code));
+  assert.equal(
+    truthiness.length,
+    1,
+    'the guide should show the truthiness bug exactly once, as the defect being diagnosed',
+  );
+
+  const readsValid = callsVerifier.filter((code) => /\{\s*valid\b/.test(code));
+  assert.ok(readsValid.length >= 1, 'the guide never shows the corrected form');
+
+  // The corrected snippet must pass a real secret, not an undefined identifier:
+  // verifyWebhook(body, header, undefined) returns missing_secret and 401s
+  // every delivery.
+  for (const code of readsValid) {
+    assert.match(
+      code,
+      /EPD_WEBHOOK_SECRET/,
+      'the corrected example must pass an actual secret, not a bare identifier',
+    );
   }
 });

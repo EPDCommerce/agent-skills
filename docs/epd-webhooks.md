@@ -175,6 +175,8 @@ The secret is definitely right — I pasted it twice.
 problem. Two causes account for nearly all of these, and they look identical
 from the outside. Can I see the route?
 
+**Developer:**
+
 ```js
 const app = express();
 app.use(express.json());
@@ -223,7 +225,11 @@ the handler happens to be broken in a second way.
 Read `valid`:
 
 ```js
-const { valid, reason } = verifyWebhook(req.body, req.get('EPD-Signature'), secret);
+const { valid, reason } = verifyWebhook(
+  req.body,                                  // Buffer — the raw parser above
+  req.get('EPD-Signature'),
+  process.env.EPD_WEBHOOK_SECRET,            // `whsec_…`; the verifier strips the prefix
+);
 if (!valid) {
   console.warn('rejected webhook:', reason);   // log the reason, don't return it
   return res.sendStatus(401);
@@ -231,10 +237,16 @@ if (!valid) {
 const event = JSON.parse(req.body.toString('utf8'));
 ```
 
-This exact bug shipped in this skill's own Express, FastAPI and Laravel examples
-and was fixed in Phase D. There is now a test in the repository that fails the
-build if an example regresses to truthiness, which is the only reason to believe
-it will not come back — the warning in the prose had already been there.
+Pass the secret explicitly. An `undefined` third argument does not throw — it
+comes back `{ valid: false, reason: 'missing_secret' }`, so the handler rejects
+every delivery with a 401 and the log fills with a reason that looks like EPD's
+problem rather than a missing environment variable.
+
+This exact truthiness bug shipped in this skill's own Express, FastAPI and
+Laravel examples and was fixed in Phase D. `scripts/__tests__/webhook-verifier.test.js`
+now fails the build if any of those three regresses — **and if the example on
+this page does**, which is the only reason to believe it will not come back. The
+warning in the prose had already been there the first time.
 
 Two things to add while you are in this handler:
 

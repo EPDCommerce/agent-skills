@@ -45,8 +45,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `audit/skill-map.mjs` — checks the shipped `SKILL.md` descriptions against
   the map's planned routes, and computes the status of the Phase A notes
   against the six original skills instead of hard-coding them.
+- `docs/` — human documentation. One guide per skill, twelve in total, all
+  following the same template: what the skill does, when it fires, what it
+  refuses to do and why, what to check afterwards, one worked transcript, and
+  where it hands off. `docs/README.md` indexes them and states the template.
+  The guides are deliberately absent from the manifest — they are written for
+  the people reviewing an agent's work, not for an agent to load at runtime.
+- `scripts/check-docs.js` (`npm run validate:docs`) — fails if a skill has no
+  guide, if a guide names a skill that does not exist, if guide frontmatter
+  disagrees with the manifest, if a guide is missing one of the six template
+  sections or does not link to its `SKILL.md`, if a guide is not indexed, or if
+  any relative Markdown link in the repository does not resolve. Link checking
+  covers anchors, so a table of contents cannot outlive the heading it points
+  at. Wired into `npm run check` and into CI.
+- `scripts/__tests__/check-docs.test.js` — covers the validator itself, not
+  just its verdict on the current tree: the link checker is exercised against
+  targets and anchors that do and do not exist, and the slug function against
+  the heading forms `SAFETY.md` actually uses.
 
 ### Changed
+
+Phase E — human documentation.
+
+- `README.md` rewritten. Test mode versus live mode is now the first section
+  rather than a note under Versioning, since it is the distinction that costs
+  money. Adds the key-prefix table and what each key may do, the REST setup
+  block, and an MCP server configuration section with the endpoint, headers and
+  the `ping` check — plus the measured fact that restricted keys are refused by
+  that endpoint entirely, so there is no read-only credential to give a
+  reporting agent. Every skill row now links to both the `SKILL.md` and its
+  guide.
+- `SAFETY.md` — finalised for review. Adds a contents list and a **How to
+  redline this file** section naming the six decisions that are EPD's rather
+  than the skill author's, each with what it is currently set to and where it
+  lives: tool-level tier overrides, sandbox writes, batching at T2, standing
+  authorizations for unattended runs, the card-data rule, and what a refusal
+  must report. The policy itself is unchanged.
+- `CONTRIBUTING.md` — documents `docs/` in the repository layout, adds writing
+  the guide as a step in adding a skill, specifies the guide template and
+  frontmatter, and describes what `npm run validate:docs` checks.
 
 Phase D — revisions to the six original skills. Each now routes through
 `epd-mcp-operator` for tiers, confirmation and idempotency instead of restating

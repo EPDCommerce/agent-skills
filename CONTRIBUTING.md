@@ -32,10 +32,20 @@ integration/<skill>/
 workflows/<skill>/
   SKILL.md                         operator-agent workflow
 
+docs/
+  README.md                        guide index + the shared template
+  <skill>.md                       one human-facing guide per skill
+
 scripts/
   validate.js                      manifest + frontmatter validator
+  check-docs.js                    guide + Markdown link validator
   __tests__/                       node:test specs
 ```
+
+`SKILL.md` files are written for an agent to load at runtime. `docs/` is written
+for the humans who have to decide whether to trust what the agent did. Guides
+are deliberately **not** listed in the manifest — an agent should never be
+loading one.
 
 ## Adding a new skill
 
@@ -47,7 +57,50 @@ scripts/
    put domain detail in `references/<topic>.md` and link to it.
 3. **Add to `.well-known/skills/index.json`** with every file the skill
    references.
-4. **Run `npm run check`** before pushing.
+4. **Write its guide** at `docs/<skill-name>.md` — see below. `npm run
+   validate:docs` fails if a skill has no guide.
+5. **Run `npm run check`** before pushing.
+
+## Adding or changing a guide
+
+Every skill has exactly one guide at `docs/<skill-name>.md`. They all answer the
+same questions in the same order, so someone who has read one can skim the rest
+— which means the template is a contract, not a suggestion, and the validator
+enforces it.
+
+```yaml
+---
+skill: <must match the manifest name and the file name>
+surface: integration | workflow      # must match the manifest `kind`
+guide_version: 1.0.0                 # semver for the guide
+api_version: "2026-02-11"            # must match the manifest
+---
+```
+
+Then, in this order, as `##` headings:
+
+| Section | What goes in it |
+|---|---|
+| `## What it does` | The job, and the boundary with the skills either side. |
+| `## When it fires` | Triggers, plus a "what it must not answer" table of the near misses. |
+| `## What it refuses to do, and why` | Every refusal with the failure it prevents. The *why* is the point — a refusal without one reads as timidity and gets argued away. |
+| `## What to check afterwards` | A checklist someone can actually run against a transcript. |
+| `## A worked transcript` | One session end to end, confirmations shown in full. |
+| `## Where it hands off` | Routing table to the neighbouring guides. |
+
+Two rules for the content:
+
+- **Transcripts are illustrative, and say so.** Tool names, argument shapes,
+  error codes and refusal messages must be the ones the skill documents; names,
+  IDs and amounts are placeholders. Do not present a composed transcript as a
+  capture.
+- **Never restate policy.** Tier requirements live in `SAFETY.md` and per-tool
+  tiers in the generated `references/tiers.md`. A guide says how a skill
+  *applies* them. If a guide and `SAFETY.md` disagree, `SAFETY.md` wins and the
+  guide is a bug.
+
+Add the new guide to the table in `docs/README.md` — the validator checks that
+too.
 
 ### Required frontmatter
 
@@ -103,6 +156,8 @@ skill targets — keep it in sync with the manifest's `api_version`.
 
 ## Validation
 
+`npm run check` runs all three of the following.
+
 `npm run validate` checks:
 
 1. `index.json` validates against `schema.json`.
@@ -111,6 +166,17 @@ skill targets — keep it in sync with the manifest's `api_version`.
    `skill-frontmatter.schema.json`.
 4. Frontmatter `name` matches the manifest entry's `name`.
 5. No `SKILL.md` on disk is missing from the manifest.
+
+`npm run validate:docs` checks:
+
+1. Every manifest skill has exactly one guide, and every guide a skill.
+2. Guide frontmatter agrees with the manifest — `skill`, `surface`,
+   `api_version` — and `guide_version` is semver.
+3. Every guide carries all six template sections and links to its `SKILL.md`.
+4. Every guide is linked from `docs/README.md`.
+5. Every relative Markdown link in the repository resolves, **including its
+   anchor** where it names one. A table of contents pointing at a heading
+   somebody renamed is the way these rot.
 
 `npm test` runs `node:test` specs in `scripts/__tests__/`.
 

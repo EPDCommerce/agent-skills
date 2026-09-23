@@ -25,8 +25,7 @@ expect:
 |---|---|
 | `name` | 3 to 80 characters |
 | `description` | 3 to 2000 characters — **required**; omitting it returns `invalid_type`, "expected string, received undefined", which reads like a type bug rather than a missing field |
-| `pricing.amount` | minor units, minimum 1. `0` returns `value_too_small` |
-| `pricing.currency` | documented lowercase ISO 4217; `"USD"` is also accepted |
+| `pricing` | one field, two required values: `amount` in minor units, minimum 1 (`0` returns `value_too_small`), and `currency`, documented lowercase ISO 4217 though `"USD"` is also accepted |
 | `sku` | 3 to 30 characters matching `/^[a-z0-9_-]+$/` |
 | `requires_shipping` | boolean — **required**, and the most consequential field on the form |
 
@@ -68,6 +67,14 @@ is rejected this way, the fix is to find which item requires shipping —
 
 Supply the address as `shipping_address_id` **or** inline `shipping_address`,
 never both; sending both returns `validation_error`.
+
+**In practice only one of those two is reachable from here.**
+`shipping_address_id` is described as "an address already saved on the
+customer", but **none of the 67 tools lists saved addresses** — there is no
+shipping group on this surface, and `get_customer` expands `payment_methods`,
+not addresses. So unless the human supplies the ID from the dashboard, the
+inline `shipping_address` is the only route an agent can actually take. Ask;
+do not produce an address ID you have not been given.
 
 ### Coupons on an order
 
@@ -185,9 +192,34 @@ input:
 
 Created: `6f5e4d3c-2b1a-4098-8765-4321fedcba98`.
 
-Now the order. The kit requires shipping and the data export add-on does not —
-and the rule is that **any** single line item requiring shipping makes the whole
-order require an address. So this order needs one.
+Now the order. It has two line items and I have an ID for one of them — the kit
+I just created. Let me resolve the other by name, and read its shipping flag
+while I am there, because that decides whether this order needs an address at
+all.
+
+```
+tool: list_products
+input:
+  q: data export
+```
+
+```json
+{ "data": [
+  { "id": "0a1b2c3d-4e5f-4678-89ab-cdef01234567",
+    "name": "Data Export Add-on",
+    "sku": "data-export-addon",
+    "requires_shipping": false,
+    "pricing": { "amount": 2999, "currency": "usd" } }
+] }
+```
+
+One match, at $29.99, and it does **not** require shipping. So this is a mixed
+cart — one physical item, one digital — and the rule is that **any** single line
+item requiring shipping makes the whole order require an address. Nine downloads
+and one T-shirt is a physical order. This one needs an address.
+
+Three more things I need and do not have: Alice's customer ID, the card to
+charge, and that address. Two of them I can read.
 
 ```
 tool: list_customers
@@ -195,13 +227,42 @@ input:
   email: alice@example.com
 ```
 
-Alice has a saved shipping address, `addr_…` → `a1b2c3d4-e5f6-4789-9abc-def012345678`.
-I will use `shipping_address_id` and not also send an inline address; sending
-both is rejected.
+One match — `7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a`. Now the card, because the
+confirmation has to name it and I will not state a brand or last four from
+memory:
 
-Before I place it — is a discount meant to apply? If a code is involved I will
-validate it first, because a bad `coupon_code` fails the entire order rather
-than being ignored.
+```
+tool: get_customer
+input:
+  id: 7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a
+  expand: payment_methods
+```
+
+```json
+{
+  "id": "7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a",
+  "default_payment_method": "4d6a4b2f-8e10-7c5a-3d0b-9e429f8c2e11",
+  "payment_methods": [
+    { "id": "4d6a4b2f-8e10-7c5a-3d0b-9e429f8c2e11",
+      "card": { "brand": "visa", "last4": "1111", "card_expires": "12/2030" },
+      "is_default": true }
+  ]
+}
+```
+
+**The address I cannot look up.** `create_order` takes `shipping_address_id`
+for "an address already saved on the customer", but no tool on this surface
+lists saved addresses — there is no shipping group among the 67, and the
+expansion above returns payment methods, not addresses. So either you give me
+the address ID from the dashboard, or I send the address inline. I am not going
+to guess a UUID for it.
+
+**Ops:** Send it inline — 12 Rabbit Hole Lane, Oxford, OX1 2JD, GB. Name on it
+is Alice Liddell.
+
+**Agent:** Noted. Before I place it — is a discount meant to apply? If a code is
+involved I will validate it first, because a bad `coupon_code` fails the entire
+order rather than being ignored.
 
 **Ops:** Yes, SUMMER-SALE.
 
@@ -220,11 +281,12 @@ input:
 Valid for Alice at this amount. That check was free and it is the difference
 between a clean order and a rejection that looks like an ordering bug.
 
-> I'm about to place an order for **Alice Liddell** in **LIVE** mode:
-> **Onboarding Kit** ($149.00) plus **Data Export Add-on** ($29.99), subtotal
-> **$178.99**, coupon `SUMMER-SALE` at 15% off, charged to her Visa ending
-> **1111**, shipping to her saved address in Oxford. This charges the card.
-> Proceed?
+> I'm about to place an order for **Alice Liddell**
+> (`7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a`) in **LIVE** mode: **Onboarding Kit**
+> ($149.00) plus **Data Export Add-on** ($29.99), subtotal **$178.99**, coupon
+> `SUMMER-SALE` at 15% off, charged to her **Visa ending 1111** (her default
+> card), shipping to 12 Rabbit Hole Lane, Oxford OX1 2JD, GB. This charges the
+> card. Proceed?
 
 **Ops:** Go.
 
@@ -236,7 +298,14 @@ input:
   items:
     - { product_id: 6f5e4d3c-2b1a-4098-8765-4321fedcba98, quantity: 1 }
     - { product_id: 0a1b2c3d-4e5f-4678-89ab-cdef01234567, quantity: 1 }
-  shipping_address_id: a1b2c3d4-e5f6-4789-9abc-def012345678
+  shipping_address:
+    first_name: Alice
+    last_name: Liddell
+    address_line1: 12 Rabbit Hole Lane
+    city: Oxford
+    state: Oxfordshire
+    postal_code: OX1 2JD
+    country: GB
   coupon_code: SUMMER-SALE
   idempotency_key: 4f3a9e2d-5c8a-4b7d-9e3f-8f9a4d2e7b1c
 ```
@@ -267,7 +336,19 @@ otherwise-successful response.
 - **Two problems were raised before the first write**, one of which the agent
   refused to resolve itself.
 - **`requires_shipping` was asked rather than inferred**, with the reason.
-- **The mixed cart was recognised** as a shipping order.
+- **The mixed cart was recognised** as a shipping order — after reading the
+  second product's `requires_shipping`, not by assuming it from its name.
+- **Every value in the confirmation was read first.** The second product's ID
+  and price came from `list_products`, the customer ID from `list_customers`,
+  and the payment method with the card's brand and last four from
+  `get_customer` with `expand: payment_methods`. `SAFETY.md` rule 4 forbids
+  inventing any of them, and a confirmation you cannot fill from prior responses
+  is one you are not ready to ask.
+- **The unobtainable value was named as unobtainable.** There is no tool that
+  lists saved shipping addresses, so the agent said so and asked, rather than
+  producing a plausible UUID — which is the failure mode rule 4 exists for,
+  because a plausible ID is indistinguishable from a real one until it acts on
+  the wrong object.
 - **The coupon was validated first**, T0 and free, rather than discovering the
   typo as a failed order.
 - **`status` was checked on the response**, and `total` rather than `subtotal`

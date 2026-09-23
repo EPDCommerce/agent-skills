@@ -54,12 +54,16 @@ logical operation. Semantic strings like `"order-123"` collide.
 | `idempotency_key_conflict` | same key, **different** body | Stop. Something changed between attempts — find out what before sending anything else. |
 | `request_in_progress` | same key, **same** body | Treat as "the first attempt may have gone through". Look the resource up. Do not spin. |
 
-The reference documents that the API reference promises a repeat within 24 hours
-returns the original response, and that in sandbox it did not: a same-key,
-same-body repeat got `request_in_progress` 1.5 seconds later on 18 September
-2026, and still at +90 seconds in August. **Only the MCP surface replays
-correctly** — which matters for the one REST leg an agent touches,
-`secure.epd.com`.
+The skill records a divergence worth knowing: the API reference promises that a
+repeat within 24 hours returns the original response, and in sandbox it did
+not — a same-key, same-body repeat got `request_in_progress` 1.5 seconds later
+on 18 September 2026, and still at +90 seconds in August. So code that waits for
+the replay waits forever.
+
+> The MCP surface *does* replay a repeated key correctly. That asymmetry is
+> documented in [`epd-mcp-operator`](./epd-mcp-operator.md) rather than here,
+> and it matters when porting an operation between the two surfaces — the same
+> retry is safe on one and not the other.
 
 **The error envelope is uniform, and `field_errors` is the one to read.**
 Validation failures carry `param` (the first bad field) and `field_errors[]`
@@ -168,7 +172,10 @@ Reviewing code an agent generated with this skill:
 ## A worked transcript
 
 Illustrative. Endpoint shapes, error codes and the measured sandbox behaviours
-are as the skill documents them; code is a sketch, not a drop-in.
+are as the skill documents them. The corrected wrapper below is a sketch in its
+helpers, not in its control flow — it was exercised against mocked responses for
+every branch it claims, including a proxy 502 with an HTML body, a 429 with no
+`Retry-After`, and a rejected `fetch`.
 
 ---
 
@@ -213,8 +220,10 @@ bug that survives a code review.
 
 **2. Every non-2xx is retried.** A `400 validation_error` is wrong, not
 transient — retrying it three times produces the same 400 and delays the real
-error. Retry 5xx and network errors. Never retry a 4xx, with the two exceptions
-below.
+error. Retry 5xx and network errors. The **only** 4xx worth retrying is `429`,
+and then only after `Retry-After`. `409 request_in_progress` is not a retry
+either — it means read the resource back, which is a different action against a
+different endpoint.
 
 **3. Two 409s are being treated as one, and they mean opposite things.**
 
@@ -241,33 +250,55 @@ not recoverable after the fact.
 ```ts
 async function post(path: string, body: unknown, idempotencyKey: string) {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(`https://api.epd.com${path}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.EPD_API_KEY}`,
-        'EPD-Version': '2026-02-11',
-        'X-EPD-Idempotency-Key': idempotencyKey,   // same key every attempt
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetch(`https://api.epd.com${path}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.EPD_API_KEY}`,
+          'EPD-Version': '2026-02-11',
+          'X-EPD-Idempotency-Key': idempotencyKey,   // same key every attempt
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      await sleep(2 ** attempt * 100);   // network error — same key, try again
+      continue;
+    }
 
     if (res.ok) return res.json();
 
-    const { error } = await res.json();
-    log.warn({ request_id: error.request_id, code: error.code });
+    // A 5xx from a proxy is HTML, not the error envelope. Never parse blind.
+    const error = await res.json().then((b) => b?.error, () => undefined);
+    log.warn({ status: res.status, request_id: error?.request_id, code: error?.code });
 
-    if (res.status === 429) { await sleep(Number(res.headers.get('retry-after')) * 1000); continue; }
-    if (res.status >= 500)  { await sleep(2 ** attempt * 100); continue; }
-    if (error.code === 'request_in_progress') throw new ReadBackRequired(error);
-    throw new EpdError(error);   // every other 4xx: do not retry
+    if (res.status === 429) {
+      const after = Number(res.headers.get('retry-after'));
+      await sleep((Number.isFinite(after) ? after : 2 ** attempt) * 1000);
+      continue;
+    }
+    if (res.status >= 500) { await sleep(2 ** attempt * 100); continue; }
+    if (error?.code === 'request_in_progress') throw new ReadBackRequired(error);
+    throw new EpdError(error ?? { code: `http_${res.status}` });   // other 4xx: no retry
   }
   throw new Error('failed after 3 attempts');
 }
 ```
 
-The shape that matters is the key being an argument. Everything else is
-mechanics.
+The shape that matters is the key being an argument. Three details in there are
+not decoration:
+
+- **`fetch` is wrapped.** It *rejects* on a network failure rather than
+  returning a response, so an unwrapped call leaves the retry loop entirely —
+  the one failure the loop most exists for.
+- **The body parse is guarded.** A 502 from a load balancer is HTML, and
+  `await res.json()` on it throws a `SyntaxError` that looks nothing like a
+  payments problem. `error` stays `undefined` and the status still routes.
+- **`retry-after` has a fallback.** The header is not always present, and
+  `sleep(NaN)` is `sleep(0)` — which turns a rate-limit backoff into three
+  instant retries. Each one still spends hourly quota, so spinning makes the
+  limit worse rather than shorter.
 
 ---
 
@@ -280,7 +311,11 @@ mechanics.
 - **Two same-status errors were separated**, with opposite handling.
 - **A documented-versus-measured divergence was stated with its date**, rather
   than repeating the documentation.
-- **The fix is a sketch, and says so.**
+- **The control flow is complete, not sketched.** The helpers — `sleep`, `log`,
+  the two error classes — are named rather than written, but every branch the
+  prose claims is present and handles the failure it names, including the three
+  that are easy to leave out: a rejected `fetch`, a 5xx whose body is HTML, and
+  a 429 with no `Retry-After`.
 
 ## Where it hands off
 

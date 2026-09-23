@@ -100,6 +100,7 @@ be selected on that word alone.
 | **Widen permissions or route around them.** | `insufficient_permissions` on this surface almost always means the key is restricted and cannot use MCP at all. Retrying, or finding another tool that reaches the same effect, converts a clean stop into an unlogged workaround. |
 | **Decide policy at runtime.** | Standing authorizations for unattended work are written into `SAFETY.md` in advance. An agent that can grant itself an exception has no policy. |
 | **Cover the REST surface.** | `api.epd.com/v1` belongs to `epd-best-practices`. The single exception is `secure.epd.com`, which appears here because the headless card flow passes through it. |
+| **Hunt for an order by its number.** | `get_order` takes a UUID and rejects anything else with `invalid_order_id`. The short `order_number` a customer reads off a receipt has **no lookup among the 67 tools** — `list_orders` filters by customer, status and date, and nothing takes a number. So the handles that work are the UUID or the customer; paging thousands of orders hoping to recognise a string spends the rate limit for a maybe, and is the wrong answer even when it happens to work. |
 
 ### The permissions reality, stated plainly
 
@@ -168,6 +169,42 @@ itself a destructive call. And "charged twice" is a diagnosis, not an
 observation, so I am going to read before I act on it. Refunding is
 irreversible; reading is free.
 
+Starting with the order you named:
+
+```
+tool: get_order
+input:
+  id: A1B2C3D4
+```
+
+```json
+{ "error": { "type": "invalid_request_error", "code": "invalid_order_id",
+             "message": "Invalid order ID format.", "request_id": "req_abc123" } }
+```
+
+**That is not an order ID.** `get_order` takes a UUID. `A1B2C3D4` is the short
+`order_number` — the form the dashboard and the customer's receipt show — and
+**nothing on this surface looks one up.** `list_orders` filters by customer,
+status and date; no tool among the 67 takes an order number.
+
+So I need a different handle. Give me her email, or the order's UUID from the
+dashboard, and I will go straight to it. What I am not going to do is page
+through the account's order history hoping to recognise the number — on an
+account with thousands of orders that burns the rate limit and still may not
+find it.
+
+**Operator:** alice@example.com.
+
+**Agent:**
+
+```
+tool: list_customers
+input:
+  email: alice@example.com
+```
+
+One match — `7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a`.
+
 ```
 tool: list_orders
 input:
@@ -175,13 +212,13 @@ input:
   limit: 10
 ```
 
-Two orders, ninety seconds apart, same amount, same items — but their statuses
+Two orders ninety seconds apart, same amount, same items — but their statuses
 differ:
 
-| Order | Status | Total |
+| `order_number` | Status | Total |
 |---|---|---|
-| `A1B2C3D4…` | `succeeded` | 4999 |
-| `E5F6A7B8…` | `failed` | 4999 |
+| `A1B2C3D4` | `succeeded` | 4999 |
+| `E5F6A7B8` | `failed` | 4999 |
 
 Only one of these took money. Let me confirm the second never captured.
 
@@ -206,11 +243,17 @@ input:
 
 Confirmed: one succeeded sale, one failed sale, no capture on the second. A
 failed order row persists so the attempt can be audited, which is why it shows
-up in the customer's history looking like a second charge.
+up in her order history looking like a second charge.
 
-**The customer was charged once.** The other entry is an authorization their
-bank has not yet released — typically three to five business days, and not
-something either of us can accelerate from here.
+**EPD captured one payment, not two.** The second attempt was declined —
+`do_not_honor`, meaning her issuer refused and did not say why.
+
+If she is seeing two lines on her statement, the usual explanation is a pending
+authorization her bank has not released, which typically clears in three to five
+business days. I want to be explicit that this is an inference about her bank,
+not something I can see: no field in that response reports an authorization
+hold, and this surface has no visibility into it. What I can state as fact is
+what EPD did, and EPD took one payment.
 
 I have not issued a refund and I am not going to propose one, because there is
 no second payment to return. If you want me to refund the *successful* order —
@@ -233,9 +276,18 @@ the month rather than pulling the year.
 
 - **`ping` first, mode stated in words**, before anything else — including
   before the read, because the mode changes how the results should be read.
+- **The unresolvable reference was named, not worked around.** An order number
+  is not an order ID and no tool looks one up. The agent asked for a handle it
+  could actually use rather than producing a customer ID from nowhere, which
+  `SAFETY.md` rule 4 forbids, or paging thousands of orders, which spends the
+  rate limit to maybe find it.
 - **A T3 action was requested and not taken.** "Refund one of them" is an
   instruction, but the premise was wrong, and the skill's *diagnosis before
   money* boundary says read first.
+- **The inference was labelled as one.** What EPD did is readable; what the
+  customer's bank is holding is not. Separating the two is the same discipline
+  `epd-transaction-triage` applies when it refuses to call a decline a gateway
+  rejection on data that cannot show it.
 - **The refusal names what it will not do and what it would need** in order to do
   the other thing, rather than just declining.
 - **No confirmation was requested**, because nothing reached T2. Asking approval

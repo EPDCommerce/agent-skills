@@ -36,6 +36,16 @@ walkthrough, so there is no way to mint a `card_token`. The card goes to
 `payment_method_id` is a **bare UUID** that must never be prefixed with `pm_` on
 input.
 
+**It is also the one step you must not re-run on a timeout**, and the
+walkthrough does not say so. `secure.epd.com` does not replay: the same
+idempotency key with a byte-identical body came back `409
+idempotency_key_conflict` across three attempts, and a fresh key vaults the card
+a second time. So the reflex a curl walkthrough trains — Ctrl-C, press up,
+Enter — is the one thing that produces a duplicate card here. If it hangs, list
+the customer's payment methods before re-running; the first attempt often
+succeeded. `epd-onboard-customer` documents this at length for the operator
+surface, and a first-timer meets it here first.
+
 **Step 5 exists because you cannot price an order inline.** Order amounts come
 from product pricing. A developer who skips product creation has nothing to
 charge for. The skill lists the exact field constraints, including the ones that
@@ -110,9 +120,14 @@ By the end of the walkthrough you should have proved all of:
       (right shape, wrong value).
 - [ ] **`.env` is in `.gitignore`.** Step 1 says so; check it rather than assume.
 - [ ] **The version header is pinned** — `EPD-Version: 2026-02-11` on every call.
-- [ ] **An idempotency key went on every POST**, and you know where it will live
-      in real code.
-- [ ] **`payment_method_id` was used bare**, with no `pm_` prefix.
+- [ ] **An idempotency key went on every POST to `api.epd.com`**, and you know
+      where it will live in real code. The `secure.epd.com` call is the
+      exception — it takes one but does not replay it, which is why that step
+      is the one you must not re-run blind.
+- [ ] **The customer was created with all four required fields**, `phone`
+      included.
+- [ ] **`payment_method_id` was used bare**, with no `pm_` prefix, and
+      `list_payment_methods` shows **one** card rather than two.
 - [ ] **The success path returned `status: "succeeded"`**, read from the body
       rather than inferred from the 201.
 - [ ] **The decline path returned 201 with `status: "failed"` and
@@ -139,8 +154,7 @@ curl -s https://api.epd.com/v1/account \
 ```
 
 ```json
-{ "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "name": "Demo Company", "is_sandbox": true }
+{ "name": "Demo Company", "is_sandbox": true, ... }
 ```
 
 `is_sandbox: true` — good, this is a test key and nothing below will move real
@@ -161,10 +175,13 @@ curl -s https://api.epd.com/v1/customers -X POST \
   -H "EPD-Version: 2026-02-11" \
   -H "X-EPD-Idempotency-Key: $(uuidgen)" \
   -H "Content-Type: application/json" \
-  -d '{"email":"alice@example.com","first_name":"Alice","last_name":"Liddell"}'
+  -d '{"email":"alice@example.com","first_name":"Alice",
+       "last_name":"Liddell","phone":"+14155551234"}'
 ```
 
-Save the `id` as `CUSTOMER_ID`.
+All four of those are required — `phone` included, in E.164. It is the one
+people drop, because most signup forms treat a phone number as optional. Save
+the returned `id` as `CUSTOMER_ID`.
 
 Now the card. You have no browser in this loop, so there is no way to mint a
 `cct_…` token — that needs the EPD Elements SDK. The headless path posts the
@@ -182,6 +199,19 @@ curl -s "https://secure.epd.com" -X POST \
 
 The returned `id` is your `PAYMENT_METHOD_ID`, and it is a **bare UUID** — never
 prefix it with `pm_` on input. That one is a real 400.
+
+**If that call hangs, do not press up and run it again.** It is the one command
+in this walkthrough that will not deduplicate — `secure.epd.com` returns `409
+idempotency_key_conflict` on a repeat even with an identical body, and a fresh
+key vaults the card twice. Check whether it landed first:
+
+```bash
+curl -s "https://api.epd.com/v1/customers/$CUSTOMER_ID/payment_methods" \
+  -H "Authorization: Bearer $EPD_API_KEY" \
+  -H "EPD-Version: 2026-02-11"
+```
+
+One row means it worked. Two means you already re-ran it.
 
 Then a product, because you cannot price an order inline — order amounts come
 from product pricing. `sku` is 3–30 characters, lowercase letters, digits,
@@ -229,7 +259,10 @@ deduplicates nothing.
 
 - **The key was verified from the response body**, not from its prefix.
 - **The headless card path was explained rather than assumed**, including why
-  the browser path is unavailable.
+  the browser path is unavailable — and including the one command in the
+  walkthrough that must not be re-run, with the check to run instead. A curl
+  guide trains Ctrl-C and press-up; this is the step where that habit costs a
+  duplicate card.
 - **The 201 on success was not treated as the answer** — `status` was.
 - **The decline step used a fresh customer**, with the measured reason.
 - **The one anti-pattern in the skill's own examples was called out** at the

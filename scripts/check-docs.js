@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Validate the human documentation in docs/.
+ * Validate the human documentation in docs/, and the tool calls documented
+ * anywhere in the repository.
  *
  *   1. Every skill in the manifest has exactly one guide at docs/<name>.md,
  *      and no guide exists for a skill that doesn't.
@@ -12,7 +13,11 @@
  *      eleven siblings, which is the whole value of having a template.
  *   4. Every guide is linked from the docs index.
  *   5. Every relative Markdown link in the repository resolves to a file
- *      that exists — in docs/, in the skills, and at the root.
+ *      that exists — in docs/, in the skills, and at the root — including
+ *      the heading its anchor names, where it names one.
+ *   6. Every `tool:` block, in a guide or a SKILL.md, names a tool the
+ *      committed tools/list snapshot declares, passes only parameters that
+ *      tool declares, and passes all of the ones it requires.
  *
  * Exits 0 on success, 1 on any failure.
  */
@@ -42,6 +47,18 @@ const SEMVER = /^\d+\.\d+\.\d+$/;
 
 /** Directories that are not ours to validate. */
 const SKIP_DIRS = new Set(['node_modules', '.git']);
+
+/**
+ * Every `tool:` block in the repository is checked against the committed
+ * tools/list snapshot, so a documented call cannot name a tool the server does
+ * not have or pass an argument it does not declare. Reviewing those by hand is
+ * the most tedious part of reviewing this repo, and the most mechanical.
+ *
+ * Raised deliberately: if a refactor stops the blocks being found, the check
+ * would otherwise pass by matching nothing, which is indistinguishable from
+ * passing correctly.
+ */
+const MIN_TOOL_BLOCKS = 70;
 
 const errors = [];
 const fail = (msg) => errors.push(msg);
@@ -175,6 +192,84 @@ function checkLinks(files) {
   }
 }
 
+/** Newest audit/tools-YYYY-MM-DD.json, matching how gen-tiers.mjs picks one. */
+function loadToolSnapshot() {
+  const dir = path.join(REPO_ROOT, 'audit');
+  if (!fs.existsSync(dir)) return null;
+  const snaps = fs
+    .readdirSync(dir)
+    .filter((f) => /^tools-\d{4}-\d{2}-\d{2}\.json$/.test(f))
+    .sort();
+  if (!snaps.length) return null;
+  const raw = readJson(path.join(dir, snaps[snaps.length - 1]));
+  const tools = raw.tools || (raw.result && raw.result.tools);
+  return Array.isArray(tools) ? { name: snaps[snaps.length - 1], tools } : null;
+}
+
+/**
+ * Pull `tool: <name>` / `input:` blocks out of a fenced example. Line endings
+ * are normalised first: a Windows checkout with core.autocrlf stores CRLF, and
+ * a \n-only pattern silently matches nothing there.
+ */
+function extractToolCalls(src) {
+  const text = src.replace(/\r\n/g, '\n');
+  const fence = '`'.repeat(3);
+  // `input:` is followed either by an indented block or by an inline `{}`,
+  // which is how the no-argument tools like `ping` are written. Capturing
+  // everything up to the fence handles both; an inline `{}` yields no args.
+  const re = new RegExp(`tool: (\\w+)\\ninput:([\\s\\S]*?)\\n?${fence}`, 'g');
+  const out = [];
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const args = [...m[2].matchAll(/^ {2}(\w+):/gm)].map((a) => a[1]);
+    const line = text.slice(0, m.index).split('\n').length;
+    out.push({ tool: m[1], args, line });
+  }
+  return out;
+}
+
+function checkToolCalls(snapshot, files) {
+  if (!snapshot) {
+    fail('no audit/tools-YYYY-MM-DD.json snapshot found to check tool calls against');
+    return 0;
+  }
+  let seen = 0;
+
+  for (const file of files) {
+    const src = fs.readFileSync(file, 'utf8');
+    for (const { tool, args, line } of extractToolCalls(src)) {
+      seen++;
+      const def = snapshot.tools.find((t) => t.name === tool);
+      if (!def) {
+        fail(`${rel(file)}:${line}: no tool named "${tool}" in ${snapshot.name}`);
+        continue;
+      }
+      const schema = def.inputSchema || {};
+      const declared = Object.keys(schema.properties || {});
+      const required = schema.required || [];
+
+      for (const a of args) {
+        if (!declared.includes(a)) {
+          fail(`${rel(file)}:${line}: ${tool} has no parameter "${a}"`);
+        }
+      }
+      for (const r of required) {
+        if (!args.includes(r)) {
+          fail(`${rel(file)}:${line}: ${tool} is missing required parameter "${r}"`);
+        }
+      }
+    }
+  }
+
+  if (seen < MIN_TOOL_BLOCKS) {
+    fail(
+      `only ${seen} tool block(s) found, expected at least ${MIN_TOOL_BLOCKS} — ` +
+        'the extractor is probably matching nothing rather than everything being fine',
+    );
+  }
+  return seen;
+}
+
 function checkGuides(manifest) {
   if (!fs.existsSync(DOCS_INDEX)) {
     fail(`docs index not found at ${rel(DOCS_INDEX)}`);
@@ -252,14 +347,16 @@ function main() {
 
   const markdown = findMarkdown(REPO_ROOT);
   checkLinks(markdown);
+  const toolCalls = checkToolCalls(loadToolSnapshot(), markdown);
 
-  return finish(manifest.skills.length, markdown.length);
+  return finish(manifest.skills.length, markdown.length, toolCalls);
 }
 
-function finish(guideCount, mdCount = 0) {
+function finish(guideCount, mdCount = 0, toolCalls = 0) {
   if (errors.length === 0) {
     process.stdout.write(
-      `ok — ${guideCount} guide(s) validated, ${mdCount} markdown file(s) link-checked\n`,
+      `ok — ${guideCount} guide(s) validated, ${mdCount} markdown file(s) link-checked, ` +
+        `${toolCalls} tool call(s) checked against the snapshot\n`,
     );
     process.exit(0);
   }
@@ -271,11 +368,14 @@ function finish(guideCount, mdCount = 0) {
 if (require.main === module) main();
 
 module.exports = {
+  MIN_TOOL_BLOCKS,
   REQUIRED_SECTIONS,
   extractLinks,
+  extractToolCalls,
   findBrokenLinks,
   headingAnchors,
   isExternal,
+  loadToolSnapshot,
   slugify,
   stripFences,
 };

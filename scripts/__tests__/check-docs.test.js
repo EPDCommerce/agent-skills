@@ -17,7 +17,10 @@ const MANIFEST = JSON.parse(
 const {
   REQUIRED_SECTIONS,
   extractLinks,
+  extractToolCalls,
   findBrokenLinks,
+  loadToolSnapshot,
+  MIN_TOOL_BLOCKS,
   headingAnchors,
   isExternal,
   slugify,
@@ -142,4 +145,62 @@ test('every guide has a worked transcript with a confirmation or a refusal', () 
       `docs/${skill.name}.md has no substantive worked transcript`,
     );
   }
+});
+
+test('the tool-call extractor survives CRLF, which a Windows checkout produces', () => {
+  const crlf = '```\r\ntool: ping\r\ninput: {}\r\n```\r\n';
+  const lf = crlf.replace(/\r\n/g, '\n');
+  assert.equal(extractToolCalls(crlf).length, 1, 'CRLF source found no tool blocks');
+  assert.equal(extractToolCalls(lf).length, 1);
+});
+
+test('the tool-call extractor reads the tool name and its arguments', () => {
+  const src = [
+    '```',
+    'tool: refund_order',
+    'input:',
+    '  order_id: <uuid>',
+    '  amount: 1500',
+    '  idempotency_key: <UUID v4>',
+    '```',
+  ].join('\n');
+  assert.deepEqual(extractToolCalls(src), [
+    { tool: 'refund_order', args: ['order_id', 'amount', 'idempotency_key'], line: 2 },
+  ]);
+});
+
+test('every documented tool call names a real tool and real parameters', () => {
+  const snapshot = loadToolSnapshot();
+  assert.ok(snapshot, 'no tools-YYYY-MM-DD.json snapshot found');
+
+  const roots = ['docs', 'workflows', 'integration'];
+  const files = [];
+  const walk = (dir) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.md')) files.push(p);
+    }
+  };
+  for (const r of roots) walk(path.join(REPO_ROOT, r));
+
+  let seen = 0;
+  for (const f of files) {
+    for (const { tool, args } of extractToolCalls(fs.readFileSync(f, 'utf8'))) {
+      seen++;
+      const def = snapshot.tools.find((t) => t.name === tool);
+      assert.ok(def, `${path.basename(f)}: no such tool "${tool}"`);
+      const declared = Object.keys(def.inputSchema?.properties || {});
+      for (const a of args) {
+        assert.ok(declared.includes(a), `${path.basename(f)}: ${tool} has no parameter "${a}"`);
+      }
+      for (const r of def.inputSchema?.required || []) {
+        assert.ok(args.includes(r), `${path.basename(f)}: ${tool} missing required "${r}"`);
+      }
+    }
+  }
+  assert.ok(
+    seen >= MIN_TOOL_BLOCKS,
+    `only ${seen} tool blocks found — the extractor is matching nothing`,
+  );
 });

@@ -46,9 +46,18 @@ misread: the money arrived and was then clawed back, so "retry it" is
 meaningless and the customer has already disputed. Different status, different
 problem, different team.
 
-**2. Reads the order, not just the transaction.** The order carries four things
+**2. Reads the order, not just the transaction.** The order carries five things
 the transaction does not:
 
+- **`status`, which need not match the transaction's.** An order that failed on
+  one attempt and succeeded on a retry reads `succeeded` while the failed
+  transaction row persists underneath it. **A failed transaction is not a failed
+  order.** This follows from `transactions[]` being an attempt history — if an
+  order can hold several attempts, it can hold attempts that disagree — and it
+  is the one that flips a verdict: diagnosing from the transaction alone reports
+  a charge as lost that was actually taken the next day. The skill's own
+  order-versus-transaction section does not yet say this; it is the first thing
+  to read off the order.
 - `next_retry_at` — a retry may already be scheduled. A manual retry on top of
   it is two charges.
 - `attempt_count` — a third `do_not_honor` on the same card is not ambiguous any
@@ -165,8 +174,22 @@ measurements the skill records; names and IDs are placeholders.
 sure the card is fine. Can you check and retry it?
 
 **Agent:** I can check. I will not retry — this skill is read-only, and I want
-to know what failed before anything moves. Starting with her recent
-transactions.
+to know what failed before anything moves.
+
+"Alice Liddell" is not something I can query on, though. Her email or customer
+ID, and I will start.
+
+**Support lead:** alice@example.com.
+
+**Agent:**
+
+```
+tool: list_customers
+input:
+  email: alice@example.com
+```
+
+One match — `7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a`.
 
 ```
 tool: list_transactions
@@ -175,9 +198,25 @@ input:
   limit: 10
 ```
 
-The most recent is `status: "failed"`, so there will be a code on it. Two rows
-below it are `status: "chargeback"` from March — worth noting, because those are
-not declines and I will come back to them.
+```json
+{
+  "data": [
+    { "id": "4d6a4b2f-8e10-7c5a-3d0b-9e429f8c2e11",
+      "type": "sale", "status": "failed", "amount": 3999,
+      "created_at": "2026-09-23T07:41:02Z" },
+    { "id": "…", "type": "sale", "status": "succeeded", "amount": 3999,
+      "created_at": "2026-08-23T07:40:55Z" },
+    { "id": "…", "type": "sale", "status": "chargeback", "amount": 3999,
+      "created_at": "2026-03-19T11:02:14Z" },
+    { "id": "…", "type": "sale", "status": "chargeback", "amount": 3999,
+      "created_at": "2026-03-04T09:55:31Z" }
+  ]
+}
+```
+
+The most recent is `status: "failed"`, so there will be a code on it. The two
+`chargeback` rows from March I am noting and not diagnosing — those are not
+declines, and I will come back to them.
 
 ```
 tool: get_transaction
@@ -225,7 +264,13 @@ input:
 }
 ```
 
-Three things change the answer.
+**First, the order's own `status` is `failed` too.** That is worth checking
+rather than assuming: an order that failed once and succeeded on a retry reads
+`succeeded` with the failed transaction still sitting underneath it, and
+reporting that as a lost payment would be wrong in the customer's favour and
+wrong for you. Here it really did fail.
+
+Then three things change the answer.
 
 **This is a subscription renewal, not a one-off.** `subscription_id` is set and
 this is cycle 7. That makes it a dunning failure, which is
@@ -261,6 +306,12 @@ payments one. I have not looked into them — say the word and I will.
 
 - **The retry request was declined without being refused.** The agent explains
   what it would take, who owns it, and what it will cost.
+- **A name was turned into an ID first.** "Alice Liddell" is not a handle, and
+  the rows the diagnosis rests on are the ones that came back from a query —
+  not ones summarised from memory.
+- **The order's status was checked, not inferred from the transaction's.** A
+  failed transaction can belong to a succeeded order; confirming it is what
+  separates "her payment is lost" from "it went through yesterday".
 - **The order was read**, and it changed the answer twice over — from one-off to
   subscription, and from "retry" to "a retry is already scheduled".
 - **The class was named with its reason.** "Soft — the card is fine, the moment

@@ -65,6 +65,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+Phase E — human documentation, plus four skill corrections the documentation
+work uncovered. Each was found by writing a guide's worked transcript against
+the skill and discovering the skill could not answer the question the transcript
+had to ask.
+
+- `epd-transaction-triage` 1.1.0 — **a failed transaction is not a failed
+  order.** The order's `status` can be `succeeded` while a failed transaction
+  row persists underneath it, because `transactions[]` is an attempt history and
+  an order holding several attempts can hold attempts that disagree. The
+  order-versus-transaction section listed four things to read off the order, all
+  retry state; it now leads with the one that flips a verdict, and the
+  transaction-status table says outright that it is the transaction's status,
+  not the order's.
+- `epd-catalog` 1.1.0 — **`shipping_address_id` has no lookup on this surface.**
+  `create_order` accepts it for "an address already saved on the customer", but
+  no tool among the 67 lists saved addresses and `get_customer` expands payment
+  methods, not addresses. The skill presented the two address forms as equals;
+  it now says the inline one is the only route an agent can take unless the
+  human supplies the id.
+- `epd-coupons` 1.1.0 — **archived coupons need the `archived` filter to be
+  found at all.** The skill said they drop out of the default `list_coupons`
+  result without naming the parameter that brings them back, so a restore
+  request — which arrives as a name, not an id — begins with a lookup that
+  returns nothing and looks like "no such coupon".
+- `epd-mcp-operator` 1.1.0 — **an order number is not an order ID, and nothing
+  looks one up.** `get_order` takes a UUID and rejects anything else with
+  `invalid_order_id`; the short `order_number` on a customer's receipt has no
+  lookup among the 67 tools. "Refund order A1B2C3D4" is therefore a request the
+  agent cannot start without a UUID or a customer. Also: the T2 and T3
+  confirmation templates now name the tool, which `SAFETY.md` has always
+  required and neither template did — "cancel the subscription" is
+  `cancel_subscription`, `cancel_subscription_and_report` or
+  `refund_and_cancel`, and only one of the three returns the customer's money.
+
+`audit/COVERAGE.md` and `audit/coverage.json` regenerate accordingly — the new
+prose mentions additional tools in `epd-mcp-operator` and `epd-catalog`.
+
 Phase E — human documentation.
 
 - `README.md` rewritten. Test mode versus live mode is now the first section

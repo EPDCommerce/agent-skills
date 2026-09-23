@@ -173,9 +173,9 @@ it wrong and every future order for the product is wrong. Which is it?
 
 **Agent:**
 
-> I'm about to create the product **Onboarding Kit** at **$149.00 USD**, SKU
-> `onboarding-kit-2026`, **requires shipping: true**, in **LIVE** mode. This is
-> a live-config write. Proceed?
+> I'm about to call **`create_product`** for **Onboarding Kit** at **$149.00
+> USD**, SKU `onboarding-kit-2026`, **requires shipping: true**, in **LIVE**
+> mode. This creates the catalog entry; nothing is charged. Proceed?
 
 **Ops:** Yes.
 
@@ -281,7 +281,7 @@ input:
 Valid for Alice at this amount. That check was free and it is the difference
 between a clean order and a rejection that looks like an ordering bug.
 
-> I'm about to place an order for **Alice Liddell**
+> I'm about to call **`create_order`** for **Alice Liddell**
 > (`7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a`) in **LIVE** mode: **Onboarding Kit**
 > ($149.00) plus **Data Export Add-on** ($29.99), subtotal **$178.99**, coupon
 > `SUMMER-SALE` at 15% off, charged to her **Visa ending 1111** (her default

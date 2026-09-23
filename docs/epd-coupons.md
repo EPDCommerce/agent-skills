@@ -240,7 +240,7 @@ cap it at 2.
 different things, so they get a confirmation each — the check is read-only and
 does not.
 
-> I'm about to unarchive coupon **SPRING-LAUNCH**
+> I'm about to call **`unarchive_coupon`** on **SPRING-LAUNCH**
 > (`9e2d5c8a-1b7d-4e3f-8f9a-4d2e7b1c4f3a`) in **LIVE** mode. This does not by
 > itself make it usable — it stays inactive until the next step. Proceed?
 
@@ -255,9 +255,10 @@ input:
 
 Archived flag cleared. `active` is still `false`, as expected.
 
-> Next: set **SPRING-LAUNCH** to **active**, `expires_at` to
-> **2026-10-02T23:59:59Z**, and `max_redemptions_per_customer` to **2**, in
-> **LIVE** mode. The 25% rate is unchanged and cannot be changed. Proceed?
+> Next, **`update_coupon`** on the same coupon: set **active** to true,
+> `expires_at` to **2026-10-02T23:59:59Z**, and `max_redemptions_per_customer`
+> to **2**, in **LIVE** mode. The 25% rate is unchanged and cannot be changed.
+> Proceed?
 
 **Marketing:** Yes.
 

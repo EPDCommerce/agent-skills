@@ -3,7 +3,7 @@ name: epd-mcp-operator
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than a domain workflow's steps — which tool to use and whether it can be called at all, composite versus primitive, whether a call is safe, test-vs-live mode, idempotency and retries, rate limits, and permission errors. Triggers when the user names an EPD tool and asks whether to use it ("should I use create_customer_and_charge", "is process_order the right one"), asks which tool to reach for, whether a composite beats the primitives or a tool works headlessly, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out and a retry is uncertain, or before the first write of a session. Skip when the tool choice is settled and only domain steps remain — load the owning skill from this skill's routing table. Tool-selection and safety questions load this skill first, even inside a domain workflow.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key. Restricted keys cannot reach the MCP endpoint.
 metadata:
-  version: 1.0.1
+  version: 1.1.0
   api_version: "2026-02-11"
 ---
 
@@ -69,6 +69,19 @@ wanted an action, or moving money for someone who wanted a snippet.
 **Diagnosis before money.** *"The payment failed, refund them"* routes to
 diagnosis first, not to `epd-refunds`. A hard decline may mean nothing was
 captured and no refund is owed. Read, classify, then decide.
+
+### An order number is not an order ID, and nothing looks one up
+
+`get_order` takes a bare UUID and rejects anything else with
+`invalid_order_id`. The short `order_number` a customer reads off a receipt or
+the dashboard — `1F0OTRAM`, `sbx-0bvok6r5` — has **no lookup on this surface**:
+`list_orders` filters by `customer_id`, `status` and date, and no tool among the
+67 accepts an order number.
+
+So when someone says "refund order A1B2C3D4", the handles that actually work are
+the order's UUID or the customer. Ask for one. Do not page `list_orders` hoping
+to recognise the string — on an account with thousands of orders that spends the
+rate limit for a maybe, and finding it that way is luck rather than method.
 
 ### The word `charge` cannot route on its own
 
@@ -225,16 +238,23 @@ Read the object first, then confirm with values you have actually seen. The echo
 is what makes a confirmation meaningful, and rule 4 in `SAFETY.md` forbids
 inventing any part of it.
 
+`SAFETY.md` asks for four things in a T2 plan: **the tool name**, the arguments,
+the key mode, and the expected effect. Name the tool. "Cancel the subscription"
+is `cancel_subscription`, `cancel_subscription_and_report` or
+`refund_and_cancel` depending on what you meant, and only one of those three
+returns the customer's money.
+
 **T2** — plan, then wait:
 
-> I'm about to create the product **Data Export Add-on** at **$29.99 USD** in
-> **test** mode. This is a live-config write. Proceed?
+> I'm about to call **`create_product`** for **Data Export Add-on** at
+> **$29.99 USD** in **test** mode. This creates the catalog entry; nothing is
+> charged. Proceed?
 
 **T3** — plan, plus exact amount, currency, object ID, and mode:
 
-> I'm about to refund order **A1B2C3D4** (`9f8c2e11-4d6a-4b2f-8e10-7c5a3d0b9e42`)
-> for **$29.99 USD** to Alice Liddell's Visa ending 1111, in **test** mode.
-> This is irreversible. Proceed?
+> I'm about to call **`refund_order`** on order
+> `9f8c2e11-4d6a-4b2f-8e10-7c5a3d0b9e42` for **$29.99 USD** to Alice Liddell's
+> Visa ending 1111, in **test** mode. This is irreversible. Proceed?
 
 The T3 form differs in what it forces you to have: an amount and an ID you could
 only have obtained by reading. If you cannot fill the template from prior

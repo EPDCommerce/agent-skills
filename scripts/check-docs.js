@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Validate the human documentation in docs/, and the tool calls documented
+ * Validate the documentation in docs/, and the tool calls documented
  * anywhere in the repository.
  *
  *   1. Every skill in the manifest has exactly one guide at docs/<name>.md,
@@ -51,12 +51,18 @@ const SKIP_DIRS = new Set(['node_modules', '.git']);
 /**
  * Every `tool:` block in the repository is checked against the committed
  * tools/list snapshot, so a documented call cannot name a tool the server does
- * not have or pass an argument it does not declare. Reviewing those by hand is
- * the most tedious part of reviewing this repo, and the most mechanical.
+ * not have or pass an argument it does not declare.
  *
- * Raised deliberately: if a refactor stops the blocks being found, the check
- * would otherwise pass by matching nothing, which is indistinguishable from
- * passing correctly.
+ * Overlaps `audit/coverage.mjs` on purpose. That script makes the same argument
+ * check over `integration/` and `workflows/`, but it is an audit generator run
+ * by hand — it writes `audit/coverage.json` — and nothing in CI invokes it.
+ * This runs on every push and also covers `docs/`, which coverage.mjs does not
+ * look at. Keeping both means the audit output stays reproducible and the
+ * guides cannot drift between audits.
+ *
+ * MIN_TOOL_BLOCKS is the guard against a silent pass: if a refactor stops the
+ * blocks being found, the check would otherwise succeed by matching nothing,
+ * which is indistinguishable from succeeding correctly.
  */
 const MIN_TOOL_BLOCKS = 70;
 

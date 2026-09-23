@@ -47,14 +47,16 @@ function verifyWebhook(payload, signatureHeader, secret, toleranceSeconds = DEFA
     ? secret.slice(SIGNING_SECRET_PREFIX.length)
     : secret;
 
-  const expected = crypto.createHmac('sha256', hmacKey).update(signedPayload, 'utf8').digest('hex');
-  const expectedBuf = Buffer.from(expected, 'hex');
-  let actualBuf;
-  try {
-    actualBuf = Buffer.from(signature, 'hex');
-  } catch {
+  // Buffer.from(str, 'hex') never throws: it silently stops at the first
+  // non-hex character. Check the shape explicitly so a malformed header gets
+  // its own reason instead of looking like a mismatch.
+  if (!/^[0-9a-fA-F]+$/.test(signature) || signature.length % 2 !== 0) {
     return { valid: false, reason: 'malformed_signature_hex' };
   }
+
+  const expected = crypto.createHmac('sha256', hmacKey).update(signedPayload, 'utf8').digest('hex');
+  const expectedBuf = Buffer.from(expected, 'hex');
+  const actualBuf = Buffer.from(signature, 'hex');
 
   if (expectedBuf.length !== actualBuf.length) {
     return { valid: false, reason: 'signature_mismatch' };
@@ -80,7 +82,7 @@ function parseSignatureHeader(header) {
       signature = v;
     }
   }
-  if (timestamp == null || !signature) return null;
+  if (timestamp == null || signature == null) return null;
   return { timestamp, signature };
 }
 
@@ -95,8 +97,23 @@ if (require.main === module) {
   const sig = crypto.createHmac('sha256', hmacKey).update(`${ts}.${body}`).digest('hex');
   const header = `t=${ts},v1=${sig}`;
 
-  console.log('valid signature:', verifyWebhook(body, header, secret));
-  console.log('tampered body:  ', verifyWebhook(body + 'x', header, secret));
-  console.log('expired:        ', verifyWebhook(body, `t=${ts - 1000},v1=${sig}`, secret));
-  console.log('malformed:      ', verifyWebhook(body, 'not a signature', secret));
+  // The result is an object, so it is always truthy. Callers must test
+  // `.valid`, never the result itself. Every case below asserts on `.valid`.
+  const cases = [
+    ['valid signature', verifyWebhook(body, header, secret), true, undefined],
+    ['uppercase hex', verifyWebhook(body, `t=${ts},v1=${sig.toUpperCase()}`, secret), true, undefined],
+    ['tampered body', verifyWebhook(body + 'x', header, secret), false, 'signature_mismatch'],
+    ['wrong secret', verifyWebhook(body, header, 'whsec_other'), false, 'signature_mismatch'],
+    ['expired', verifyWebhook(body, `t=${ts - 1000},v1=${sig}`, secret), false, 'timestamp_outside_tolerance'],
+    ['malformed header', verifyWebhook(body, 'not a signature', secret), false, 'malformed_signature_header'],
+    ['non-hex signature', verifyWebhook(body, `t=${ts},v1=zz${sig.slice(2)}`, secret), false, 'malformed_signature_hex'],
+    ['empty signature', verifyWebhook(body, `t=${ts},v1=`, secret), false, 'malformed_signature_hex'],
+  ];
+  let failed = 0;
+  for (const [label, result, valid, reason] of cases) {
+    const ok = result.valid === valid && result.reason === reason;
+    if (!ok) failed++;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${label.padEnd(18)} ${JSON.stringify(result)}`);
+  }
+  process.exitCode = failed ? 1 : 0;
 }

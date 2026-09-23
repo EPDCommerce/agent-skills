@@ -28,7 +28,12 @@ right, and wrong in two specific ways that this file exists to cover.
 | `setup_webhook_monitoring` | T2 | `create_webhook_endpoint` pre-scoped | optional |
 | `get_customer_financial_summary` | T0 | profile + payment methods + subscriptions + orders + transactions | — |
 | `get_revenue_summary` | T0 | aggregate over `list_transactions` | — |
-| `list_past_due_subscriptions` | T0 | `list_subscriptions` filtered to `past_due` | — |
+| `list_past_due_subscriptions` | T0 | `list_subscriptions` filtered to `past_due` — but see below | — |
+
+`list_past_due_subscriptions` does not filter today. On 18 September 2026 it
+returned every subscription on the sandbox account, because a subscription in
+dunning stays `active` and the `past_due` filter is dropped silently.
+`epd-subscriptions` covers how to find failed renewals instead.
 
 Seven of the eleven are T3 destructive, three are T0 reads, and one is a T2
 write. A composite is not a lighter-weight call because it is convenient — more

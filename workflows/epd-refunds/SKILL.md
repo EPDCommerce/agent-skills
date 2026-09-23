@@ -1,18 +1,27 @@
 ---
 name: epd-refunds
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs to issue a refund — full or partial, on an order or transaction, optionally combined with subscription cancellation. References MCP tool names (refund_order, refund_transaction, refund_and_cancel), not REST endpoints. Triggers when the user says "refund this order", "refund $X to the customer", "cancel the subscription and refund the last charge", or asks about partial refunds. Skip when the user wants to cancel a subscription without a refund — load epd-subscriptions for that.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs to issue a refund — full or partial, on an order or transaction, optionally combined with subscription cancellation. References MCP tool names (refund_order, refund_transaction, refund_and_cancel), not REST endpoints. Triggers when the user says "refund this order", "refund $X to the customer", "cancel the subscription and refund the last charge", or asks about partial refunds. Skip when the user wants to cancel a subscription without a refund — load epd-subscriptions for that. Skip when a charge failed and nobody has diagnosed why yet — load epd-transaction-triage first. Skip when the user is writing backend code against api.epd.com rather than operating an account — "how do I refund an order" is epd-best-practices, "refund order A1B2C3D4" is this skill.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   api_version: "2026-02-11"
 ---
 
 # Refunds through the EPD Commerce MCP server
 
 You are operating an EPD Commerce merchant account through the MCP server. Refunds
-move money in the customer's direction and are **irreversible** — every
-tool here is annotated `destructiveHint: true`. Confirm with the user before
-invoking.
+move money in the customer's direction and are **irreversible** — the three
+refund tools, `refund_order`, `refund_transaction` and `refund_and_cancel`, are
+annotated `destructiveHint: true`. Confirm with the user before invoking them.
+The lookups used to find the order (`get_order`, `list_orders`,
+`list_transactions`) are read-only.
+
+Tiers come from
+[`references/tiers.md`](../epd-mcp-operator/references/tiers.md), generated from
+the `tools/list` snapshot by `npm run gen:tiers` so it cannot drift. What each
+tier requires is defined once in
+[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
+Do not hand-maintain a tier list here.
 
 ## Decision tree — which tool
 
@@ -86,9 +95,14 @@ input:
 
 Two-phase composite:
 
-1. **Cancel** the subscription. Allowed from `active` or `past_due`;
-   rejected against `canceled` / `completed`.
-2. **Full refund** on the customer's most recent **succeeded** order.
+1. **Cancel** the subscription. The tool's own description names an
+   **active** subscription. An already-canceled one is refused with
+   `invalid_state` and nothing is refunded (checked in sandbox,
+   18 September 2026). A subscription in dunning is still `active` — there is
+   no separate past-due status to check for.
+2. **Full refund** on the customer's most recent **succeeded** order. Read
+   that order first (`list_orders` below) so the confirmation can name the
+   amount — the tool does not take one.
 
 Cancellation runs first so billing stops even if the refund half hits an
 issue.
@@ -144,9 +158,26 @@ error. If the operator hits this, escalate to the dashboard or EPD Commerce supp
 If the user says "refund the customer's last payment" (no subscription
 context), don't reach for `refund_and_cancel`. Instead:
 
-1. `list_orders` filtered by `customer_id`, sorted desc by `created_at`.
-2. Find the most recent `succeeded` order.
+```
+tool: list_orders
+input:
+  customer_id: <customer uuid>
+  status: succeeded,partially_refunded
+  sort: created_at[desc]
+  limit: 1
+```
+
+1. Take the one order returned. `partially_refunded` is included because
+   what is left on it is still refundable.
+2. Read its `total` and any earlier refunds (`get_order` with
+   `expand: transactions` — refunds show as `type: "refund"` with negative
+   amounts) so the confirmation states what is actually left.
 3. Call `refund_order` on it.
+
+Check the `status` of what comes back. An unrecognised status value in a
+list filter is dropped silently rather than rejected (see
+`epd-subscriptions`), so never refund an order just because a filtered list
+returned it.
 
 `refund_and_cancel` is specifically the subscription-closeout composite —
 using it for non-subscription refunds is the wrong tool.
@@ -157,10 +188,12 @@ Multiple partial refunds on the same order are allowed as long as the
 total stays at or under the original amount. The server tracks this; you
 don't need to.
 
-## Confirmation prompts (always required)
+## Confirmation prompts
 
-Refunds move money out of the merchant's account. Confirm before invoking
-any tool here. Templates:
+All three tools here are T3 (see `references/tiers.md`) — confirm using the
+pattern in `epd-mcp-operator`'s "Running a confirmation" section: read the
+object first, then echo the exact amount, currency, object ID and mode.
+Refund-specific templates:
 
 > "This will refund $15.00 to Alice Liddell on order <id>. The charge was
 > originally $29.99, so $14.99 will remain on the order. Proceed?"
@@ -175,36 +208,30 @@ any tool here. Templates:
 After execution, surface the refund ID / order ID so the user can locate it
 in the dashboard.
 
-## Idempotency rules
+## Idempotency
 
-UUID v4 per logical refund operation. **Always pass it.** Retrying a
-refund without the same key risks a duplicate refund. The composite
-(`refund_and_cancel`) caches the whole chain's result under one key — a
-retry of a half-completed composite returns the partial-failure response,
-not a fresh execution.
+Mechanics are in `epd-mcp-operator`'s idempotency section / `SAFETY.md` rule 3.
+One thing specific to this skill: `refund_and_cancel` caches the **whole
+chain's** result under one key — retrying a half-completed composite returns
+the partial-failure response, not a fresh execution.
 
 ## Common operator mistakes
 
-1. **Skipping confirmation on refund tools.** All three are
-   `destructiveHint: true`. Always confirm.
-2. **Passing dollar amounts instead of cents.** `amount: 29.99` is wrong;
+1. **Passing dollar amounts instead of cents.** `amount: 29.99` is wrong;
    `amount: 2999` is right. The server will reject decimals, but if you
    typed `2999` thinking it was $2,999 you just refunded a hundred times
    too much.
-3. **Using `refund_and_cancel` for a non-subscription refund.** It will
+2. **Using `refund_and_cancel` for a non-subscription refund.** It will
    either reject (no subscription) or do something the user didn't ask
    for. Use `refund_order` instead.
-4. **Recycling an idempotency key across different refund attempts.** A
-   different body with the same key returns `idempotency_key_mismatch`.
-   New intent → new key. Same intent retry → same key.
-5. **Issuing a partial refund larger than what's left.** The server
+3. **Issuing a partial refund larger than what's left.** The server
    rejects this — partial refunds across the same order can't exceed the
    original amount. Check `get_order` if uncertain.
 
 ## Where to go next
 
-- Subscription lifecycle (cancel without refund, retry past_due) →
+- Subscription lifecycle (cancel without refund, recover a failed renewal) →
   `epd-subscriptions`
-- Customer financial history → `get_customer_financial_summary`
-- Order/transaction lookup → `list_orders`, `list_transactions`,
-  `get_order`, `get_transaction`
+- Order/transaction lookup, or diagnosing a failure before refunding →
+  `epd-transaction-triage`
+- Revenue or customer financial totals → `epd-reporting`

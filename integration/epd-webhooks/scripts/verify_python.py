@@ -67,6 +67,9 @@ def verify_webhook(
     hmac_key = secret[len(SIGNING_SECRET_PREFIX):] if secret.startswith(SIGNING_SECRET_PREFIX) else secret
     expected = hmac.new(hmac_key.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
 
+    if not signature_hex:
+        return VerifyResult(False, "malformed_signature_hex")
+
     try:
         expected_b = bytes.fromhex(expected)
         actual_b = bytes.fromhex(signature_hex)
@@ -111,7 +114,21 @@ if __name__ == "__main__":
     sig = hmac.new(hmac_key.encode(), f"{ts}.{body}".encode(), hashlib.sha256).hexdigest()
     header = f"t={ts},v1={sig}"
 
-    print("valid signature:", verify_webhook(body, header, secret))
-    print("tampered body:  ", verify_webhook(body + "x", header, secret))
-    print("expired:        ", verify_webhook(body, f"t={ts - 1000},v1={sig}", secret))
-    print("malformed:      ", verify_webhook(body, "not a signature", secret))
+    # VerifyResult is a dataclass instance, so it is always truthy. Callers must
+    # test `.valid`, never the result itself. Every case below asserts on it.
+    cases = [
+        ("valid signature", verify_webhook(body, header, secret), True, None),
+        ("uppercase hex", verify_webhook(body, f"t={ts},v1={sig.upper()}", secret), True, None),
+        ("tampered body", verify_webhook(body + "x", header, secret), False, "signature_mismatch"),
+        ("wrong secret", verify_webhook(body, header, "whsec_other"), False, "signature_mismatch"),
+        ("expired", verify_webhook(body, f"t={ts - 1000},v1={sig}", secret), False, "timestamp_outside_tolerance"),
+        ("malformed header", verify_webhook(body, "not a signature", secret), False, "malformed_signature_header"),
+        ("non-hex signature", verify_webhook(body, f"t={ts},v1=zz{sig[2:]}", secret), False, "malformed_signature_hex"),
+        ("empty signature", verify_webhook(body, f"t={ts},v1=", secret), False, "malformed_signature_hex"),
+    ]
+    failed = 0
+    for label, result, valid, reason in cases:
+        ok = result.valid is valid and result.reason == reason
+        failed += not ok
+        print(f"{'ok  ' if ok else 'FAIL'} {label:<18} {result}")
+    raise SystemExit(1 if failed else 0)

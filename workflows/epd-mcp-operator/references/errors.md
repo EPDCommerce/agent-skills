@@ -1,9 +1,10 @@
 # Error envelopes on the MCP surface
 
 Every code and shape below was observed against the live sandbox on 25–27 August
-2026. Nothing here is inherited from the REST error reference in
-`integration/epd-best-practices/references/errors.md`, which documents
-idempotency codes this surface does not return.
+2026, independently of the REST error reference in
+`integration/epd-best-practices/references/errors.md`. The two now use the same
+idempotency codes; where behaviour differs by surface — REST does not replay a
+repeated key — it is called out below.
 
 ## Three shapes, not one
 

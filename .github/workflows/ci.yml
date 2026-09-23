@@ -42,13 +42,10 @@ jobs:
           php-version: '8.3'
       - name: Smoke-test Node verifier
         run: node integration/epd-webhooks/scripts/verify_node.js --self-test
-        continue-on-error: true
       - name: Smoke-test Python verifier
         run: python integration/epd-webhooks/scripts/verify_python.py --self-test
-        continue-on-error: true
       - name: Smoke-test PHP verifier
         run: php integration/epd-webhooks/scripts/verify_php.php --self-test
-        continue-on-error: true
 
   formatting:
     name: markdown sanity

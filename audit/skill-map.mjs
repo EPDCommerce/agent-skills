@@ -37,6 +37,7 @@ const SKILLS = [
   {
     name: 'epd-mcp-operator', kind: 'workflow', status: 'new',
     owns: 3,
+    router: true, // its routes are the table in its body, not its description
     purpose: 'Master router and safety layer for the MCP surface. Tool selection, confirmation tiers, key mode, idempotency, rate limits, permission errors.',
     triggers: ['which EPD tool should I use', 'am I in test or live', 'is this safe to run', 'insufficient_permissions', 'rate limited', '429', 'idempotency_key', 'before the first write of a session'],
     skip: [
@@ -74,7 +75,7 @@ const SKILLS = [
   {
     name: 'epd-subscriptions', kind: 'workflow', status: 'revised',
     owns: 8,
-    purpose: 'Subscription lifecycle: start, change billing cycle or payment method, cancel, and recover past_due through dunning.',
+    purpose: 'Subscription lifecycle: start, change billing cycle or payment method, cancel, and recover a failed renewal through dunning.',
     triggers: ['start a subscription', 'cancel the subscription', 'change the billing cycle', 'past due', 'dunning', 'retry the failed charge', 'move them to a different plan'],
     skip: [
       ['money must go back to the customer as well', 'epd-refunds'],
@@ -209,6 +210,58 @@ for (const s of SKILLS) {
   }
 }
 
+// ── shipped skills against this map ───────────────────────────────────────────
+// Everything above checks the plan. This checks that the SKILL.md files carry
+// it: every Skip-when target must be named in the shipped frontmatter
+// description, which is all an agent sees before loading a skill. The router
+// is the exception — its routes are the table in its body.
+const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, '.well-known', 'skills', 'index.json'), 'utf8'));
+const shippedText = new Map();
+for (const s of SKILLS) {
+  const file = manifest.skills.find((m) => m.name === s.name)?.files.find((f) => f.endsWith('SKILL.md'));
+  const text = file ? fs.readFileSync(path.join(ROOT, file), 'utf8') : '';
+  shippedText.set(s.name, { text, desc: text.match(/^description:\s*(.*)$/m)?.[1] ?? '' });
+}
+// Whole-name match, so `epd-webhooks` is not satisfied by `epd-webhook-ops`.
+const namesSkill = (hay, skill) => new RegExp(`(?<![a-z-])${skill}(?![a-z-])`).test(hay);
+const shipped = SKILLS.map((s) => {
+  const { text, desc } = shippedText.get(s.name);
+  const where = s.router ? text : desc;
+  const planned = s.skip.map(([, to]) => to);
+  return { name: s.name, missing: planned.filter((to) => !namesSkill(where, to)) };
+});
+const unshipped = shipped.filter((s) => s.missing.length);
+
+// Phase A's notes against the six pre-existing skills, each paired with the
+// check that shows whether the shipped file has caught up. Computed on every
+// run, so the status cannot go stale the way a hand-written note would.
+const descOf = (n) => shippedText.get(n).desc;
+const bodyOf = (n) => shippedText.get(n).text;
+const NOTES = [
+  [
+    '`epd-webhooks` names no specific skill in its Skip-when clause; it should name `epd-webhook-ops`.',
+    namesSkill(descOf('epd-webhooks'), 'epd-webhook-ops'),
+  ],
+  [
+    '`epd-best-practices` skips to "the workflow skills under workflows/", which is not actionable with nine of them; it should route to `epd-mcp-operator`.',
+    namesSkill(descOf('epd-best-practices'), 'epd-mcp-operator') && !descOf('epd-best-practices').includes('workflows/'),
+  ],
+  [
+    '`epd-onboard-customer` claims "first charge or subscription"; it should own the customer and its cards, routing charges to `epd-catalog` and recurring billing to `epd-subscriptions`.',
+    namesSkill(descOf('epd-onboard-customer'), 'epd-catalog') && namesSkill(descOf('epd-onboard-customer'), 'epd-subscriptions'),
+  ],
+  [
+    '`epd-subscriptions` and `epd-refunds` need a clause pointing at `epd-transaction-triage` for diagnosis.',
+    namesSkill(descOf('epd-subscriptions'), 'epd-transaction-triage') && namesSkill(descOf('epd-refunds'), 'epd-transaction-triage'),
+  ],
+  [
+    'The workflow skills among the six take tiers from `epd-mcp-operator` and `references/tiers.md` instead of hand-listing destructive tools.',
+    ['epd-onboard-customer', 'epd-subscriptions', 'epd-refunds'].every(
+      (n) => bodyOf(n).includes('references/tiers.md') && !bodyOf(n).includes('annotated `destructiveHint: true` on this surface:'),
+    ),
+  ],
+];
+
 // ── emit ──────────────────────────────────────────────────────────────────────
 const out = [];
 const p = (s = '') => out.push(s);
@@ -318,20 +371,30 @@ if (weak.length) {
   p();
 }
 
+p('## Shipped skills against this map');
+p();
+p('Everything above checks the plan. This reads the shipped `SKILL.md` files: every');
+p('`Skip when` target above must be named in that skill\'s frontmatter description, which');
+p('is all an agent sees before loading it. The router is the exception — its routes are');
+p('the table in its body.');
+p();
+if (unshipped.length) {
+  p('| Skill | Planned routes missing from the shipped file |');
+  p('|---|---|');
+  for (const s of unshipped) p(`| \`${s.name}\` | ${s.missing.map((m) => `\`${m}\``).join(', ')} |`);
+} else {
+  p(`All ${shipped.length} skills carry every planned route.`);
+}
+p();
+
 p('## Notes against the existing six');
 p();
-p('- `epd-webhooks` already carries a `Skip when ... use workflow skills` clause, but it');
-p('  names no specific skill. It should name `epd-webhook-ops` once that exists.');
-p('- `epd-best-practices` currently says to skip to "the workflow skills under workflows/".');
-p('  With nine workflow skills that is no longer actionable — it should route to');
-p('  `epd-mcp-operator`, which then routes onward.');
-p('- `epd-onboard-customer` describes itself as covering "first charge or subscription".');
-p('  Under this map it owns the customer and its payment methods only; charging is');
-p('  `epd-catalog` and recurring is `epd-subscriptions`. Its description narrows.');
-p('- `epd-subscriptions` and `epd-refunds` already cross-reference each other correctly;');
-p('  both need a new clause pointing at `epd-transaction-triage` for diagnosis.');
-p('- All six inherit the safety layer from `epd-mcp-operator` rather than restating it,');
-p('  which is what removes the duplication Phase D is budgeted to strip.');
+p('Raised in Phase A against the six skills that predate this map. The status is');
+p('computed from the shipped files each time this runs.');
+p();
+p('| Note | Status |');
+p('|---|---|');
+for (const [note, ok] of NOTES) p(`| ${note} | ${ok ? 'resolved' : '**open**'} |`);
 p();
 
 if (badTargets.length) {
@@ -349,3 +412,5 @@ console.log(`  pairs sharing vocabulary: ${pairs.length}`);
 console.log(`  ambiguous terms (3+ skills): ${ambiguous.length}${ambiguous.length ? ' → ' + ambiguous.map(([t]) => t).join(', ') : ''}`);
 console.log(`  UNROUTED collisions: ${unrouted.length}${unrouted.length ? ' → ' + unrouted.map((c) => c.a + '/' + c.b).join('; ') : ' (all routed)'}`);
 console.log(`  broken skip targets: ${badTargets.length}${badTargets.length ? ' → ' + badTargets.join('; ') : ''}`);
+console.log(`  shipped skills missing a planned route: ${unshipped.length}${unshipped.length ? ' → ' + unshipped.map((s) => `${s.name} (${s.missing.join(', ')})`).join('; ') : ''}`);
+console.log(`  Phase A notes still open: ${NOTES.filter(([, ok]) => !ok).length} of ${NOTES.length}`);

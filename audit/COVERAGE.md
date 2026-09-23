@@ -8,8 +8,8 @@ Regenerate with `node audit/matrix.mjs`.
 | | |
 |---|---|
 | Tools on the server | **67** across 12 groups |
-| Documented today | 25 |
-| Not mentioned anywhere today | 5 |
+| Documented today | 35 |
+| Not mentioned anywhere today | 0 |
 | Proposed: worked example | 47 |
 | Proposed: reference row only | 19 |
 | Proposed: one-line mention | 1 |
@@ -28,12 +28,12 @@ confirmation. Uniform coverage across all 67 would be padding.
 | Group | Tools | Documented today | Absent today | Proposed owner(s) |
 |---|---|---|---|---|
 | Account | 3 | 1 | 0 | epd-mcp-operator |
-| Customers | 5 | 1 | 4 | epd-onboard-customer |
-| Payment Methods | 3 | 1 | 1 | epd-onboard-customer |
+| Customers | 5 | 5 | 0 | epd-onboard-customer |
+| Payment Methods | 3 | 3 | 0 | epd-onboard-customer |
 | Products | 7 | 1 | 0 | epd-catalog |
 | Plans | 2 | 0 | 0 | epd-catalog |
-| Orders | 5 | 3 | 0 | epd-catalog, epd-transaction-triage, epd-refunds |
-| Subscriptions | 5 | 3 | 0 | epd-subscriptions |
+| Orders | 5 | 5 | 0 | epd-catalog, epd-transaction-triage, epd-refunds |
+| Subscriptions | 5 | 5 | 0 | epd-subscriptions |
 | Transactions | 2 | 1 | 0 | epd-transaction-triage |
 | Webhook Endpoints | 12 | 1 | 0 | epd-webhook-ops |
 | Webhook Versions | 3 | 2 | 0 | epd-webhook-ops |
@@ -46,10 +46,10 @@ Tiers are derived from the server's own annotations, not assigned by hand.
 
 | Tier | Tools | Documented today | Absent today |
 |---|---|---|---|
-| T0 read | 29 | 8 | 2 |
-| T2 write | 18 | 8 | 1 |
+| T0 read | 29 | 15 | 0 |
+| T2 write | 18 | 9 | 0 |
 | T2 external | 2 | 0 | 0 |
-| T3 destructive | 18 | 9 | 2 |
+| T3 destructive | 18 | 11 | 0 |
 
 ## Proposed skill map
 
@@ -113,14 +113,14 @@ One remains open for `epd-mcp-operator`:
 | `ping` | Account | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator) | `epd-mcp-operator` | MENTION | Liveness check with no workflow around it. One line in epd-mcp-operator as the connection test; a dedicated section would be padding. |
 | `get_account` | Account | readOnly, idempotent | T0 read | — | prose-only (epd-mcp-operator) | `epd-mcp-operator` | REFERENCE |  |
 | `upgrade_account_api_version` | Account | destructive, idempotent | T3 destructive | optional | prose-only (epd-mcp-operator) | `epd-mcp-operator` | EXAMPLE | Destructive and account-wide. Sandbox account currently has api_version=null (floating on latest), so the Aug 31 release lands automatically. |
-| `create_customer` | Customers | idempotent | T2 write | optional | documented (epd-best-practices, epd-mcp-operator, epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE | Step 1 of the browserless onboarding flow. Returns the customer_id that secure.epd.com requires. |
-| `list_customers` | Customers | readOnly, idempotent | T0 read | — | — | `epd-onboard-customer` | REFERENCE |  |
-| `get_customer` | Customers | readOnly, idempotent | T0 read | — | — | `epd-onboard-customer` | REFERENCE |  |
-| `update_customer` | Customers | idempotent | T2 write | optional | — | `epd-onboard-customer` | EXAMPLE |  |
-| `delete_customer` | Customers | destructive, idempotent | T3 destructive | optional | — | `epd-onboard-customer` | EXAMPLE |  |
-| `list_payment_methods` | Payment Methods | readOnly, idempotent | T0 read | — | prose-only (epd-mcp-operator) | `epd-onboard-customer` | REFERENCE |  |
+| `create_customer` | Customers | idempotent | T2 write | optional | documented (epd-mcp-operator, epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE | Step 1 of the browserless onboarding flow. Returns the customer_id that secure.epd.com requires. |
+| `list_customers` | Customers | readOnly, idempotent | T0 read | — | documented (epd-onboard-customer) | `epd-onboard-customer` | REFERENCE |  |
+| `get_customer` | Customers | readOnly, idempotent | T0 read | — | documented (epd-onboard-customer) | `epd-onboard-customer` | REFERENCE |  |
+| `update_customer` | Customers | idempotent | T2 write | optional | documented (epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE |  |
+| `delete_customer` | Customers | destructive, idempotent | T3 destructive | optional | documented (epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE |  |
+| `list_payment_methods` | Payment Methods | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-onboard-customer, epd-subscriptions) | `epd-onboard-customer` | REFERENCE |  |
 | `add_payment_method` | Payment Methods | idempotent | T2 write | optional | documented (epd-best-practices, epd-mcp-operator, epd-onboard-customer, epd-subscriptions) | `epd-onboard-customer` | EXAMPLE | BROWSER ONLY — takes card_token (^cct_[0-9a-f]{48}$) from EPD Elements, which only a browser can mint. Not reachable by a server-side agent. Document as the browser path and route agents to secure.epd.com instead. |
-| `delete_payment_method` | Payment Methods | destructive, idempotent | T3 destructive | optional | — | `epd-onboard-customer` | EXAMPLE |  |
+| `delete_payment_method` | Payment Methods | destructive, idempotent | T3 destructive | optional | documented (epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE |  |
 | `create_product` | Products | idempotent | T2 write | optional | documented (epd-catalog) | `epd-catalog` | EXAMPLE |  |
 | `list_products` | Products | readOnly, idempotent | T0 read | — | prose-only (epd-catalog) | `epd-catalog` | REFERENCE |  |
 | `get_product` | Products | readOnly, idempotent | T0 read | — | prose-only (epd-catalog, epd-mcp-operator) | `epd-catalog` | REFERENCE |  |
@@ -131,17 +131,17 @@ One remains open for `epd-mcp-operator`:
 | `list_plans` | Plans | readOnly, idempotent | T0 read | — | prose-only (epd-catalog) | `epd-catalog` | REFERENCE |  |
 | `get_plan` | Plans | readOnly, idempotent | T0 read | — | prose-only (epd-catalog) | `epd-catalog` | REFERENCE |  |
 | `create_order` | Orders | idempotent | T2 write | required | documented (epd-best-practices, epd-catalog, epd-mcp-operator, epd-onboard-customer) | `epd-catalog` | EXAMPLE | Agent-facing charge path. Takes payment_method_id from secure.epd.com. Verified end to end 27 Aug: order 1DVZHHMB, status succeeded. |
-| `list_orders` | Orders | readOnly, idempotent | T0 read | — | prose-only (epd-refunds, epd-transaction-triage) | `epd-transaction-triage` | REFERENCE |  |
-| `get_order` | Orders | readOnly, idempotent | T0 read | — | prose-only (epd-refunds, epd-transaction-triage) | `epd-transaction-triage` | REFERENCE |  |
+| `list_orders` | Orders | readOnly, idempotent | T0 read | — | documented (epd-refunds, epd-transaction-triage) | `epd-transaction-triage` | REFERENCE |  |
+| `get_order` | Orders | readOnly, idempotent | T0 read | — | documented (epd-refunds, epd-subscriptions, epd-transaction-triage) | `epd-transaction-triage` | REFERENCE |  |
 | `refund_order` | Orders | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-mcp-operator, epd-refunds, epd-subscriptions) | `epd-refunds` | EXAMPLE |  |
-| `retry_order` | Orders | destructive, idempotent | T3 destructive | required | documented (epd-catalog, epd-transaction-triage) | `epd-catalog` | EXAMPLE | Was missing from the published docs when this audit ran; added 27 Aug. Destructive and moves money, so it belongs to epd-catalog, which owns order_id-addressed tools. epd-transaction-triage is read-only by construction and cannot hold it — it diagnoses the decline and hands the retry over. |
+| `retry_order` | Orders | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-catalog, epd-subscriptions, epd-transaction-triage) | `epd-catalog` | EXAMPLE | Was missing from the published docs when this audit ran; added 27 Aug. Destructive and moves money, so it belongs to epd-catalog, which owns order_id-addressed tools. epd-transaction-triage is read-only by construction and cannot hold it — it diagnoses the decline and hands the retry over. |
 | `create_subscription` | Subscriptions | idempotent | T2 write | required | documented (epd-best-practices, epd-mcp-operator, epd-onboard-customer, epd-subscriptions) | `epd-subscriptions` | EXAMPLE | Agent-facing recurring path. Takes payment_method_id from secure.epd.com, same as create_order. |
-| `list_subscriptions` | Subscriptions | readOnly, idempotent | T0 read | — | table-only (epd-mcp-operator) | `epd-subscriptions` | REFERENCE |  |
-| `get_subscription` | Subscriptions | readOnly, idempotent | T0 read | — | prose-only (epd-subscriptions) | `epd-subscriptions` | REFERENCE |  |
+| `list_subscriptions` | Subscriptions | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-onboard-customer, epd-subscriptions) | `epd-subscriptions` | REFERENCE |  |
+| `get_subscription` | Subscriptions | readOnly, idempotent | T0 read | — | documented (epd-subscriptions) | `epd-subscriptions` | REFERENCE |  |
 | `update_subscription` | Subscriptions | idempotent | T2 write | optional | documented (epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
-| `cancel_subscription` | Subscriptions | destructive, idempotent | T3 destructive | optional | documented (epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
-| `list_transactions` | Transactions | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-refunds, epd-reporting, epd-subscriptions, epd-transaction-triage) | `epd-transaction-triage` | EXAMPLE |  |
-| `get_transaction` | Transactions | readOnly, idempotent | T0 read | — | table-only (epd-mcp-operator, epd-refunds, epd-reporting, epd-transaction-triage) | `epd-transaction-triage` | EXAMPLE |  |
+| `cancel_subscription` | Subscriptions | destructive, idempotent | T3 destructive | optional | documented (epd-best-practices, epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
+| `list_transactions` | Transactions | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-refunds, epd-reporting, epd-transaction-triage) | `epd-transaction-triage` | EXAMPLE |  |
+| `get_transaction` | Transactions | readOnly, idempotent | T0 read | — | table-only (epd-mcp-operator, epd-reporting, epd-transaction-triage) | `epd-transaction-triage` | EXAMPLE |  |
 | `create_webhook_endpoint` | Webhook Endpoints | idempotent | T2 write | optional | documented (epd-mcp-operator, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE |  |
 | `list_webhook_endpoints` | Webhook Endpoints | readOnly, idempotent | T0 read | — | prose-only (epd-webhook-ops) | `epd-webhook-ops` | REFERENCE |  |
 | `get_webhook_endpoint` | Webhook Endpoints | readOnly, idempotent | T0 read | — | table-only (epd-webhook-ops) | `epd-webhook-ops` | REFERENCE |  |
@@ -152,11 +152,11 @@ One remains open for `epd-mcp-operator`:
 | `upgrade_webhook_version` | Webhook Endpoints | idempotent | T2 write | — | prose-only (epd-mcp-operator, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE | Write tool with no idempotency_key parameter. Run preview_webhook_payload and compare_webhook_versions first. |
 | `downgrade_webhook_version` | Webhook Endpoints | idempotent | T2 write | — | prose-only (epd-mcp-operator, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE | Write tool with no idempotency_key parameter. |
 | `replay_webhook_event` | Webhook Endpoints | openWorld | T2 external | — | heading-only (epd-webhooks, epd-mcp-operator, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE | openWorldHint — calls an external URL. No idempotency_key parameter exists. |
-| `list_webhook_events` | Webhook Endpoints | readOnly, idempotent | T0 read | — | heading-only (epd-webhooks, epd-webhook-ops) | `epd-webhook-ops` | REFERENCE |  |
+| `list_webhook_events` | Webhook Endpoints | readOnly, idempotent | T0 read | — | prose-only (epd-webhooks, epd-webhook-ops) | `epd-webhook-ops` | REFERENCE |  |
 | `list_webhook_delivery_logs` | Webhook Endpoints | readOnly, idempotent | T0 read | — | prose-only (epd-webhooks, epd-mcp-operator, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE |  |
 | `list_webhook_versions` | Webhook Versions | readOnly, idempotent | T0 read | — | prose-only (epd-mcp-operator, epd-webhook-ops) | `epd-webhook-ops` | REFERENCE |  |
 | `preview_webhook_payload` | Webhook Versions | readOnly, idempotent | T0 read | — | documented (epd-webhooks, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE |  |
-| `compare_webhook_versions` | Webhook Versions | readOnly, idempotent | T0 read | — | documented (epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE |  |
+| `compare_webhook_versions` | Webhook Versions | readOnly, idempotent | T0 read | — | documented (epd-webhooks, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE |  |
 | `create_coupon` | Coupons | idempotent | T2 write | optional | documented (epd-coupons) | `epd-coupons` | EXAMPLE |  |
 | `list_coupons` | Coupons | readOnly, idempotent | T0 read | — | prose-only (epd-coupons) | `epd-coupons` | REFERENCE |  |
 | `retrieve_coupon` | Coupons | readOnly, idempotent | T0 read | — | prose-only (epd-coupons) | `epd-coupons` | REFERENCE |  |
@@ -169,8 +169,8 @@ One remains open for `epd-mcp-operator`:
 | `create_customer_and_subscribe` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-mcp-operator, epd-onboard-customer, epd-subscriptions) | `epd-onboard-customer` | EXAMPLE | BROWSER ONLY — composite requires card_token. Server-side agents must use create_customer + secure.epd.com + create_subscription. |
 | `process_order` | Composite | destructive, idempotent | T3 destructive | required | heading-only (epd-best-practices, epd-catalog, epd-mcp-operator, epd-onboard-customer) | `epd-catalog` | EXAMPLE |  |
 | `cancel_subscription_and_report` | Composite | destructive, idempotent | T3 destructive | optional | documented (epd-best-practices, epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
-| `get_customer_financial_summary` | Composite | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-onboard-customer, epd-refunds, epd-reporting, epd-subscriptions) | `epd-reporting` | EXAMPLE |  |
-| `get_revenue_summary` | Composite | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-onboard-customer, epd-reporting) | `epd-reporting` | EXAMPLE |  |
+| `get_customer_financial_summary` | Composite | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-reporting) | `epd-reporting` | EXAMPLE |  |
+| `get_revenue_summary` | Composite | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-reporting) | `epd-reporting` | EXAMPLE |  |
 | `list_past_due_subscriptions` | Composite | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
 | `refund_transaction` | Composite | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-mcp-operator, epd-refunds) | `epd-refunds` | EXAMPLE |  |
 | `setup_webhook_monitoring` | Composite | idempotent | T2 write | optional | heading-only (epd-mcp-operator, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE |  |

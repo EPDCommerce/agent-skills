@@ -18,12 +18,12 @@ Every non-2xx response from the EPD Commerce API has the same envelope:
 request (success and error). Log it on every call — EPD Commerce support uses
 it to look up the request context.
 
-> **Envelope errors are not the same as `failure_reason` on a failed order.**
-> A successful HTTP 200 may still contain `status: "failed"` and a
-> `failure_reason` field on the order body — that is the issuer's decline
-> reason, not an envelope-level API error. The two enums are disjoint;
-> branch on HTTP status first, then on the body. The failure_reason enum is
-> at the bottom of this page.
+> **Envelope errors are not the same as a declined order.** A successful
+> HTTP 2xx may still carry `status: "failed"` on the order body, with a
+> `failure_code` (the machine value) and a `failure_reason` (prose for
+> humans) — that is the issuer's decline, not an envelope-level API error.
+> The two sets of codes are disjoint; branch on HTTP status first, then on
+> the body. The `failure_code` values are at the bottom of this page.
 
 ## Top-level `type` values
 
@@ -35,7 +35,7 @@ These are the seven envelope types the API actually emits:
 | `authentication_error`  | API key missing, invalid, expired, or revoked. (401)                   |
 | `authorization_error`   | Key valid but lacks scope / IP not allowed / wrong environment. (403)  |
 | `rate_limit_error`      | Too many requests — respect `Retry-After`. (429)                       |
-| `idempotency_error`     | Idempotency key conflict, mismatch, or missing. (409, 422)             |
+| `idempotency_error`     | Idempotency key reused with a different body, still in flight, or malformed. (400, 409) |
 | `processing_error`      | Server-side processing failure — internal error, gateway, upstream. (500, 502, 503) |
 | `webhook_error`         | Webhook delivery / configuration / signature failures. (400, 500)      |
 
@@ -59,9 +59,9 @@ These are the seven envelope types the API actually emits:
 | `invalid_api_version` / `api_version_sunset` | 403 | `authorization_error` | `EPD-Version` header is unknown or no longer supported.                  |
 | `rate_limit_exceeded` / `global_rate_limit_exceeded` | 429 | `rate_limit_error` | Throttled — respect `Retry-After`.                                     |
 | `missing_idempotency_key`           | 400  | `invalid_request_error` | Endpoint requires `X-EPD-Idempotency-Key` and it wasn't sent.                |
-| `idempotency_key_in_use`            | 409  | `idempotency_error`     | Same key still being processed. Short backoff (250 ms – 2 s), retry with the **same** key. |
-| `idempotency_key_mismatch`          | 422  | `idempotency_error`     | Reusing a key with a **different body**. Generate a new UUID v4 for genuinely new intent. |
-| `invalid_idempotency_key`           | 400  | `idempotency_error`     | Key isn't a valid UUID.                                                      |
+| `request_in_progress`               | 409  | `idempotency_error`     | Same key, same body, seen before. The first attempt may have gone through — look it up; don't spin. See below. |
+| `idempotency_key_conflict`          | 409  | `idempotency_error`     | Same key, **different body**. Something changed between attempts — find out what before sending anything else. |
+| `invalid_idempotency_key`           | 400  | `idempotency_error`     | Key isn't 16–64 characters of letters, digits, `-` or `_`.                  |
 | `merchant_not_configured`           | 400  | `invalid_request_error` | Merchant's payment gateway link isn't provisioned. Operator-side fix.        |
 | `gateway_error`                     | 502  | `processing_error`      | Upstream payment gateway (vault / NMI) returned an error.                    |
 | `internal_error`                    | 500  | `processing_error`      | Server-side fault. Capture `request_id` and escalate — not retriable by changing the body. |
@@ -155,10 +155,10 @@ sent originally:
 | Network error (timeout, connection refused, DNS)       | Yes — exponential backoff             |
 | HTTP 500, 502, 503, 504                                | Yes — exponential backoff             |
 | HTTP 429                                               | Yes — sleep `Retry-After` seconds     |
-| HTTP 409 `idempotency_key_in_use`                      | Yes — short backoff (250 ms – 2 s)    |
-| HTTP 422 `idempotency_key_mismatch`                    | **No** — generate a new key for new intent |
+| HTTP 409 `request_in_progress`                         | **No** — read the resource back first |
+| HTTP 409 `idempotency_key_conflict`                    | **No** — find out what changed        |
 | Other 4xx                                              | **No** — request is wrong, fix it     |
-| HTTP 200 with order `status: "failed"`                 | **No** — payment failed; show the customer, don't auto-retry |
+| HTTP 2xx with order `status: "failed"`                 | **No** — payment failed; show the customer, don't auto-retry |
 
 Backoff schedule: `200ms × 2^(attempt - 1)`, capped at 5 seconds. Max 3
 attempts for a single logical operation.
@@ -181,13 +181,13 @@ another item to their cart), generate a new key.
 
 ## Handling specific failures
 
-### Declined payment (HTTP 200 with `status: "failed"`)
+### Declined payment (HTTP 2xx with `status: "failed"`)
 
 This is **not** an envelope error — it's a successful HTTP exchange whose
 payment outcome was a decline. Show the customer the failure and let them
-try a different card. Do **not** auto-retry. The `failure_reason` field on
-the order body (and on the underlying transaction) classifies the decline —
-see the enum below.
+try a different card. Do **not** auto-retry. The `failure_code` field on the
+order body (and on the underlying transaction) classifies the decline — see
+the table below.
 
 ### `gateway_error` (502)
 
@@ -195,16 +195,22 @@ The upstream payment processor or vault failed. Safe to retry with the same
 idempotency key. If the retry also fails, surface a generic "we couldn't
 process payment" message and log `request_id` for support follow-up.
 
-### `idempotency_key_in_use` (409) vs `idempotency_key_mismatch` (422)
+### `request_in_progress` vs `idempotency_key_conflict` (both 409)
 
-- `idempotency_key_in_use` means the same key is **still being processed**
-  by an earlier request. Short backoff (250 ms – 2 s) and retry with the
-  same key — you'll get the cached response once the first one completes.
-- `idempotency_key_mismatch` means you reused a key that has cached state,
-  but with a **different request body**. This is almost always a bug in
-  your code — find where the key is being reused and fix it. Generating a
-  new key on the fly to "make it work" papers over the bug and risks
-  duplicate charges in the future.
+- `request_in_progress` is what a repeat of the **same key and same body**
+  returns. The API reference says such a repeat within 24 hours replays the
+  original response; in sandbox it does not. A `POST /v1/customers` repeated
+  1.5 seconds after it succeeded got `request_in_progress` (18 September
+  2026), and a repeat at +90 seconds got the same in August. So a retry with
+  the same key is still the right *safety* move — it cannot create a second
+  resource — but it will not hand you the result. Read the resource back
+  (list by `email`, by `customer_id` and `created_at`, and so on) instead of
+  looping on the 409.
+- `idempotency_key_conflict` means you reused a key with a **different
+  request body**. This is almost always a bug in your code — find where the
+  key is being reused and fix it. Generating a new key on the fly to "make it
+  work" papers over the bug and, in payments, usually means an amount or a
+  target changed between attempts.
 
 ### `insufficient_permissions` (403)
 
@@ -214,37 +220,52 @@ a full secret key for this operation. The same code is also returned when
 the key's IP allowlist or environment doesn't match (look at the
 accompanying `message`).
 
-## Failure reasons on declined orders
+## Decline codes on failed orders
 
-When an order body comes back with `status: "failed"`, the `failure_reason`
-field (and the underlying transaction's `failure_reason`) is set to one of
-the values below. These map from upstream processor (NMI) response codes
-and are mutually disjoint from the envelope `code` values above.
+When an order comes back with `status: "failed"`, two fields describe the
+decline, on the order and on its failed transaction:
 
-| `failure_reason`                | Class    | Retryable? | Requires new card? |
-|---------------------------------|----------|------------|--------------------|
-| `closed_card`                   | hard     | yes        | yes                |
-| `contact_bank`                  | hard     | yes        | yes                |
-| `expired_card`                  | hard     | yes        | yes                |
-| `fraud_suspected`               | hard     | **no**     | no                 |
-| `incorrect_cvv`                 | hard     | yes        | yes                |
-| `invalid_account`               | hard     | yes        | yes                |
-| `issuer_unavailable`            | hard     | yes        | yes                |
-| `lost_stolen_card`              | hard     | **no**     | no                 |
-| `transaction_not_allowed`       | hard     | yes        | yes                |
-| `card_limit_exceeded`           | soft     | yes        | yes                |
-| `do_not_honor`                  | soft     | yes        | yes                |
-| `duplicate_transaction`         | soft     | **no**     | no                 |
-| `insufficient_funds`            | soft     | yes        | yes                |
-| `invalid_merchant_configuration`| soft     | **no**     | no                 |
-| `processor_declined`            | soft     | yes        | no                 |
-| `blocked_card`                  | internal | yes        | yes                |
-| `unknown`                       | unknown  | yes        | no                 |
+- `failure_code` — the machine value, e.g. `do_not_honor`. **Branch on this.**
+- `failure_reason` — prose for humans, e.g. `"a bank restriction"`. Not stable
+  enough to switch on.
 
-**Hard** failures usually need a new card to succeed. **Soft** failures may
-succeed on retry with the same card after a delay (the EPD dunning engine
-uses this distinction to decide whether to auto-retry a subscription cycle
-or skip straight to escalation).
+Older versions of this page put the codes in `failure_reason`; the API does
+not. The codes map from the upstream processor's responses and are disjoint
+from the envelope `code` values above.
+
+The nine below are the ones the sandbox account's failed transactions
+actually carry (678 of them, measured 11 September 2026). The classes are the
+same ones `epd-transaction-triage` uses:
+
+| `failure_code`            | Class     | Another attempt on the same card?                      |
+|---------------------------|-----------|--------------------------------------------------------|
+| `insufficient_funds`      | soft      | Later, on a schedule — not immediately                 |
+| `issuer_unavailable`      | soft      | Yes — the issuer was unreachable, often briefly        |
+| `card_limit_exceeded`     | soft      | Later, on a schedule                                   |
+| `expired_card`            | hard      | **No** — needs a new card                              |
+| `transaction_not_allowed` | hard      | **No** — needs a new card                              |
+| `lost_stolen_card`        | hard      | **Never** — repeated attempts look like fraud          |
+| `do_not_honor`            | ambiguous | At most once, later; a repeat means stop               |
+| `incorrect_cvv`           | ambiguous | **No** — same stored data fails the same way; re-enter the card |
+| `processor_declined`      | ambiguous | Treat like `do_not_honor`                              |
+
+`processor_declined` is also what **every** sandbox decline test token
+returns (see `testing.md`), so a sandbox test proves your decline branch runs,
+not which decline it was.
+
+Treat this as the observed set, not a closed one. Other values have been
+documented for this field — `closed_card`, `invalid_account`, `blocked_card`,
+`contact_bank`, `fraud_suspected`, `duplicate_transaction`,
+`invalid_merchant_configuration`, `unknown` — but none appears in the sandbox
+data. For any code you don't recognise, don't auto-retry: surface it and log
+it with the `request_id`.
+
+**Subscription cycles retry on their own schedule.** EPD's dunning engine
+decides whether and when to re-attempt a failed cycle, and records it on the
+order as `next_retry_at` and `attempt_count`. Read those rather than
+predicting the engine from the code — in sandbox, a cycle that failed with
+`do_not_honor` had a retry already scheduled. A manual retry on top of a
+scheduled one can charge twice; see `subscriptions.md`.
 
 ## Logging — what to capture
 
@@ -253,7 +274,7 @@ For every EPD request, log:
 - `request_id`
 - HTTP status
 - `error.code` (if not 2xx)
-- `failure_reason` (if 2xx and order `status === "failed"`)
+- `failure_code` (if 2xx and order `status === "failed"`)
 - The endpoint + method
 - The idempotency key you sent (if any)
 

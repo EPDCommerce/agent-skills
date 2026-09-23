@@ -37,7 +37,7 @@ Content-Type: application/json
 }
 ```
 
-Response: `{ "id": "<bare uuid>", "object": "customer", ... }`. Store the ID.
+Response: `{ "id": "<bare uuid>", "email": "alice@example.com", ... }`. Store the ID.
 
 ### Attach a payment method
 
@@ -123,6 +123,7 @@ Anything outside this list is **rejected** with a per-field validation error
 | `shipping_address`     | conditional        | object — see below                                                                     | Mutually exclusive with `shipping_address_id`.                                              |
 | `metadata`             | no                 | object — max 50 keys, keys ≤ 40 chars, values ≤ 500 chars, no HTML                     |                                                                                             |
 | `source`               | no                 | enum: `hosted`, `vpt`, `subscription`, `woocommerce`, `api`                            | Public source label; defaults to `hosted`.                                                  |
+| `coupon_code`          | no                 | string                                                                                 | Discount code, redeemed against this order; released again if the card declines.           |
 
 A `shipping_address` (when provided) is an object with: `first_name`,
 `last_name`, `address_line1`, `address_line2?`, `city`, `state`,
@@ -143,14 +144,15 @@ Response on success:
 ```json
 {
   "id": "<bare uuid>",
-  "object": "order",
+  "order_number": "...",
   "status": "succeeded",
-  "amount": 2999,
+  "total": 2999,
   "currency": "usd",
   "customer_id": "<bare uuid>",
+  "failure_code": null,
   "created_at": "2026-05-08T14:32:11Z",
   "transactions": [
-    { "id": "<txn uuid>", "status": "succeeded", "amount": 2999 }
+    { "id": "<txn uuid>", "type": "sale", "status": "succeeded", "amount": 2999 }
   ]
 }
 ```
@@ -160,26 +162,35 @@ Response on decline:
 ```json
 {
   "id": "<bare uuid>",
-  "object": "order",
   "status": "failed",
-  "failure_reason": "transaction_not_allowed",
+  "failure_code": "processor_declined",
+  "failure_reason": "processor decline",
   "transactions": [
-    { "id": "<txn uuid>", "status": "failed", "amount": 2999 }
+    { "id": "<txn uuid>", "type": "sale", "status": "failed", "amount": 2999,
+      "failure_code": "processor_declined" }
   ]
 }
 ```
 
-A failed order **still returns 200** with `status: "failed"`. The HTTP layer
-succeeded; the payment didn't. Don't retry the order automatically — show the
-customer the failure and let them try a different card.
+A failed order **still returns 201** with `status: "failed"`. The HTTP layer
+succeeded; the payment didn't. Branch on `status`, then on `failure_code` —
+`failure_reason` is prose for humans. (`processor_declined` is what every
+sandbox decline token produces; see `testing.md` and the decline table in
+`errors.md`.) Don't retry the order automatically — show the customer the
+failure and let them try a different card.
 
 ## Idempotency — order-specific guidance
 
 The `X-EPD-Idempotency-Key` rules from `SKILL.md` apply, plus:
 
 - One key covers the entire order lifecycle. If the network drops and you
-  retry with the same key, you get the **same order back** — not a second
-  charge.
+  retry with the same key, you will **not** get a second charge. The API
+  reference says you get the original order back; in sandbox the retry got
+  `409 request_in_progress` instead — immediately and again 5 seconds later
+  (18 September 2026), with exactly one order created. So after a timeout,
+  retry with the same key if you like, but find out what happened with
+  `GET /v1/orders?customer_id=…&created_at[gte]=…` rather than waiting for
+  the 409 to turn into the order.
 - A new cart attempt (customer adds another item, retries checkout) is a
   **new logical operation** — generate a new key.
 - If the order returned `status: "failed"`, the key is "spent" — that key
@@ -217,8 +228,8 @@ For refund operations, this distinction matters:
 
 - `refund_order` refunds the order's total or a portion of it; EPD Commerce picks the
   underlying transactions to refund against.
-- `refund_transaction` refunds a specific transaction directly. Use this when
-  you know exactly which transaction to refund (e.g. multi-capture flows).
+- `refund_transaction` (MCP only) takes a transaction ID, resolves its order,
+  and refunds the order — the same refund as above, addressed differently.
 
 See `refunds.md` for the decision tree.
 
@@ -227,10 +238,11 @@ See `refunds.md` for the decision tree.
 1. **Sending `amount` on the order body.** Rejected with `Property amount
    should not exist`. Price comes from the product catalog — update the
    product first if you need a different total.
-2. **Reusing the same idempotency key for two cart attempts.** First attempt
-   succeeded → second attempt returns the cached first response → the
-   customer believes the second purchase succeeded too. Generate a new key
-   per checkout.
+2. **Reusing the same idempotency key for two cart attempts.** The second
+   checkout is never placed: a different cart comes back
+   `409 idempotency_key_conflict`, an identical one `409 request_in_progress`
+   (see `errors.md`). Code that doesn't check tells the customer the second
+   purchase went through when it didn't. Generate a new key per checkout.
 3. **Auto-retrying on a failed order.** A `status: "failed"` order is not a
    retriable condition — it's a customer-action condition. Surface the
    failure, let the customer pick a new card.
@@ -248,5 +260,5 @@ See `refunds.md` for the decision tree.
 
 - Recurring billing → `subscriptions.md`
 - Refunding this order → `refunds.md`
-- Handling `transaction_not_allowed` and other failure reasons → `errors.md`
+- Decline codes (`failure_code`) and which ones are worth a retry → `errors.md`
 - Sandbox card numbers for testing → `testing.md`

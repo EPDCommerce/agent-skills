@@ -1,9 +1,9 @@
 ---
 name: epd-mcp-operator
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than the steps of a domain workflow — which tool to reach for and whether it can be called at all, composite versus primitive, whether a call is safe to make, test-vs-live mode, idempotency and retries, rate limits, and permission errors. Triggers when the user names an EPD tool and asks whether to use it ("should I use create_customer_and_charge", "is process_order the right one"), asks which tool to reach for, asks whether a composite beats the primitives or whether a tool works headlessly, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out and it is unclear whether to retry, or before the first write of a session. Skip when the tool choice is already settled and only the domain steps remain — load the owning skill named in the routing table below. Tool-selection and safety questions load this skill first even when they sit inside a domain workflow.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than a domain workflow's steps — which tool to use and whether it can be called at all, composite versus primitive, whether a call is safe, test-vs-live mode, idempotency and retries, rate limits, and permission errors. Triggers when the user names an EPD tool and asks whether to use it ("should I use create_customer_and_charge", "is process_order the right one"), asks which tool to reach for, whether a composite beats the primitives or a tool works headlessly, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out and a retry is uncertain, or before the first write of a session. Skip when the tool choice is settled and only domain steps remain — load the owning skill from this skill's routing table. Tool-selection and safety questions load this skill first, even inside a domain workflow.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key. Restricted keys cannot reach the MCP endpoint.
 metadata:
-  version: 1.0.0
+  version: 1.0.1
   api_version: "2026-02-11"
 ---
 
@@ -36,7 +36,7 @@ tier, hand off.
 | If the task is | Load |
 |---|---|
 | Creating or updating a customer, attaching or removing a card | `epd-onboard-customer` |
-| Starting, changing, cancelling a subscription, or dunning `past_due` | `epd-subscriptions` |
+| Starting, changing, cancelling a subscription, or recovering a failed renewal | `epd-subscriptions` |
 | Money going back to a customer — full, partial, order or transaction | `epd-refunds` |
 | Products, plans, images, placing a one-off order or retrying a failed one | `epd-catalog` |
 | Diagnosing why a charge failed, before deciding anything | `epd-transaction-triage` |
@@ -52,9 +52,10 @@ genuinely matches no row above, handle it here: use
 [`SAFETY.md`](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md) for the confirmation, and say
 plainly that no dedicated skill covers it.
 
-Five of the 67 tools are not yet named in any skill, all on the customer and
-payment-method surface that `epd-onboard-customer` owns. Its Phase D revision
-is where they get covered.
+Every one of the 67 tools is now named in the skill that owns it —
+`audit/COVERAGE.md` shows where, and at what depth. The last five to be
+covered, on the customer and payment-method surface, are in
+`epd-onboard-customer`.
 
 ### Two boundaries worth stating
 
@@ -198,17 +199,17 @@ regenerate it with `npm run gen:tiers`.
 
 This is the rule that earns this skill its place, so it is worth showing why.
 
-`epd-subscriptions` currently opens its confirmation section with *"Tools
-annotated `destructiveHint: true` on this surface"* and lists four, including
-`update_subscription`. The server annotates `update_subscription` as
-**not destructive** — it is a T2 write.
+Until its Phase D revision, `epd-subscriptions` opened its confirmation
+section with *"Tools annotated `destructiveHint: true` on this surface"* and
+listed four, including `update_subscription`. The server annotates
+`update_subscription` as **not destructive** — it is a T2 write.
 
 The reasoning behind the entry is sound: changing the payment method on a live
 subscription does affect future billing, and treating that carefully is good
 product judgment. The defect is not the judgment, it is that a **judgment got
 recorded as a server fact**, in a hand-typed list, with nothing to catch the
-divergence. Anyone reading that section now believes the server says something
-it does not.
+divergence. Anyone reading that section believed the server said something it
+does not.
 
 So:
 
@@ -367,10 +368,11 @@ one call.
 
 Full code table, retry rules, and the `insufficient_permissions` nuance in
 [`references/errors.md`](references/errors.md). Those codes are all observed
-against the live server. Do not cross-reference
-`integration/epd-best-practices/references/errors.md` for idempotency codes — it
-documents `idempotency_key_mismatch` and `idempotency_key_in_use`, and this
-surface returns neither.
+against the live server. `integration/epd-best-practices/references/errors.md`
+covers the REST side and uses the same idempotency codes —
+`idempotency_key_conflict` and `request_in_progress` — but the surfaces differ
+in behaviour: only MCP replays a repeated key. Take retry rules from the
+reference for the surface you are on.
 
 ### Rate limiting — three buckets, not one
 

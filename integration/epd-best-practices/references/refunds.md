@@ -14,10 +14,10 @@ Need to refund...
 │       → REST: POST /v1/orders/{order_id}/refund
 │       (EPD Commerce picks underlying transactions to refund against)
 │
-├── A specific transaction (multi-capture flow, partial transaction refund)?
-│       → MCP only: refund_transaction
-│       (no REST equivalent — there is no
-│       POST /v1/transactions/{id}/refund endpoint)
+├── You only have a transaction ID?
+│       → REST: read the transaction, take its order_id, refund the order
+│       (MCP's refund_transaction does exactly that in one call —
+│       there is no POST /v1/transactions/{id}/refund endpoint)
 │
 └── A subscription's last charge AND cancel future billing?
         → MCP only: refund_and_cancel
@@ -49,45 +49,52 @@ Body:
 > The DTO is `amount`-only. **Do not send `reason`, `metadata`, or other
 > fields** — `forbidNonWhitelisted` is on and any extra property returns
 > `validation_error`. If you need a free-text note, log it on your side
-> against the returned refund-transaction ID.
+> against the order ID and the new `type: "refund"` transaction in the response.
 
-Response:
+Response — `200` with the updated **order**, not a separate refund object:
 
 ```json
 {
-  "id": "<refund txn uuid>",
-  "object": "transaction",
-  "type": "refund",
-  "status": "succeeded",
-  "amount": 1500,
-  "order_id": "<order uuid>",
-  "created_at": "2026-05-08T15:00:00Z"
+  "id": "<order uuid>",
+  "status": "partially_refunded",
+  "total": 2999,
+  "transactions": [
+    { "id": "<txn uuid>", "type": "sale",   "status": "succeeded", "amount": 2999 },
+    { "id": "<txn uuid>", "type": "refund", "status": "pending",   "amount": -1500 }
+  ]
 }
 ```
 
 After a partial refund, the order's `status` becomes `partially_refunded`.
 After a full refund (cumulative amount across multiple partial refunds equals
-the order total), it becomes `refunded`.
+the order total), it becomes `refunded`. Each refund appears in
+`transactions` as `type: "refund"` with a **negative** `amount`; in sandbox
+these stayed `pending` while the order already read `refunded`.
 
 You can call this endpoint multiple times until the cumulative refund amount
 equals the order total. Each call needs a **new** idempotency key (each refund
 is a distinct logical operation).
 
-## Refund a specific transaction — MCP only
+## Refunding by transaction ID
 
-There is **no REST endpoint** to refund a single transaction. If you need
-transaction-level granularity (multi-capture flows, refunding a specific
-capture out of several on the same order), use the MCP tool
-`refund_transaction` against an MCP-connected agent.
+There is **no REST endpoint** to refund a transaction, and no way to target
+one transaction out of several on an order: every refund is an order refund.
+If all you hold is a transaction ID, `GET /v1/transactions/{id}`, take its
+order, and call `POST /v1/orders/{order_id}/refund`.
 
-From a pure REST integration, refund at the order level instead — EPD
-Commerce picks which underlying transactions to settle the refund against.
+The MCP tool `refund_transaction` is a convenience for the same thing — its
+own description says it "resolves its linked order, then processes the
+refund". It is not a finer-grained refund, and it rejects a transaction that
+has no order.
 
 ## Refund + cancel subscription (MCP only)
 
 For "the customer wants their last charge back AND don't bill them again":
 
-- **MCP**: `refund_and_cancel` — one tool call, one idempotency key, atomic.
+- **MCP**: `refund_and_cancel` — one tool call, one idempotency key. It is
+  not atomic: the cancellation runs first, and if the refund then fails the
+  subscription stays canceled and the response carries
+  `refund_status: "failed"` with the order ID to refund by hand.
 - **REST**: chain two requests:
 
   ```http
@@ -105,15 +112,22 @@ Refunds are the **easiest** place to double-charge your customer in reverse —
 issuing two refunds when the customer should only have gotten one. Always:
 
 - Generate a fresh idempotency key per refund logical operation.
-- On 5xx or network failure, **retry with the same key**. EPD Commerce returns
-  the cached refund record, no double-refund.
-- A `200` response with `status: "succeeded"` means the refund hit. Trust it.
+- On 5xx or network failure, **retry with the same key** — that is what
+  prevents a double refund. Don't expect the retry to hand back the result,
+  though: in sandbox a same-key repeat of a refund that had already gone
+  through returned `409 request_in_progress` (18 September 2026). Read the
+  order with `GET /v1/orders/{id}` to see where it stands.
+- The response is the **order**, not a separate refund record. A `200` with
+  `status: "partially_refunded"` or `"refunded"` means the refund hit.
 
 ## Constraints
 
 - You cannot refund an order in `failed`, `pending`, or `voided` status.
 - You cannot refund more than the order's outstanding (post-refund) amount —
-  attempts return `400 amount_exceeds_refundable`.
+  attempts return `400 validation_error`, with a message naming the maximum
+  refundable amount in cents.
+- Refunding an order that is already fully `refunded` returns
+  `400 invalid_state_transition`.
 - You cannot refund a chargeback. Chargebacks are handled by the issuer; the
   funds have already been pulled by the network.
 - A refund may take **5–10 business days** to appear on the customer's
@@ -123,9 +137,11 @@ issuing two refunds when the customer should only have gotten one. Always:
 
 If you have webhooks configured (see `epd-webhooks` skill), refunds emit:
 
-- `transaction.refunded` — fires when a refund transaction succeeds.
 - `order.refunded` — fires when an order's cumulative refunds reach the total.
 - `order.partially_refunded` — fires on partial refunds.
+- `order.refund_failed` — fires when a refund fails.
+
+There are no `transaction.*` event types.
 
 Use these to update your own database / accounting system. Don't rely on the
 synchronous response alone if your reconciliation is downstream.
@@ -134,8 +150,9 @@ synchronous response alone if your reconciliation is downstream.
 
 1. **Forgetting to bump the idempotency key on second refund of same order.**
    You issued a $15 refund yesterday. Today you want to refund another $10.
-   Reusing yesterday's key + new body → 422 `idempotency_key_mismatch`.
-   Generate a new key per refund.
+   Reusing yesterday's key + new body → 409 `idempotency_key_conflict`, and
+   the same body → 409 `request_in_progress`; either way the second refund is
+   not made. Generate a new key per refund.
 2. **Refunding then canceling a subscription, in either order, without a
    compensation path.** If step 2 fails, you're in a partial state. Either
    use the MCP composite if you have access, or build retry/compensation
@@ -149,4 +166,4 @@ synchronous response alone if your reconciliation is downstream.
 ## Where to go next
 
 - Webhook events for refund completion → `epd-webhooks` skill
-- Error codes (`amount_exceeds_refundable`, etc.) → `errors.md`
+- Error codes and retry rules → `errors.md`

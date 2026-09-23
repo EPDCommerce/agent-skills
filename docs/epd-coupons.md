@@ -116,6 +116,13 @@ didn't work".
 coupon stops accepting new ones, it drops out of the default `list_coupons`
 result, and archiving twice succeeds — naturally idempotent, so a retry is safe.
 
+**Finding one again needs the filter.** Because archived coupons leave the
+default listing, a request to restore one starts with a lookup that returns
+nothing unless you ask for them: `list_coupons` takes `archived`, alongside
+`active`, `kind` and `sort`. The skill notes that archived coupons disappear
+from the listing without naming the parameter that brings them back, so it is
+worth carrying — otherwise "no such coupon" looks like the answer.
+
 **The trap.** Archiving sets `active: false`. Unarchiving clears the archive
 flag but **leaves `active: false`**. Measured end to end:
 
@@ -167,8 +174,20 @@ skill documents them from sandbox; names and IDs are placeholders.
 
 **Marketing:** Bring back SPRING-LAUNCH, we're running it again this week.
 
-**Agent:** Reading its current state first, because restoring an archived coupon
-is two calls and I want to know which one it needs.
+**Agent:** You have given me a name, not an ID, and an archived coupon does not
+appear in the default listing — so the first job is finding it rather than
+assuming I know which one you mean.
+
+```
+tool: list_coupons
+input:
+  archived: true
+  limit: 20
+```
+
+One match on that name: `9e2d5c8a-1b7d-4e3f-8f9a-4d2e7b1c4f3a`. Now its full
+state, because restoring an archived coupon is two calls and I want to know
+which of them it actually needs.
 
 ```
 tool: retrieve_coupon
@@ -217,8 +236,9 @@ What is the new end date, and should everyone get a second use?
 **Marketing:** End of next Friday, 2 October. And yes, let them use it again —
 cap it at 2.
 
-**Agent:** Three calls then. Each is a separate object change, so each gets its
-own confirmation.
+**Agent:** Two writes then, and a free check afterwards. The writes change
+different things, so they get a confirmation each — the check is read-only and
+does not.
 
 > I'm about to unarchive coupon **SPRING-LAUNCH**
 > (`9e2d5c8a-1b7d-4e3f-8f9a-4d2e7b1c4f3a`) in **LIVE** mode. This does not by
@@ -258,8 +278,6 @@ proves the code works rather than looking like it does:
 tool: validate_coupon
 input:
   code: SPRING-LAUNCH
-  customer_id: 7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a
-  amount: 5000
 ```
 
 ```json
@@ -268,13 +286,27 @@ input:
 ```
 
 **SPRING-LAUNCH is live again**: 25% off, until 23:59:59Z on 2 October, two uses
-per customer. Validated against a customer who has already redeemed it once, so
-the raised cap is confirmed working rather than assumed.
+per customer.
+
+Be precise about what that last call proved, though. `code` is the only required
+argument, and on its own a `valid: true` proves the code resolves, is active and
+is inside its dates — which is exactly what the two writes were for. It does
+**not** prove that any particular customer can use it: the per-customer cap is
+only tested when `customer_id` is passed, and I do not have one, because nothing
+on this surface tells me who redeemed it in spring.
+
+If you want the raised cap confirmed rather than assumed, give me the email of
+someone who used it and I will look them up and re-validate against them. That
+call is free too, and it is the difference between "the code works" and "the
+people you are sending it to can use it."
 
 ---
 
 ### What the transcript demonstrates
 
+- **A name was resolved to an ID before use**, with the `archived` filter,
+  rather than an ID being produced from nowhere. `SAFETY.md` rule 4 applies to
+  the lookup as much as to the write.
 - **The coupon was read before anything was changed**, and the read changed the
   plan four times over.
 - **The two-call restore was named up front**, and the first confirmation says
@@ -282,8 +314,11 @@ the raised cap is confirmed working rather than assumed.
 - **The locked rate was surfaced as a decision for the human**, not worked around
   with a near-duplicate coupon.
 - **A default nobody set was caught** — `max_redemptions_per_customer: 1`.
-- **The free validation was run at the end**, against a customer who had already
-  redeemed, which is what makes it a test rather than a formality.
+- **The free validation was run at the end, and its limits were stated.** A bare
+  `validate_coupon` proves the code resolves and is live; it says nothing about
+  a specific customer's cap. Claiming the second from the first is the quiet
+  version of the failure this whole skill is about — reporting a coupon as
+  working when the customer will still be refused.
 
 ## Where it hands off
 

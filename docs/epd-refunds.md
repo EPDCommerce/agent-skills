@@ -133,9 +133,24 @@ documents them; names, IDs and amounts are placeholders.
 payment back.
 
 **Agent:** That is `refund_and_cancel` — the composite that does both — rather
-than a cancel and a refund chained by hand. Before I can confirm it, I need the
-amount, because the tool does not take one: it refunds the most recent succeeded
-order, and I would rather tell you which one that is than find out afterwards.
+than a cancel and a refund chained by hand.
+
+Two things before I can plan it. "Alice" is not something I can look up, so I
+need her email or customer ID. And the composite takes **no amount** — it
+refunds the most recent succeeded order — so I have to read which order that is
+before I can tell you what she gets back.
+
+**Support lead:** alice@example.com.
+
+**Agent:**
+
+```
+tool: list_customers
+input:
+  email: alice@example.com
+```
+
+One match — `7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a`.
 
 ```
 tool: list_subscriptions
@@ -144,7 +159,19 @@ input:
   status: active,paused
 ```
 
-One subscription, `active`, `$29.99`/month on the Pro plan.
+```json
+{
+  "data": [
+    { "id": "2c963f66-afa6-3fa8-5f64-57174562b3fc",
+      "status": "active",
+      "plan": { "name": "Pro", "amount": 2999, "currency": "usd" },
+      "billing_cycle": { "interval": "month", "interval_count": 1 } }
+  ]
+}
+```
+
+One subscription — Pro, `active`, $29.99/month. That is the ID the destructive
+call will name, so I want it on screen rather than carried in my head.
 
 ```
 tool: list_orders
@@ -172,10 +199,10 @@ so the filter is not proof of what it returned.
 
 That order is clean: $29.99, no prior refunds.
 
-> I'm about to cancel Alice Liddell's **$29.99/month Pro** subscription
-> (`2c963f66-afa6-3fa8-5f64-57174562b3fc`) **and** refund her most recent
-> payment of **$29.99 USD** on order `9f8c2e11-4d6a-4b2f-8e10-7c5a3d0b9e42`, in
-> **LIVE** mode. The subscription ends immediately and she will not be billed
+> I'm about to call **`refund_and_cancel`** on Alice Liddell's **$29.99/month
+> Pro** subscription (`2c963f66-afa6-3fa8-5f64-57174562b3fc`) in **LIVE** mode.
+> That cancels the subscription **and** refunds **$29.99 USD** on order
+> `9f8c2e11-4d6a-4b2f-8e10-7c5a3d0b9e42`, in that order. She will not be billed
 > again. The refund is irreversible. Proceed?
 
 **Support lead:** Yes.
@@ -227,6 +254,17 @@ Want me to put that plan up now, or wait for the gateway?
 
 ### What the transcript demonstrates
 
+- **A name was turned into an ID before anything moved.** "Alice" is not a
+  handle; the agent said so and asked. `SAFETY.md` rule 4 applies hardest here,
+  because the ID that goes into a T3 call is the object being destroyed.
+- **The subscription response was shown, not summarised.** Every value in the
+  confirmation — the plan, the amount, the subscription ID — is visible in a
+  response above it. A confirmation whose numbers came from the agent's memory
+  is not a control, it is a formality.
+- **The confirmation named the tool.** This skill has three refund tools that
+  read almost identically in prose and behave differently;
+  `refund_and_cancel` ends a subscription and `refund_order` does not, so
+  "cancel and refund" is not specific enough to approve.
 - **The amount was read before the confirmation**, because the composite does
   not take one and a confirmation you cannot fill from prior responses is not
   ready to ask.

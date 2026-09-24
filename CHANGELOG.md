@@ -45,8 +45,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `audit/skill-map.mjs` — checks the shipped `SKILL.md` descriptions against
   the map's planned routes, and computes the status of the Phase A notes
   against the six original skills instead of hard-coding them.
+- `docs/` — human documentation. One guide per skill, twelve in total, all
+  following the same template: what the skill does, when it fires, what it
+  refuses to do and why, what to check afterwards, one worked transcript, and
+  where it hands off. `docs/README.md` indexes them and states the template.
+  The guides are deliberately absent from the manifest — they are written for
+  the people reviewing an agent's work, not for an agent to load at runtime.
+- `scripts/check-docs.js` (`npm run validate:docs`) — fails if a skill has no
+  guide, if a guide names a skill that does not exist, if guide frontmatter
+  disagrees with the manifest, if a guide is missing one of the six template
+  sections or does not link to its `SKILL.md`, if a guide is not indexed, or if
+  any relative Markdown link in the repository does not resolve. Link checking
+  covers anchors, so a table of contents cannot outlive the heading it points
+  at. Wired into `npm run check` and into CI.
+- `scripts/__tests__/check-docs.test.js` — covers the validator itself, not
+  just its verdict on the current tree: the link checker is exercised against
+  targets and anchors that do and do not exist, and the slug function against
+  the heading forms `SAFETY.md` actually uses.
 
 ### Changed
+
+Phase E — human documentation, plus four skill corrections the documentation
+work uncovered. Each was found by writing a guide's worked transcript against
+the skill and discovering the skill could not answer the question the transcript
+had to ask.
+
+- `epd-transaction-triage` 1.1.0 — **a failed transaction is not a failed
+  order.** The order's `status` can be `succeeded` while a failed transaction
+  row persists underneath it, because `transactions[]` is an attempt history and
+  an order holding several attempts can hold attempts that disagree. The
+  order-versus-transaction section listed four things to read off the order, all
+  retry state; it now leads with the one that flips a verdict, and the
+  transaction-status table says outright that it is the transaction's status,
+  not the order's.
+- `epd-catalog` 1.1.0 — **`shipping_address_id` has no lookup on this surface.**
+  `create_order` accepts it for "an address already saved on the customer", but
+  no tool among the 67 lists saved addresses and `get_customer` expands payment
+  methods, not addresses. The skill presented the two address forms as equals;
+  it now says the inline one is the only route an agent can take unless the
+  human supplies the id.
+- `epd-coupons` 1.1.0 — **archived coupons need the `archived` filter to be
+  found at all.** The skill said they drop out of the default `list_coupons`
+  result without naming the parameter that brings them back, so a restore
+  request — which arrives as a name, not an id — begins with a lookup that
+  returns nothing and looks like "no such coupon".
+- `epd-mcp-operator` 1.1.0 — **an order number is not an order ID, and nothing
+  looks one up.** `get_order` takes a UUID and rejects anything else with
+  `invalid_order_id`; the short `order_number` on a customer's receipt has no
+  lookup among the 67 tools. "Refund order A1B2C3D4" is therefore a request the
+  agent cannot start without a UUID or a customer. Also: the T2 and T3
+  confirmation templates now name the tool, which `SAFETY.md` has always
+  required and neither template did — "cancel the subscription" is
+  `cancel_subscription`, `cancel_subscription_and_report` or
+  `refund_and_cancel`, and only one of the three returns the customer's money.
+
+`audit/COVERAGE.md` and `audit/coverage.json` regenerate accordingly — the new
+prose mentions additional tools in `epd-mcp-operator` and `epd-catalog`.
+
+Phase E — human documentation.
+
+- `README.md` rewritten. Test mode versus live mode is now the first section
+  rather than a note under Versioning, since it is the distinction that costs
+  money. Adds the key-prefix table and what each key may do, the REST setup
+  block, and an MCP server configuration section with the endpoint, headers and
+  the `ping` check — plus the measured fact that restricted keys are refused by
+  that endpoint entirely, so there is no read-only credential to give a
+  reporting agent. Every skill row now links to both the `SKILL.md` and its
+  guide.
+- `SAFETY.md` — finalised for review. Adds a contents list and a **How to
+  redline this file** section naming the six decisions that are EPD's rather
+  than the skill author's, each with what it is currently set to and where it
+  lives: tool-level tier overrides, sandbox writes, batching at T2, standing
+  authorizations for unattended runs, the card-data rule, and what a refusal
+  must report. The policy itself is unchanged.
+- `CONTRIBUTING.md` — documents `docs/` in the repository layout, adds writing
+  the guide as a step in adding a skill, specifies the guide template and
+  frontmatter, and describes what `npm run validate:docs` checks.
 
 Phase D — revisions to the six original skills. Each now routes through
 `epd-mcp-operator` for tiers, confirmation and idempotency instead of restating

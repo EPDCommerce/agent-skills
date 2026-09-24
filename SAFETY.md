@@ -18,6 +18,53 @@ Nothing below is defence in depth. It is the defence.
 that is the merchant's call, not the skill author's. Where a rule is stricter or
 looser than EPD wants, change it here and every skill follows.
 
+## Contents
+
+- [The four tiers](#the-four-tiers) — [T0](#t0--reads) · [T1](#t1--writes-in-test-mode) · [T2](#t2--live-writes-that-do-not-destroy) · [T3](#t3--destructive)
+- [Cross-cutting rules](#cross-cutting-rules) — mode, read-before-write,
+  idempotency, inventing identifiers, missing fields, confirmation scope, rate
+  limits, card data, `request_id`, error shape
+- [Unattended runs](#unattended-runs) — what may run with nobody present, the
+  refusal report, and standing authorizations
+- [The permissions reality](#the-permissions-reality) — why every agent holds a
+  full-access key
+- [What this policy does not cover](#what-this-policy-does-not-cover)
+
+## How to redline this file
+
+This is the file most worth your team's argument, so here is where the
+arguments are. Everything below is a **decision**, not a technical constraint —
+each one could reasonably be set differently, and changing it here changes every
+skill without any other edit.
+
+| # | Decision | Currently | Where |
+|---|---|---|---|
+| 1 | **Tool-level overrides.** Any tool EPD wants treated more strictly than its server annotation warrants. | **None.** Tiers follow the annotations exactly. | [The four tiers](#the-four-tiers) |
+| 2 | **Sandbox writes.** Whether T1 proceeds without asking. | Proceeds, then echoes every object ID. | [T1](#t1--writes-in-test-mode) |
+| 3 | **Batching at T2.** Whether ten products may be approved in one yes. | No batching. One confirmation, one object — or an explicit batch approval that names all ten. | [T2](#t2--live-writes-that-do-not-destroy) |
+| 4 | **Standing authorizations.** Which tools may run unattended, under what ceiling, in which mode. | **None granted.** Every T2 and T3 refuses without a human. | [Standing authorizations](#standing-authorizations) |
+| 5 | **Card handling.** Whether rule 8 stays absolute. | Absolute. No PAN reaches the MCP surface under any circumstance. | [Rule 8](#8-raw-card-data-never-touches-the-mcp-surface) |
+| 6 | **Refusal reporting.** What an unattended refusal must emit, and to whom. | Tool, tier, intended arguments, key mode, missing confirmation, and what has already been done. Recipient unspecified. | [The refusal report](#the-refusal-report) |
+
+Decision 4 is the one with an operational cost attached. Nightly dunning that
+calls `retry_failed_charge`, scheduled reconciliation and endpoint health checks
+are all legitimate unattended work, and today every one of them refuses. If EPD
+wants any of it to run, the exception belongs in the table under
+[Standing authorizations](#standing-authorizations) — written in advance, naming
+specific tools, never decided by an agent at runtime.
+
+Two things this file cannot do, which should shape how it is reviewed:
+
+- **It is not enforcement.** Nothing here is executed by the server. See
+  [What this policy does not cover](#what-this-policy-does-not-cover).
+- **It is not defence in depth.** Until restricted keys work on the MCP
+  endpoint, it is the whole of the defence.
+
+For what each rule looks like in practice — including the confirmation prompts
+agents actually print — see the per-skill guides in
+[`docs/`](docs/README.md). If a guide and this file ever disagree, this file
+wins and the guide is a bug.
+
 ---
 
 ## The four tiers

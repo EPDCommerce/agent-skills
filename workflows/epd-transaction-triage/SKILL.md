@@ -3,7 +3,7 @@ name: epd-transaction-triage
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to work out why a charge failed and whether retrying it is safe. Triggers when the user says a payment failed, was declined or did not go through, asks what a decline code means, asks whether to retry a charge, pastes a failure code such as do_not_honor or insufficient_funds, or asks why a customer's card keeps getting rejected. Skip when the decision is already made and money must move - load epd-refunds to refund, or epd-subscriptions to work a past_due dunning cycle. Skip when the failure is on a subscription renewal rather than a one-off charge - that is the dunning loop, so load epd-subscriptions. Skip when the question is about totals over a period rather than one failure - load epd-reporting.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account. Read-only; performs no retry and moves no money.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   api_version: "2026-02-11"
 ---
 
@@ -53,6 +53,11 @@ decline:
 | `voided` | cancelled before settlement | not a decline |
 | `pending` | not resolved yet | wait; do not retry |
 | `succeeded` | worked | — |
+
+That table is the **transaction's** status. The order carries its own, and the
+two can differ — see "What the order tells you" below. Branching on the
+transaction's status tells you what that attempt did; only the order's tells you
+whether the customer was charged.
 
 A chargeback is the one most often misread. The money arrived and was taken
 back, so "retry it" is meaningless and the customer has already disputed.
@@ -145,8 +150,16 @@ Always read the order as well. `get_order` carries the retry state:
 }
 ```
 
-Four things the transaction alone will not tell you:
+Five things the transaction alone will not tell you:
 
+- **`status` — and it need not match the transaction's.** An order that failed
+  on one attempt and succeeded on a retry reads `succeeded`, while the failed
+  transaction row persists underneath it. **A failed transaction is not a failed
+  order.** Read the order's own `status` before reporting an outcome; diagnosing
+  from the transaction alone reports a charge as lost that was taken the next
+  day, and the customer is told the opposite of what their statement shows.
+  This follows from `transactions[]` below: an order that can hold several
+  attempts can hold attempts that disagree.
 - **`next_retry_at`** — a retry may already be scheduled. Retrying manually on
   top of it risks charging twice. Check this before recommending any retry.
 - **`attempt_count`** — how many times this has already failed. A third

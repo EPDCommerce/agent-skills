@@ -3,7 +3,7 @@ name: epd-catalog
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to manage what is for sale or place a one-off order against it. Triggers when the user asks to create or update a product, change a price, manage product images, asks what plans exist or what a plan contains, asks to place or charge an order for a customer, asks to retry a failed charge on an existing order, or hits a shipping-address or line-item error while ordering. Skip when the task is recurring billing on a subscription - load epd-subscriptions. Skip when the task is discounting rather than pricing - load epd-coupons.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   api_version: "2026-02-11"
 ---
 
@@ -238,6 +238,16 @@ shipping_address: { … }           inline: first_name, last_name, address_line1
 
 Sending both returns `validation_error` — "Provide either shipping_address_id or
 shipping_address, not both."
+
+**Only one of the two is reachable from this surface.** `shipping_address_id`
+refers to an address already saved on the customer, but **no tool among the 67
+lists saved addresses** — there is no shipping group, and `get_customer` expands
+`payment_methods`, not addresses. So unless the human supplies the id from the
+dashboard, the inline `shipping_address` is the only route available to an
+agent. Ask for the address; do not produce an address id you were not given.
+Rule 4 in [SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md)
+applies — a plausible UUID is indistinguishable from a real one until it ships
+an order to the wrong place.
 
 ## Coupons on an order
 

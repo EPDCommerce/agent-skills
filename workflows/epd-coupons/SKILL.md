@@ -3,7 +3,7 @@ name: epd-coupons
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to create, inspect, validate, mint codes for, or retire a discount. Triggers when the user mentions a coupon, promo code, discount code or voucher, asks to launch or end a promotion, asks to generate a batch of codes, asks whether a code is still valid or why one was rejected, or asks to archive or bring back a coupon. Skip when the task is changing a product's list price rather than discounting it - load epd-catalog. Skip when the question is why a payment failed - load epd-transaction-triage.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   api_version: "2026-02-11"
 ---
 
@@ -226,6 +226,13 @@ archive:
 - the coupon stops accepting new ones
 - it drops out of the default `list_coupons` result
 - archiving twice succeeds — naturally idempotent, so a retry is safe
+
+**To find one again, pass the filter.** Because archived coupons leave the
+default listing, a request to restore one begins with a lookup that returns
+nothing unless you ask for them: `list_coupons` takes `archived`, alongside
+`active`, `kind` and `sort`. Without it, "no such coupon" looks like the answer
+when the coupon is sitting there archived. A restore request usually arrives as
+a name rather than an id, so this is the first call, not an afterthought.
 
 **The trap.** Archiving sets `active: false`. Unarchiving clears the archive flag
 but **leaves `active: false`**. Measured end to end:

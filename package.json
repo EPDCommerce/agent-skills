@@ -17,8 +17,9 @@
   "scripts": {
     "gen:tiers": "node scripts/gen-tiers.mjs",
     "validate": "node scripts/validate.js",
+    "validate:docs": "node scripts/check-docs.js",
     "test": "node --test scripts/__tests__/*.test.js",
-    "check": "npm run validate && npm test"
+    "check": "npm run validate && npm run validate:docs && npm test"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

@@ -77,12 +77,13 @@
       "group": "Customers",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 4,
+      "total": 5,
       "code": 1,
       "head": 0,
       "table": 2,
-      "prose": 1,
+      "prose": 2,
       "skills": [
+        "workflows/epd-catalog",
         "workflows/epd-onboard-customer"
       ]
     },
@@ -166,13 +167,14 @@
       "group": "Products",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 1,
+      "total": 2,
       "code": 1,
       "head": 0,
       "table": 0,
-      "prose": 0,
+      "prose": 1,
       "skills": [
-        "workflows/epd-catalog"
+        "workflows/epd-catalog",
+        "workflows/epd-mcp-operator"
       ]
     },
     {
@@ -311,12 +313,13 @@
       "group": "Orders",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 4,
+      "total": 6,
       "code": 1,
       "head": 0,
       "table": 0,
-      "prose": 3,
+      "prose": 5,
       "skills": [
+        "workflows/epd-mcp-operator",
         "workflows/epd-refunds",
         "workflows/epd-transaction-triage"
       ]
@@ -326,12 +329,13 @@
       "group": "Orders",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 6,
+      "total": 7,
       "code": 1,
       "head": 0,
       "table": 0,
-      "prose": 5,
+      "prose": 6,
       "skills": [
+        "workflows/epd-mcp-operator",
         "workflows/epd-refunds",
         "workflows/epd-subscriptions",
         "workflows/epd-transaction-triage"
@@ -342,11 +346,11 @@
       "group": "Orders",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 15,
+      "total": 16,
       "code": 1,
       "head": 2,
       "table": 3,
-      "prose": 9,
+      "prose": 10,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -438,11 +442,11 @@
       "group": "Subscriptions",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 10,
+      "total": 11,
       "code": 1,
       "head": 1,
       "table": 3,
-      "prose": 5,
+      "prose": 6,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -725,11 +729,11 @@
       "group": "Coupons",
       "tier": "T0 read",
       "depth": "prose-only",
-      "total": 1,
+      "total": 2,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 1,
+      "prose": 2,
       "skills": [
         "workflows/epd-coupons"
       ]
@@ -872,11 +876,11 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 8,
+      "total": 9,
       "code": 1,
       "head": 2,
       "table": 3,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -980,11 +984,11 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 22,
+      "total": 23,
       "code": 2,
       "head": 1,
       "table": 5,
-      "prose": 14,
+      "prose": 15,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -1080,7 +1084,7 @@
     {
       "skill": "workflows/epd-mcp-operator",
       "file": "workflows/epd-mcp-operator/SKILL.md",
-      "line": 95,
+      "line": 108,
       "tool": "ping",
       "keys": []
     },

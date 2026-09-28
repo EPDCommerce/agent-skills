@@ -53,6 +53,13 @@ wants any of it to run, the exception belongs in the table under
 [Standing authorizations](#standing-authorizations) — written in advance, naming
 specific tools, never decided by an agent at runtime.
 
+One measured fact bears on it. `retry_failed_charge`, the dunning example above,
+does not refuse a failure it has already recovered: called a second time on the
+same failed transaction under a new key, it charged the customer again, and the
+original order still reads `failed` afterwards. An authorization for it would
+need a condition that the failure has not already been paid for — the check is
+step 3 of the [failed payment recovery recipe](recipes/failed-payment-recovery.md).
+
 Two things this file cannot do, which should shape how it is reviewed:
 
 - **It is not enforcement.** Nothing here is executed by the server. See
@@ -62,8 +69,9 @@ Two things this file cannot do, which should shape how it is reviewed:
 
 For what each rule looks like in practice — including the confirmation prompts
 agents actually print — see the per-skill guides in
-[`docs/`](docs/README.md). If a guide and this file ever disagree, this file
-wins and the guide is a bug.
+[`docs/`](docs/README.md), and the end-to-end chains in
+[`recipes/`](recipes/README.md). If a guide or a recipe and this file ever
+disagree, this file wins and the other is a bug.
 
 ---
 

@@ -304,6 +304,11 @@ risk tolerance, and that is the merchant's call — it is meant to be edited.
 
 - **[`docs/`](./docs/README.md)** — one guide per skill, twelve in total, same
   template throughout.
+- **[`recipes/`](./recipes/README.md)** — six end-to-end chains across the
+  skills: first live charge, failed payment recovery, a promotion, a webhook
+  version migration, month-end reconciliation, and a customer 360 for support.
+  Each has a checkpoint after every step and a failure branch for every call, and
+  each was run against the sandbox.
 - **[`SAFETY.md`](./SAFETY.md)** — agent conduct against a merchant account.
 - **[`audit/`](./audit/COVERAGE.md)** — the tool-by-tool coverage matrix, the
   skill map and routing, and the measured key-permission matrix.
@@ -341,7 +346,7 @@ npm run check          # validate manifest + guides, run tests
 | Command | Checks |
 |---|---|
 | `npm run validate` | Manifest against its schema, every listed file exists, every `SKILL.md`'s frontmatter validates and its `name` matches, no skill missing from the manifest. |
-| `npm run validate:docs` | Every skill has exactly one guide, guide frontmatter agrees with the manifest, every guide carries all six template sections, and every relative Markdown link in the repo resolves. |
+| `npm run validate:docs` | Every skill has exactly one guide, guide frontmatter agrees with the manifest, every guide carries all six template sections, every recipe's tier, unattended and skill claims match the tools it calls, every documented tool call matches the `tools/list` snapshot, and every relative Markdown link in the repo resolves. |
 | `npm test` | `node:test` specs, including the webhook verifier's rejection reasons and a guard against the `epd-webhooks` examples regressing to a truthiness check. |
 
 ## Security

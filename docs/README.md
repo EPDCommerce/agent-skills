@@ -16,6 +16,10 @@ These are the human-facing companions to the skills themselves. The `SKILL.md`
 files are written for an agent to load at runtime; these are written for the
 people who have to decide whether to trust what the agent did.
 
+A guide covers one skill. For a job that runs through several — a first live
+charge, a failed payment, a month-end close — see the
+[recipes](../recipes/README.md).
+
 ## Read in this order
 
 **[`SAFETY.md`](../SAFETY.md) first, if an agent will touch a live account.**

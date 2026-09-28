@@ -36,16 +36,20 @@ docs/
   README.md                        guide index + the shared template
   <skill>.md                       one human-facing guide per skill
 
+recipes/
+  README.md                        recipe index, template and conventions
+  <recipe>.md                      one end-to-end chain across several skills
+
 scripts/
   validate.js                      manifest + frontmatter validator
-  check-docs.js                    guide + Markdown link validator
+  check-docs.js                    guide, recipe, tool-call + link validator
   __tests__/                       node:test specs
 ```
 
-`SKILL.md` files are written for an agent to load at runtime. `docs/` is written
-for the humans who have to decide whether to trust what the agent did. Guides
-are deliberately **not** listed in the manifest — an agent should never be
-loading one.
+`SKILL.md` files are written for an agent to load at runtime. `docs/` and
+`recipes/` are written for the humans who have to decide whether to trust what
+the agent did. Neither is listed in the manifest — an agent should never be
+loading one at runtime.
 
 ## Adding a new skill
 
@@ -142,6 +146,35 @@ prerequisites. Don't restate the description.
 **`metadata.api_version`** is the EPD Commerce dated API version the
 skill targets — keep it in sync with the manifest's `api_version`.
 
+## Adding or changing a recipe
+
+A recipe chains several skills to one outcome. The template is in
+[`recipes/README.md`](./recipes/README.md): seven sections, in order — Outcome,
+Before you start, The chain, Steps, Where it can stop, Running it unattended,
+What was verified.
+
+```yaml
+---
+recipe: <must match the file name>
+recipe_version: 1.0.0
+api_version: "2026-02-11"          # must match the manifest
+skills:                             # every skill that owns a tool it calls
+  - epd-mcp-operator
+highest_tier: T0 | T2 | T3          # derived from its calls; the validator checks
+unattended: runs | refuses          # runs only if highest_tier is T0
+verified: 2026-09-28                # when the chain was last run in sandbox
+---
+```
+
+Every step is a `### N. Title` under `## Steps`, with a `**Checkpoint.**` and,
+if it calls anything, an `**If it fails**` table. Identifiers in calls are
+placeholders that name their source — `<step 3: customer.id>` or
+`<human: …>` — never literal UUIDs.
+
+Run the chain against sandbox before changing `verified`. The "What was
+verified" section says what was measured and what was not; a recipe that has
+not been run says so.
+
 ## Style
 
 - **Honest over impressive.** If a feature isn't shipped, say so. We delete
@@ -177,6 +210,13 @@ skill targets — keep it in sync with the manifest's `api_version`.
 5. Every relative Markdown link in the repository resolves, **including its
    anchor** where it names one. A table of contents pointing at a heading
    somebody renamed is the way these rot.
+6. Every `tool:` block anywhere names a tool in the committed `tools/list`
+   snapshot, passes only parameters it declares, and passes all it requires.
+7. Every recipe carries the seven sections and is indexed; its `highest_tier`
+   and `unattended` match the tools it calls; every tool it calls is owned by a
+   skill it lists, per `audit/COVERAGE.md`; every step has a checkpoint and
+   every calling step a failure branch; and no call carries a literal UUID or
+   a value from a later step.
 
 `npm test` runs `node:test` specs in `scripts/__tests__/`.
 

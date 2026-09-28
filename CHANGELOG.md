@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `recipes/` — six end-to-end chains across the skills, the Phase F
+  deliverable: new merchant to first live charge, failed payment recovery,
+  launching a promotion, webhook version migration, month-end reconciliation,
+  and customer 360 for a support agent. Each follows one template — outcome,
+  inputs, the chain, the steps, where it can stop, running it unattended, what
+  was verified — with a checkpoint after every step and a failure branch for
+  every call. Identifiers are placeholders naming the step they come from, and
+  every T2 and T3 step prints its confirmation in full. Every step that can run
+  in sandbox was run there as a chain on 28 September 2026. Not in the manifest.
+- `scripts/check-docs.js` validates the recipes. Beyond structure, it derives
+  what a recipe claims from the tools it calls and fails on a disagreement: its
+  highest tier (by the same annotation rule as `gen-tiers.mjs`, cross-checked
+  across all 67 tools in a test), whether it may run unattended, and that each
+  tool it calls is owned by a skill it lists. It also rejects a step without a
+  checkpoint, a calling step without a failure branch, a literal UUID in a call,
+  and a value taken from a later step.
 - `epd-transaction-triage` — workflow skill. Read-only diagnosis of a failed
   charge, sorting the nine observed decline codes into safe-to-retry,
   never-retry, and needs-a-human. Hands the retry off rather than performing it.
@@ -65,6 +81,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+Phase F — recipes, plus the corrections that running them against sandbox
+turned up. Each is a case where an agent following the skill as written would
+have told a human something untrue about money.
+
+- `epd-reporting` 1.1.0 — **chargebacks are already out of net; never subtract
+  them.** A chargeback changes the original sale's status rather than adding a
+  row, so a charged-back sale is in neither gross nor net. The skill said net
+  overstates what was kept, and the guide offered net-minus-chargebacks, which
+  deducts the same money twice. The outcome — open, lost, won — lives only on
+  the order, and a won dispute is money no total shows. Also: pending refunds
+  are in no total; the month has a timezone; "refunds in August" is two
+  figures; a close is a snapshot; the customer summary has no subscriptions.
+- `epd-subscriptions` 1.2.0 — **a declined first charge makes a `failed`
+  subscription, and it is final.** The skill said `failed` never occurred.
+  Updating its card, `retry_order` and `retry_failed_charge` all fail to revive
+  it; a new subscription and then a cancel is the route. `retry_failed_charge`
+  stores no link and charged again when called twice on one failure. Cycle 1's
+  total is now read back against the confirmation.
+- `epd-transaction-triage` 1.2.0 — **a failed order may already be paid for.**
+  A recovery makes a new order and leaves the failed one untouched, so triage
+  reads the customer's later orders first. "Charged" rests on a succeeded sale:
+  both subscription cycle orders in dunning read `succeeded` with every sale
+  failed.
+- `epd-catalog` 1.2.0 — a recovery onto a new card carries
+  `metadata.recovers_order`, since nothing else links it to the failure;
+  `description` is not stored. A decline is a successful call returning a
+  failed order.
+- `epd-webhook-ops` 1.1.0 — **`disabled: true` is accepted and ignored.** The
+  skill offered it as a reversible pause; the endpoint stays `enabled`. There
+  is no pause. Adds `invalid_version_upgrade`, and that
+  `preview_webhook_payload` accepts misspelled event types.
+- `epd-coupons` 1.2.0 — **a bare code is not a validity check on a scoped
+  coupon**: it returns `product_not_eligible`. Adds that reason and
+  `plan_not_eligible`; `archived` on `list_coupons` is a string; locked terms
+  fail with `field_locked`.
+- `epd-mcp-operator` 1.2.0 — **a declined charge is not an error.**
+  `create_order`, `retry_order` and `create_subscription` return
+  `isError: false` and an object reading `failed`. Read `status` as well.
+- `epd-refunds` 1.2.0 — the order reads `refunded` at once while the refund
+  starts `pending`: "issued", not "returned". A repeat full refund returns
+  `invalid_state_transition`.
+- `epd-onboard-customer` 1.2.0, and the templates in `epd-refunds` and
+  `epd-subscriptions` — every confirmation template names its tool and mode,
+  as `SAFETY.md` requires. Phase E fixed the operator's; nine in the domain
+  skills still omitted it.
+- `SAFETY.md` — policy unchanged. The redline note on decision 4 records that
+  `retry_failed_charge`, its dunning example, does not refuse a failure it has
+  already recovered, so an authorization for it needs that condition.
+- `README.md`, `CONTRIBUTING.md`, `docs/README.md` — document `recipes/`, the
+  recipe template, and everything `npm run validate:docs` now checks, including
+  the tool-call check Phase E added without listing it.
+
+`audit/COVERAGE.md` and `audit/coverage.json` regenerate with each change;
+`gen-tiers` and `skill-map` reproduce unchanged.
 Phase E — human documentation, plus four skill corrections the documentation
 work uncovered. Each was found by writing a guide's worked transcript against
 the skill and discovering the skill could not answer the question the transcript
@@ -176,6 +246,17 @@ them, and names the Phase C skills it hands off to.
 
 ### Fixed
 
+- `docs/epd-coupons.md` — the transcript's archived-coupon lookup passed
+  `archived: true`, which the server rejects; it takes the string `"true"`.
+  Its closing bare validation now shows the coupon's scope, the only reason
+  it returned `valid: true`.
+- `docs/epd-webhook-ops.md` — recommended `disabled` as the reversible
+  alternative to deleting an endpoint. It does nothing.
+- `docs/epd-reporting.md` — the transcript offered net-minus-chargebacks to a
+  finance user. It now reports July's 17 chargebacks by outcome: 12 lost,
+  2 open, 3 won.
+- `docs/epd-coupons.md`, `docs/epd-transaction-triage.md` — two sentences left
+  from before Phase E's fixes, saying the skill did not yet cover what it does.
 - `epd-best-practices` — REST idempotency codes corrected to what the API
   returns: `idempotency_key_conflict` (409) and `request_in_progress` (409),
   not `idempotency_key_mismatch` (422) and `idempotency_key_in_use`, in the

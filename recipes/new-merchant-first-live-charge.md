@@ -392,7 +392,8 @@ for an explicit yes.
 | Unexpected merchant `name` | The wrong account's key | Stop. |
 
 **Stage 3 — the first live charge.** Nothing from stage 1 exists here. A
-test-mode ID used now returns `resource_not_found`, which is the correct outcome.
+test-mode ID used now should fail as not found — the object is not in this mode —
+and that failure is the correct outcome, not something to work around.
 
 ### 9. Build the product, customer and card again, in live
 

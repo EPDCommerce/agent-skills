@@ -336,9 +336,18 @@ input:
 ```
 
 Then read the delivery log for events that failed between the upgrade and the
-downgrade, and replay each one the receiver still needs. Every replay is a real
-second delivery, confirmed on its own, and never retried on a timeout. Whether
-the receiver tolerates a duplicate is its owner's knowledge, not yours — ask.
+downgrade:
+
+```
+tool: list_webhook_delivery_logs
+input:
+  id: <step 2: endpoint.id>
+  limit: 100
+```
+
+Replay each one the receiver still needs. Every replay is a real second
+delivery, confirmed on its own, and never retried on a timeout. Whether the
+receiver tolerates a duplicate is its owner's knowledge, not yours — ask.
 
 > I'm about to call **`replay_webhook_event`** for event `<step 9: event id>`
 > (**<type>**, first sent **<time>**) to **<URL>**, in **<mode>**. It delivers the

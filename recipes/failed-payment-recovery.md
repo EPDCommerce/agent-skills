@@ -25,8 +25,8 @@ it; **waiting on the customer** for a new card; or **closed by decision**. It
 never ends in "retried until something worked", and never in a second charge.
 
 The chain has one hard rule, and the sandbox run is why: **check that the
-failure is still unpaid before recovering it.** A recovery creates a new order
-and leaves the failed one reading `failed` for good, with nothing on either
+failure is still unpaid before recovering it.** A recovery onto a new card
+creates a new order and leaves the failed one reading `failed` for good, with nothing on either
 order pointing at the other. The next person to look sees an unpaid failure.
 And `retry_failed_charge`, called again on the same failed transaction under a
 new key, charged the customer a second time.
@@ -62,7 +62,7 @@ flowchart TD
   U -->|already paid or recovered| STOP["stop: report what was found"]
   U -->|not a decline| AWAY["chargeback, void or pending: not this recipe"]
   U -->|unpaid decline| C{"4 · classify"}
-  C -->|soft, one-off| A["5 · path A: retry_order, same card"]
+  C -->|soft or first ambiguous, one-off| A["5 · path A: retry_order, same card"]
   C -->|hard, one-off| B["6 · path B: new card, new order"]
   C -->|subscription in dunning| PC["7 · path C: new card on the subscription"]
   C -->|subscription status failed| D["8 · path D: new subscription, then cancel"]
@@ -81,9 +81,9 @@ flowchart TD
 | 3 | Check it is still unpaid | triage | `list_orders` | T0 | no succeeded sale, no later recovery, and a decline |
 | 4 | Classify and pick a path | triage, subscriptions | `get_subscription` | T0 | class, reason and path agreed with the human |
 | 5 | Path A — same card | catalog | `retry_order` | T3 | `status: "succeeded"` |
-| 6 | Path B — new card, one-off | onboard, catalog | `list_payment_methods`, `create_order` | T2 | new order succeeded, linked by `metadata` |
+| 6 | Path B — new card, one-off | onboard, catalog | `list_payment_methods`, `get_product`, `create_order` | T2 | new order succeeded, linked by `metadata` |
 | 7 | Path C — new card, dunning | onboard, subscriptions | `update_subscription`, `get_subscription` | T2 | subscription bills the new card |
-| 8 | Path D — first charge failed | subscriptions | `create_subscription`, `cancel_subscription` | T3 | new subscription active, failed one cancelled |
+| 8 | Path D — first charge failed | subscriptions, catalog | `get_plan`, `create_subscription`, `cancel_subscription` | T3 | new subscription active, failed one cancelled |
 | 9 | Paid exactly once | triage, subscriptions, refunds | `list_orders`, `get_subscription`, `refund_order` | T0, T3 | one succeeded payment for the failure |
 | 10 | Report | — | — | — | the failed-to-recovered mapping is written down |
 
@@ -144,8 +144,8 @@ input:
 ```
 
 **Checkpoint.** One order, identified by UUID, with its `status`, `total`,
-`currency`, `failure_code`, `attempt_count`, `next_retry_at`, `subscription_id`
-and every transaction quoted from this response.
+`currency`, `failure_code`, `attempt_count`, `subscription_id`, its items, the
+card on it, and every transaction quoted from this response.
 
 **If it fails**
 
@@ -286,6 +286,15 @@ input:
   customer_id: <step 2: failed order.customer_id>
 ```
 
+The new order charges **today's** catalog price, not the failed order's total,
+so read it before quoting it:
+
+```
+tool: get_product
+input:
+  id: <step 2: failed order item product_id>
+```
+
 Then a new order for the same items, carrying the link:
 
 > I'm about to call **`create_order`** for **<customer>**: <items> for **<total>
@@ -324,7 +333,7 @@ The price comes from the catalog today, not from the failed order.
 |---|---|---|
 | The new card declines | A new failure | Back to step 4 with the new code. Do not retry at once. |
 | `shipping_address_required` | The items need an address | Pass the failed order's `shipping_address` inline. Never invent an address id. |
-| `total` differs from the failed order | The product price changed since | Say so and get a fresh yes. |
+| The price read above differs from the failed order's total | The product price changed since | Say so in the confirmation, before the call. |
 | `description` comes back `null` | Measured: `create_order` did not keep it | Use `metadata` for the link. |
 
 ### 7. Path C — a new card, on a subscription in dunning
@@ -399,11 +408,24 @@ while cancelling first leaves the customer with no subscription if the new card
 also declines. Tell the human up front that there are two confirmations.
 
 Put the new card on file as in path B first, and read it back with
-`list_payment_methods`.
+`list_payment_methods`. Then read the plan, because the confirmation has to
+quote the charge:
+
+```
+tool: get_plan
+input:
+  id: <step 4: failed subscription.plan.id>
+```
+
+Compare the plan's `amount` and `one_time_amount` with the failed first
+charge's `total` from step 2. If they differ and nothing known explains it — a
+coupon on the failed subscription, for instance — **stop here**: the new
+subscription would charge the same way. Report both figures and let the human
+decide before anything is charged again.
 
 > I'm about to call **`create_subscription`** for **<customer>** on plan
-> **<plan>**, billing the **<brand>** ending **<last4>**, in **<mode>**. The first
-> charge is taken now. Proceed?
+> **<plan>** at **<amount> <currency>** per cycle, billing the **<brand>** ending
+> **<last4>**, in **<mode>**. The first charge is taken now. Proceed?
 
 ```
 tool: create_subscription
@@ -436,7 +458,8 @@ input:
 
 | Condition | What it means | Do |
 |---|---|---|
-| The new subscription also reads `failed` | The new card declined | Stop. Cancel only the extra one, report both. Ask the customer for another card. |
+| The new subscription also reads `failed` | The new card declined | Stop. Neither subscription bills. Report both, and ask the customer for another card; cancelling either is the human's call. |
+| The plan's amount and the failed charge disagree | The same charge would repeat | Stop before `create_subscription`. |
 | `cancellation_reason` rejected with `invalid_value` | Reasons come from the account's catalog | Put the reason in `cancellation_notes`, which is free text. |
 
 ### 9. Confirm the customer paid exactly once
@@ -468,8 +491,10 @@ On a subscription, the cycle reads `succeeded` and the **subscription's**
 `next_retry_at` is clear — if it is still set after a manual retry, tell the
 human another attempt is scheduled. Do not read this off the order: across all
 6,017 orders on the sandbox, none carried `next_retry_at`, including the cycle
-orders of the subscriptions that had a retry scheduled. For a **new** subscription, read cycle 1's order: its `total` must be
-the amount the confirmation quoted. If it is not, and nothing known explains it
+orders of the subscriptions that had a retry scheduled.
+
+For a **new** subscription, read cycle 1's order: its `total` must be the amount
+the confirmation quoted. If it is not, and nothing known explains it
 — a coupon, a one-time amount on the plan — stop, report both figures with the
 `request_id`, and start no further subscriptions on that plan until it is
 explained.

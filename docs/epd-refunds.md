@@ -1,7 +1,7 @@
 ---
 skill: epd-refunds
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -114,6 +114,9 @@ for someone who wanted a snippet.
       is being returned, what remains.
 - [ ] **The refund ID and order ID were surfaced** so the human can find it in
       the dashboard.
+- [ ] **The refund was described as issued, not as returned.** The order reads
+      `refunded` at once; the refund transaction starts `pending` and is in no
+      revenue total until it settles.
 - [ ] After `refund_and_cancel`: **`refund_status` was read**, not assumed.
       `success: false` with `status: "canceled_refund_pending"` means the
       subscription is gone and the money is not.

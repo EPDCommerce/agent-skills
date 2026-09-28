@@ -3,7 +3,7 @@ name: epd-refunds
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to issue a refund — full or partial, on an order or transaction, optionally combined with subscription cancellation. References MCP tool names (refund_order, refund_transaction, refund_and_cancel), not REST endpoints. Triggers when the user says "refund this order", "refund $X to the customer", "cancel the subscription and refund the last charge", or asks about partial refunds. Skip when the user wants to cancel a subscription without a refund — load epd-subscriptions for that. Skip when a charge failed and nobody has diagnosed why yet — load epd-transaction-triage first. Skip when the user is writing backend code against api.epd.com rather than operating an account — "how do I refund an order" is epd-best-practices, "refund order A1B2C3D4" is this skill.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -188,6 +188,11 @@ Multiple partial refunds on the same order are allowed as long as the
 total stays at or under the original amount. The server tracks this; you
 don't need to.
 
+A second **full** refund of an order is refused:
+`invalid_state_transition`, "Cannot refund order. Current status: refunded."
+— measured on 28 September 2026. It means the first one landed. Nothing to
+retry, and not a failure to report as one.
+
 ## Confirmation prompts
 
 All three tools here are T3 (see `references/tiers.md`) — confirm using the
@@ -195,18 +200,28 @@ pattern in `epd-mcp-operator`'s "Running a confirmation" section: read the
 object first, then echo the exact amount, currency, object ID and mode.
 Refund-specific templates:
 
-> "This will refund $15.00 to Alice Liddell on order <id>. The charge was
-> originally $29.99, so $14.99 will remain on the order. Proceed?"
+> I'm about to call **`refund_order`** on order `<id>` for **$15.00 USD** to
+> Alice Liddell's Visa ending 1111, in **<mode>** mode. The charge was
+> $29.99, so $14.99 will remain on the order. This is irreversible. Proceed?
 
-> "This will refund the full $29.99 on order <id> to Alice Liddell.
-> Proceed?"
+> I'm about to call **`refund_order`** on order `<id>` for the full
+> **$29.99 USD** to Alice Liddell, in **<mode>** mode. This is irreversible.
+> Proceed?
 
-> "This will cancel Alice's $29.99/month Pro subscription AND refund her
-> most recent payment of $29.99. The subscription will end immediately and
-> she won't be billed again. Proceed?"
+> I'm about to call **`refund_and_cancel`** on subscription `<id>`. It
+> cancels Alice's $29.99/month Pro subscription immediately, then refunds her
+> most recent payment — **$29.99 USD** on order `<id>` — in **<mode>** mode.
+> She won't be billed again. This is irreversible. Proceed?
 
 After execution, surface the refund ID / order ID so the user can locate it
 in the dashboard.
+
+**Then say "issued", not "returned".** The order reads `refunded` (or
+`partially_refunded`) at once, but the refund transaction starts `pending` —
+measured on 28 September 2026 — and a pending refund is counted in no revenue
+total until it settles. Tell the human, and through them the customer, that the
+refund was issued on that date. "The money is back in your account" is a claim
+the API has not made.
 
 ## Idempotency
 

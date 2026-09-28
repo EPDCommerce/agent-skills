@@ -1,7 +1,7 @@
 ---
 skill: epd-transaction-triage
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -46,7 +46,7 @@ misread: the money arrived and was then clawed back, so "retry it" is
 meaningless and the customer has already disputed. Different status, different
 problem, different team.
 
-**2. Reads the order, not just the transaction.** The order carries five things
+**2. Reads the order, not just the transaction.** The order carries six things
 the transaction does not:
 
 - **`status`, which need not match the transaction's.** An order that failed on
@@ -55,11 +55,18 @@ the transaction does not:
   order.** This follows from `transactions[]` being an attempt history — if an
   order can hold several attempts, it can hold attempts that disagree — and it
   is the one that flips a verdict: diagnosing from the transaction alone reports
-  a charge as lost that was actually taken the next day. The skill's own
-  order-versus-transaction section does not yet say this; it is the first thing
-  to read off the order.
+  a charge as lost that was actually taken the next day. Nor is the order's
+  status proof alone: the two subscription cycle orders in dunning on the
+  sandbox read `succeeded` with every sale failed. "Charged" means a `sale`
+  transaction succeeded.
+- **Whether it was already recovered.** Recovery onto a new card makes a *new*
+  order and leaves this one `failed`, with no link on it. The skill reads the
+  customer's later orders before calling a failure outstanding, because
+  `retry_failed_charge` will charge a recovered failure again — measured on
+  28 September 2026.
 - `next_retry_at` — a retry may already be scheduled. A manual retry on top of
-  it is two charges.
+  it is two charges. On a one-off order it has been `null` every time: nothing
+  retries a one-off by itself.
 - `attempt_count` — a third `do_not_honor` on the same card is not ambiguous any
   more.
 - `subscription_id` / `subscription_cycle` — this is a dunning failure, not a
@@ -154,6 +161,10 @@ reasoning:
 - [ ] **A class was stated, with a reason** — not just the code.
 - [ ] **`next_retry_at` was read and reported.** If a retry is already scheduled,
       that fact belongs in the recommendation, not in a footnote.
+- [ ] **The customer's later orders were checked** before the failure was called
+      outstanding. A recovered failure still reads `failed`.
+- [ ] **"Charged" rests on a succeeded `sale` transaction**, not on the order's
+      status alone.
 - [ ] **`attempt_count` was considered.** Repeat failures change an ambiguous
       code into a hard one in practice.
 - [ ] **If it is a subscription cycle**, the handoff went to

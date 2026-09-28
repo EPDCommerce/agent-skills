@@ -365,10 +365,10 @@
       "group": "Orders",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 20,
+      "total": 21,
       "code": 2,
       "head": 1,
-      "table": 2,
+      "table": 3,
       "prose": 15,
       "skills": [
         "integration/epd-best-practices",
@@ -382,11 +382,11 @@
       "group": "Subscriptions",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 11,
+      "total": 14,
       "code": 6,
       "head": 0,
       "table": 1,
-      "prose": 4,
+      "prose": 7,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -416,11 +416,11 @@
       "group": "Subscriptions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 1,
+      "total": 2,
       "code": 1,
       "head": 0,
       "table": 0,
-      "prose": 0,
+      "prose": 1,
       "skills": [
         "workflows/epd-subscriptions"
       ]
@@ -430,10 +430,10 @@
       "group": "Subscriptions",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 10,
+      "total": 11,
       "code": 1,
       "head": 0,
-      "table": 2,
+      "table": 3,
       "prose": 7,
       "skills": [
         "workflows/epd-mcp-operator",
@@ -445,11 +445,11 @@
       "group": "Subscriptions",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 11,
+      "total": 13,
       "code": 1,
       "head": 1,
       "table": 3,
-      "prose": 6,
+      "prose": 8,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -1004,11 +1004,11 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 12,
+      "total": 14,
       "code": 1,
       "head": 1,
-      "table": 3,
-      "prose": 7,
+      "table": 4,
+      "prose": 8,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-catalog",
@@ -1299,7 +1299,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 67,
+      "line": 70,
       "tool": "create_subscription",
       "keys": [
         "customer_id",
@@ -1315,7 +1315,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 99,
+      "line": 116,
       "tool": "update_subscription",
       "keys": [
         "id",
@@ -1328,7 +1328,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 132,
+      "line": 150,
       "tool": "cancel_subscription",
       "keys": [
         "id",
@@ -1340,7 +1340,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 155,
+      "line": 173,
       "tool": "cancel_subscription_and_report",
       "keys": [
         "subscription_id",
@@ -1350,7 +1350,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 187,
+      "line": 205,
       "tool": "list_subscriptions",
       "keys": [
         "status",
@@ -1361,7 +1361,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 200,
+      "line": 218,
       "tool": "list_past_due_subscriptions",
       "keys": [
         "limit",
@@ -1371,7 +1371,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 218,
+      "line": 236,
       "tool": "get_subscription",
       "keys": [
         "id",
@@ -1381,7 +1381,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 228,
+      "line": 246,
       "tool": "get_order",
       "keys": [
         "id",
@@ -1391,7 +1391,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 254,
+      "line": 272,
       "tool": "retry_order",
       "keys": [
         "order_id",
@@ -1401,7 +1401,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 281,
+      "line": 299,
       "tool": "retry_failed_charge",
       "keys": [
         "transaction_id",

@@ -1,7 +1,7 @@
 ---
 skill: epd-subscriptions
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -28,20 +28,31 @@ shipping apply immediately, including to a queued retry. Billing terms —
 **Ends it** — `cancel_subscription` for a quiet cancel, or
 `cancel_subscription_and_report` when someone wants the "so what did this
 subscription do?" rollup (`cycles_completed`, `total_billed_cents`, the original
-status). Both are T3 and both need the subscription `active` or `paused`.
+status). Both are T3 and both need the subscription `active` or `paused`;
+`cancel_subscription` also accepts a `failed` one.
 
 **Recovers a failed renewal** through the dunning loop — find it, classify the
 decline, then decide whether anything should happen before the scheduled
 attempt.
 
-### Four facts about statuses that change how you query
+### Five facts about statuses that change how you query
 
 Across all 130 sandbox subscriptions (18 September 2026), only four statuses
 occur: `active`, `paused`, `canceled`, `completed`.
 
+**A failed *first* charge is `failed`, and it is final.** `create_subscription`
+does not error when its first charge declines. Measured on 28 September 2026, it
+returns a subscription with `status: "failed"`, no cycles and no retry
+scheduled — one that has never billed and never will. Updating its card,
+`retry_order` and `retry_failed_charge` all failed to revive it; the last
+charged the customer on an order detached from the subscription. The skill's
+route is a new subscription on the new card, then a cancel of the failed one,
+in that order. The full chain is path D of the
+[failed payment recovery recipe](../recipes/failed-payment-recovery.md).
+
 **A failed renewal stays `active`.** The tool schemas name `past_due` as a
 filter value and the REST reference names `past_due` and `failed`. Neither
-occurred. A subscription in dunning carries `attempt_count` (failures so far)
+occurred on a renewal. A subscription in dunning carries `attempt_count` (failures so far)
 and `next_retry_at` (when the engine tries again), and **those two fields are
 how you detect dunning** — never the status.
 
@@ -92,6 +103,8 @@ Both skills now state the boundary in the same terms.
 | **Invent a `cancellation_reason`.** | It is matched case-insensitively against the account's catalog. An unknown value returns `invalid_value` and the subscription is **not** cancelled — so a guess does not merely add noise, it blocks the cancel. Free text goes in `cancellation_notes`, which is kept either way. |
 | **Update a cancelled subscription.** | The server returns `subscription_not_modifiable`. Create a new one on the same customer, or say the action is not possible. |
 | **Trust `status: past_due`.** | Returns everything. So does `list_past_due_subscriptions`. |
+| **Recover a failure twice.** | `retry_failed_charge` leaves the failed order reading `failed`, stores no link to the order that replaced it, and — measured — charged the customer again when called a second time on the same transaction under a new key. The skill checks for a later succeeded order first and records the mapping after. |
+| **Report a `failed` subscription as started.** | The call that created it returned no error. The customer believes they are subscribed and nothing will ever bill them. |
 | **Cite `update_subscription` as destructive.** | It is a T2 write and the server does not annotate it otherwise. Confirming it anyway before a payment-method swap on a live subscription is good practice — but the skill requires that to be stated as an operator judgment, not as a fact about the server. |
 
 ## What to check afterwards
@@ -107,6 +120,14 @@ After a cancel:
       no-op even without a key. In sandbox it returned `invalid_state`. Check
       status before calling.
 
+After starting a subscription:
+
+- [ ] **`status` was read on the response.** `failed` means the first charge
+      declined, and it is not an error.
+- [ ] **Cycle 1's order `total` matches the confirmation.** If not, and nothing
+      known explains it, the skill stops and escalates rather than starting
+      more on that plan.
+
 After a dunning recovery — this is the checklist that matters most:
 
 - [ ] **Read the subscription back with `expand: cycles`** and check the failed
@@ -116,6 +137,8 @@ After a dunning recovery — this is the checklist that matters most:
       needs to be told, not reassured.
 - [ ] **The cycle was reconciled**, which `retry_order` does and
       `retry_failed_charge` does not claim to.
+- [ ] **If `retry_failed_charge` ran, the failed-to-new order mapping is in the
+      report.** Nothing on either order records it.
 - [ ] **Every case reached an end state** — recovered, or cancelled by
       decision. Leaving one in the retry loop is the outcome that looks like
       success in a transcript and is not.

@@ -3,7 +3,7 @@ name: epd-webhook-ops
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to run webhook endpoints on a live account - register one, rotate its signing secret, inspect why deliveries are failing, replay an event, or migrate schema versions. Triggers when the user says webhooks stopped arriving, asks to add or remove an endpoint, asks to rotate or roll a signing secret, asks to replay or resend an event, asks what changed between webhook versions, or asks to check delivery logs. Skip when the user is writing or debugging the receiving code - signature verification, raw body handling and HMAC belong to epd-webhooks. Skip when the question is why a payment failed - load epd-transaction-triage.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   api_version: "2026-02-11"
 ---
 
@@ -136,10 +136,18 @@ enabled_events: []     ->  value_too_small, "expected array to have >=1 items"
 ### Changing an endpoint
 
 `update_webhook_endpoint` changes the URL, the subscribed events or the
-description. Setting `disabled` stops deliveries but keeps the endpoint, so it
-is the reversible alternative to `delete_webhook_endpoint`, which is T3 and
-final. It also accepts `api_version`; make a version change through the
+description. It also accepts `api_version`; make a version change through the
 preview, compare and upgrade sequence below instead.
+
+**`disabled: true` does nothing.** The schema describes it as "disable delivery
+without deleting". Measured on 28 September 2026, with and without an
+idempotency key: the call returns success and the endpoint still reads
+`status: "enabled"` — while a `description` change sent through the same tool
+applies. So there is no reversible way to stop deliveries on this surface.
+`delete_webhook_endpoint` stops them, and is T3, final, and takes the delivery
+history with it. Do not tell a human an endpoint is paused; read `status` back
+after any update, and if they need deliveries stopped, say that deletion is the
+only lever and let them decide.
 
 ### Event names are not validated
 
@@ -150,6 +158,11 @@ receives nothing.
 There is no server-side check and no tool that lists valid event types, so a
 typo produces an endpoint that looks healthy in `list_webhook_endpoints` and is
 silently dead. `order.suceeded` will not error.
+
+`preview_webhook_payload` will not catch one either. It accepted
+`order.suceeded` and returned a generic sample payload, so a preview that works
+says nothing about whether the name is real. `list_webhook_events` does: it
+shows the event types that have actually been sent to the endpoint.
 
 So: after `create_webhook_endpoint` or `update_webhook_endpoint`, confirm the
 event names back to the human character by character, and check
@@ -192,9 +205,19 @@ Guard rails the server enforces:
 
 ```
 version that does not exist  ->  invalid_webhook_version, naming the value
+upgrade to current/older     ->  invalid_version_upgrade,
+                                 "Target version … must be newer than current version …"
 downgrade to current/newer   ->  invalid_version_downgrade,
                                  "Target version must be older than current version."
 ```
+
+`compare_webhook_versions` from a version to itself returns `changes: []`, and
+from a version that does not exist, `invalid_webhook_version`.
+
+The rollback is `downgrade_webhook_version` — not a pause, which does not exist
+(see "Changing an endpoint"), and not a delete. Do not migrate while
+`has_pending_rotation` is true: two changes in flight make any failure
+ambiguous.
 
 The endpoint also carries `api_version_pinned_at`, `api_version_deprecated` and
 `api_version_sunset`. A deprecated version with a sunset date is a scheduled
@@ -234,3 +257,5 @@ which you cannot see from here.
   delivery log.
 - **Delete an endpoint to fix delivery failures.** `delete_webhook_endpoint` is
   T3 and loses the delivery history that would have explained the problem.
+- **Report an endpoint as paused.** `disabled: true` is accepted and ignored;
+  read `status` back, and say so.

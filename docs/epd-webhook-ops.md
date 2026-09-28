@@ -1,7 +1,7 @@
 ---
 skill: epd-webhook-ops
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -89,7 +89,18 @@ will not error — it will produce an endpoint that looks healthy in
 
 The mitigation is procedural: confirm event names back character by character,
 then check `list_webhook_delivery_logs` once real traffic should have arrived.
-An empty delivery log on a new endpoint is the symptom.
+An empty delivery log on a new endpoint is the symptom. `preview_webhook_payload`
+is no check — it accepted `order.suceeded` and returned a sample — but
+`list_webhook_events` shows the types actually sent.
+
+### There is no pause
+
+`update_webhook_endpoint` takes `disabled: true`, which its schema says disables
+delivery without deleting. Measured on 28 September 2026: it returns success and
+the endpoint stays `enabled`, while other fields sent through the same tool
+apply. Until EPD fixes it, the only way to stop deliveries is
+`delete_webhook_endpoint` — T3, final, and it takes the delivery history with it.
+The skill says so rather than reporting an endpoint as paused.
 
 ### Diagnosis starts with the delivery log
 
@@ -107,9 +118,12 @@ imply the other. `preview_webhook_payload` and `compare_webhook_versions` are
 both T0 and cost nothing, so the sequence is preview, compare, then upgrade —
 not upgrade and find out.
 
-The server enforces two guard rails: a version that does not exist returns
-`invalid_webhook_version` naming the value, and a downgrade to the current or a
-newer version returns `invalid_version_downgrade`.
+The server enforces three guard rails: a version that does not exist returns
+`invalid_webhook_version` naming the value, an upgrade to the current or an
+older version returns `invalid_version_upgrade`, and a downgrade to the current
+or a newer version returns `invalid_version_downgrade`. The whole migration,
+with its rollback, is the
+[webhook version migration recipe](../recipes/webhook-version-migration.md).
 
 > At the time of writing the account exposes **one** version, `2026-02-10`,
 > marked current, so migration could not be rehearsed. The procedure in the
@@ -141,7 +155,8 @@ newer version returns `invalid_version_downgrade`.
 | **Retry a version change, a test, or a replay on timeout.** | None of them carries an `idempotency_key`. Eleven of the sixteen tools in this group have no such parameter — the seven reads, plus `test_webhook_endpoint`, `replay_webhook_event`, `upgrade_webhook_version` and `downgrade_webhook_version`. Read the endpoint or the delivery log instead. |
 | **Fire `test_webhook_endpoint` or `replay_webhook_event` at an unconfirmed URL.** | Both are `openWorldHint` and send real HTTP from EPD's infrastructure to a third party. A repeat is a genuine second delivery, and the receiver's own idempotency is the merchant's code, which is not visible from here — replaying an event a consumer already processed can double-apply whatever it does. |
 | **Trust an event name.** | Nothing validates them. Confirm, then verify with the delivery log. |
-| **Delete an endpoint to fix delivery failures.** | `delete_webhook_endpoint` is T3 and loses the delivery history that would have explained the problem. `update_webhook_endpoint` with `disabled` stops deliveries reversibly. |
+| **Delete an endpoint to fix delivery failures.** | `delete_webhook_endpoint` is T3 and loses the delivery history that would have explained the problem. There is no reversible alternative today: `disabled: true` is accepted and ignored. |
+| **Report an endpoint as paused.** | Nothing on this surface pauses one. Saying it did leaves a human believing deliveries stopped while the receiver keeps getting them. |
 
 ## What to check afterwards
 

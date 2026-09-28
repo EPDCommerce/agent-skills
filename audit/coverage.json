@@ -77,14 +77,15 @@
       "group": "Customers",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 5,
+      "total": 6,
       "code": 1,
       "head": 0,
       "table": 2,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "workflows/epd-catalog",
-        "workflows/epd-onboard-customer"
+        "workflows/epd-onboard-customer",
+        "workflows/epd-reporting"
       ]
     },
     {
@@ -313,14 +314,15 @@
       "group": "Orders",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 6,
-      "code": 1,
+      "total": 11,
+      "code": 2,
       "head": 0,
-      "table": 0,
-      "prose": 5,
+      "table": 1,
+      "prose": 8,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-refunds",
+        "workflows/epd-reporting",
         "workflows/epd-transaction-triage"
       ]
     },
@@ -397,14 +399,15 @@
       "group": "Subscriptions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 7,
+      "total": 9,
       "code": 2,
       "head": 0,
       "table": 1,
-      "prose": 4,
+      "prose": 6,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-onboard-customer",
+        "workflows/epd-reporting",
         "workflows/epd-subscriptions"
       ]
     },
@@ -458,11 +461,11 @@
       "group": "Transactions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 12,
+      "total": 13,
       "code": 1,
       "head": 1,
       "table": 4,
-      "prose": 6,
+      "prose": 7,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-refunds",
@@ -907,11 +910,11 @@
       "group": "Composite",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 7,
+      "total": 8,
       "code": 1,
       "head": 2,
       "table": 2,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-reporting"
@@ -1252,7 +1255,7 @@
     {
       "skill": "workflows/epd-reporting",
       "file": "workflows/epd-reporting/SKILL.md",
-      "line": 50,
+      "line": 52,
       "tool": "get_revenue_summary",
       "keys": [
         "from",
@@ -1262,8 +1265,8 @@
     {
       "skill": "workflows/epd-reporting",
       "file": "workflows/epd-reporting/SKILL.md",
-      "line": 112,
-      "tool": "list_transactions",
+      "line": 133,
+      "tool": "list_orders",
       "keys": [
         "status",
         "created_after",
@@ -1274,7 +1277,20 @@
     {
       "skill": "workflows/epd-reporting",
       "file": "workflows/epd-reporting/SKILL.md",
-      "line": 186,
+      "line": 197,
+      "tool": "list_transactions",
+      "keys": [
+        "type",
+        "status",
+        "created_after",
+        "created_before",
+        "limit"
+      ]
+    },
+    {
+      "skill": "workflows/epd-reporting",
+      "file": "workflows/epd-reporting/SKILL.md",
+      "line": 249,
       "tool": "get_customer_financial_summary",
       "keys": [
         "customer_id"

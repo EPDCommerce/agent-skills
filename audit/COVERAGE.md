@@ -115,7 +115,7 @@ One remains open for `epd-mcp-operator`:
 | `upgrade_account_api_version` | Account | destructive, idempotent | T3 destructive | optional | prose-only (epd-mcp-operator) | `epd-mcp-operator` | EXAMPLE | Destructive and account-wide. Sandbox account currently has api_version=null (floating on latest), so the Aug 31 release lands automatically. |
 | `create_customer` | Customers | idempotent | T2 write | optional | documented (epd-mcp-operator, epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE | Step 1 of the browserless onboarding flow. Returns the customer_id that secure.epd.com requires. |
 | `list_customers` | Customers | readOnly, idempotent | T0 read | — | documented (epd-onboard-customer) | `epd-onboard-customer` | REFERENCE |  |
-| `get_customer` | Customers | readOnly, idempotent | T0 read | — | documented (epd-catalog, epd-onboard-customer) | `epd-onboard-customer` | REFERENCE |  |
+| `get_customer` | Customers | readOnly, idempotent | T0 read | — | documented (epd-catalog, epd-onboard-customer, epd-reporting) | `epd-onboard-customer` | REFERENCE |  |
 | `update_customer` | Customers | idempotent | T2 write | optional | documented (epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE |  |
 | `delete_customer` | Customers | destructive, idempotent | T3 destructive | optional | documented (epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE |  |
 | `list_payment_methods` | Payment Methods | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-onboard-customer, epd-subscriptions) | `epd-onboard-customer` | REFERENCE |  |
@@ -131,12 +131,12 @@ One remains open for `epd-mcp-operator`:
 | `list_plans` | Plans | readOnly, idempotent | T0 read | — | prose-only (epd-catalog) | `epd-catalog` | REFERENCE |  |
 | `get_plan` | Plans | readOnly, idempotent | T0 read | — | prose-only (epd-catalog) | `epd-catalog` | REFERENCE |  |
 | `create_order` | Orders | idempotent | T2 write | required | documented (epd-best-practices, epd-catalog, epd-mcp-operator, epd-onboard-customer) | `epd-catalog` | EXAMPLE | Agent-facing charge path. Takes payment_method_id from secure.epd.com. Verified end to end 27 Aug: order 1DVZHHMB, status succeeded. |
-| `list_orders` | Orders | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-refunds, epd-transaction-triage) | `epd-transaction-triage` | REFERENCE |  |
+| `list_orders` | Orders | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-refunds, epd-reporting, epd-transaction-triage) | `epd-transaction-triage` | REFERENCE |  |
 | `get_order` | Orders | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-refunds, epd-subscriptions, epd-transaction-triage) | `epd-transaction-triage` | REFERENCE |  |
 | `refund_order` | Orders | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-mcp-operator, epd-refunds, epd-subscriptions) | `epd-refunds` | EXAMPLE |  |
 | `retry_order` | Orders | destructive, idempotent | T3 destructive | required | documented (epd-best-practices, epd-catalog, epd-subscriptions, epd-transaction-triage) | `epd-catalog` | EXAMPLE | Was missing from the published docs when this audit ran; added 27 Aug. Destructive and moves money, so it belongs to epd-catalog, which owns order_id-addressed tools. epd-transaction-triage is read-only by construction and cannot hold it — it diagnoses the decline and hands the retry over. |
 | `create_subscription` | Subscriptions | idempotent | T2 write | required | documented (epd-best-practices, epd-mcp-operator, epd-onboard-customer, epd-subscriptions) | `epd-subscriptions` | EXAMPLE | Agent-facing recurring path. Takes payment_method_id from secure.epd.com, same as create_order. |
-| `list_subscriptions` | Subscriptions | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-onboard-customer, epd-subscriptions) | `epd-subscriptions` | REFERENCE |  |
+| `list_subscriptions` | Subscriptions | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-onboard-customer, epd-reporting, epd-subscriptions) | `epd-subscriptions` | REFERENCE |  |
 | `get_subscription` | Subscriptions | readOnly, idempotent | T0 read | — | documented (epd-subscriptions) | `epd-subscriptions` | REFERENCE |  |
 | `update_subscription` | Subscriptions | idempotent | T2 write | optional | documented (epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |
 | `cancel_subscription` | Subscriptions | destructive, idempotent | T3 destructive | optional | documented (epd-best-practices, epd-mcp-operator, epd-subscriptions) | `epd-subscriptions` | EXAMPLE |  |

@@ -3,7 +3,7 @@ name: epd-reporting
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs revenue totals, per-customer financial history, or a month-end reconciliation rather than a change to the account. Triggers when the user asks how much revenue was taken over a period, "how much did we bill in July", "what has this customer paid us", asks for gross versus net or refund totals, asks to reconcile or close a month, or asks why a reported total does not match the transaction list. Skip when the question is about one specific failed charge and why it failed - load epd-transaction-triage. Skip when the answer requires changing anything; this skill is read-only and reaches no write tool.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key. Read-only throughout.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   api_version: "2026-02-11"
 ---
 
@@ -32,17 +32,19 @@ a revenue question is not a licence to print it.
 | Issuing a refund off the back of a report | `epd-refunds` |
 | Anything requiring a write | its owning skill — never here |
 
-`list_transactions` and `get_transaction` are shared with
-`epd-transaction-triage`. Both are Tier 0, so two skills reading the same data
-cannot conflict. Single ownership is a rule for write tools.
+`list_transactions`, `get_transaction` and `list_orders` are shared with
+`epd-transaction-triage`, and `list_subscriptions` with `epd-subscriptions`. All
+are Tier 0, so two skills reading the same data cannot conflict. Single
+ownership is a rule for write tools.
 
-## The three tools
+## The tools
 
 | Tool | Purpose |
 |---|---|
 | `get_revenue_summary` | Aggregate totals for a date range |
 | `get_customer_financial_summary` | One customer's profile, orders, transactions and lifetime value |
 | `list_transactions` | The underlying rows, for reconciliation and any breakdown the summary does not give |
+| `list_orders` | Chargeback outcomes, and refunds of a period's sales — both live on the order |
 
 ## `get_revenue_summary`
 
@@ -79,10 +81,14 @@ asks.
 | Field | Counts |
 |---|---|
 | `gross_cents` / `transaction_count` | **succeeded sales only** |
-| `refunded_cents` / `refund_count` | refunds, reported as a positive number |
+| `refunded_cents` / `refund_count` | **succeeded** refunds, reported as a positive number |
 | `net_cents` | all succeeded transactions, sales minus refunds |
 
-Failed, pending, voided and chargeback transactions are counted **nowhere**.
+Failed, pending, voided and chargeback transactions are counted **nowhere** — and
+neither is a refund whose transaction is still `pending`. Its order already reads
+`refunded`; measured on 28 September 2026, a day with four pending refunds had a
+`refunded_cents` of 0. Count pending refunds separately, and do not call them
+"not refunded".
 
 Measured on the sandbox for July 2026: the account holds **546** transactions in
 that window, and `transaction_count` reports **425**. The 121 difference breaks
@@ -103,25 +109,55 @@ the failed ones" is the easy mistake and it is wrong by 17.
 
 Both numbers are correct; they answer different questions.
 
-**Chargebacks are the sharp edge.** A chargeback is money that left the account,
-and it appears in neither `gross_cents` nor `refunded_cents`, so `net_cents`
-overstates what the merchant actually kept. If anyone is closing books on these
-figures, say so explicitly and pull chargebacks separately:
+**Chargebacks are already out of the totals — never subtract them again.** A
+chargeback is not a row of its own. It changes the status of the original sale
+from `succeeded` to `chargeback`, so a charged-back sale is in no total: not in
+`gross_cents`, and therefore not in `net_cents`. Measured on August 2026: the 429
+succeeded sales alone sum exactly to `gross_cents`, and the 16 charged-back sales
+are separate rows. "Net minus chargebacks" deducts the same money twice.
+
+What the totals cannot say is how each dispute ended. The transaction reads
+`chargeback` whether the dispute is open, lost or won, so `list_transactions`
+cannot tell them apart. The outcome lives only on the order:
+
+| Order `status` | Dispute | What `net_cents` does with it |
+|---|---|---|
+| `chargeback` | open | excludes it; the outcome is not known yet |
+| `chargeback_accepted` | lost | excludes it — correctly, the money is gone |
+| `chargeback_dismissed` | **won** | excludes it — so `net_cents` **understates** what was kept by this amount |
+
+`list_orders` accepts all three as `status` values, although its schema lists
+only `chargeback`:
 
 ```
-tool: list_transactions
+tool: list_orders
 input:
-  status: chargeback
-  created_after: "2026-07-01T00:00:00Z"
-  created_before: "2026-08-01T00:00:00Z"
+  status: chargeback,chargeback_accepted,chargeback_dismissed
+  created_after: "2026-08-01T00:00:00Z"
+  created_before: "2026-09-01T00:00:00Z"
   limit: 100
 ```
+
+August 2026 held 8 open ($6,028.90), 7 lost ($4,622.87) and 1 won ($89.97).
+Report them by outcome; the won ones are money the merchant kept that no total
+shows.
+
+And because a chargeback rewrites the sale's own status, one that lands after a
+month has closed takes that sale out of the month when it is re-run — and
+records the loss in no other month. See "Month-end close".
 
 ### Date range rules
 
 `from` is **inclusive**, `to` is **exclusive**. A calendar month is the first of
 the month to the first of the next, never to the 31st — ending on the 31st drops
 that day.
+
+**The month is in a timezone, and the choice moves the number.** Measured on
+August 2026: 1 August to 1 September in UTC was $489,658.41 across 429 sales;
+the same dates at `-07:00` were $486,908.44 across 428. Use the merchant's
+reporting timezone, write the offset into both ends, and use the offset in force
+at each boundary — a daylight-saving change can put the two ends an hour apart.
+State the timezone next to the figure.
 
 Both must be ISO 8601 **with a timezone**. Bare dates are rejected:
 
@@ -155,19 +191,46 @@ a wrong number delivered with confidence, which is worse than refusing.
 ## Reconciling against `list_transactions`
 
 The summary and the transaction list agree exactly, once you filter the list the
-way the summary does. Verified against July 2026:
+way the summary does. The call that reproduces `gross_cents`:
+
+```
+tool: list_transactions
+input:
+  type: sale
+  status: succeeded
+  created_after: "2026-07-01T00:00:00Z"
+  created_before: "2026-08-01T00:00:00Z"
+  limit: 100
+```
+
+Verified against July 2026:
 
 | `list_transactions` filter | Count | Sum (cents) | Matches |
 |---|---|---|---|
 | `type=sale`, `status=succeeded` | 425 | 53,356,800 | `transaction_count`, `gross_cents` |
-| `type=refund` | 17 | −2,169,273 | `refund_count`, `refunded_cents` |
+| `type=refund`, `status=succeeded` | 17 | −2,169,273 | `refund_count`, `refunded_cents` |
 | `status=succeeded` (all types) | 442 | 51,187,527 | `net_cents` |
 | no filter | 546 | 70,382,976 | nothing — includes failures |
 
 Two things to notice. **Refunds are stored as negative amounts** and reported by
 the summary as positive, so the sign flips between the two views. And the
 unfiltered total matches nothing at all, which is exactly the number someone
-reaches for first when a reconciliation looks wrong.
+reaches for first when a reconciliation looks wrong. Every July refund had
+succeeded, so `type=refund` alone matched then; with a refund pending, only the
+`status=succeeded` filter does.
+
+Check the `currency` on every row while paging. The summary carries no currency
+field, so a second currency would be added in silently; this is the only place
+it would show. Compare case-insensitively — transactions say `USD` where the
+catalog says `usd`.
+
+**Refunds "in August" are two questions.** `refunded_cents` is refunds *issued*
+in the window. Refunds *of* the window's sales can be issued weeks later, and
+`list_orders` with `status: refunded,partially_refunded` and
+`expand: transactions` gives them, with their dates, in one page. On August 2026
+the 16 refunds issued in August split 11 on August sales and 5 on July's; the 25
+August sales later refunded split 11 refunded in August and 14 in September.
+Report the one that was asked for, labelled.
 
 When a total is disputed, reconcile in that order: check the filter before
 suspecting the numbers.
@@ -189,7 +252,16 @@ input:
 ```
 
 Top-level keys: `customer`, `recent_orders`, `recent_transactions`,
-`lifetime_value_cents`.
+`lifetime_value_cents` — and nothing else. The tool's description promises
+subscriptions; the response has no such key, measured on 28 September 2026, and
+`get_customer` with `expand: subscriptions` omits them too. For a customer's
+subscriptions, `list_subscriptions` with `customer_id` is the call — it is owned
+by `epd-subscriptions`, and it is a read.
+
+`lifetime_value_cents` nets refunds **including pending ones** — a customer with
+two succeeded sales of 100 and one pending refund of 100 read 100 — while
+`get_revenue_summary` leaves pending refunds out. The two disagree on purpose,
+and neither is wrong.
 
 | Argument | Default | Effect |
 |---|---|---|
@@ -212,18 +284,24 @@ two side by side invites exactly that mistake.
 ## Month-end close
 
 1. `get_revenue_summary` for the month, `from` the 1st **to** the 1st of the
-   next month.
+   next month, in the merchant's timezone.
 2. Check `truncated`. If true, split the range and sum; do not report the
    partial figure.
-3. Pull chargebacks separately — they are in neither total.
-4. Reconcile against `list_transactions` with `type=sale, status=succeeded` if
-   the figure is being signed off by anyone.
-5. Report `gross_cents`, `refunded_cents` and `net_cents` in currency, state the
-   exact period boundaries, and say plainly that failed and charged-back
-   transactions are excluded.
+3. Reconcile against `list_transactions` with `type=sale, status=succeeded`, and
+   refunds with `status=succeeded`, if the figure is being signed off by anyone.
+4. Size what no total holds: failed, voided, pending sales, pending refunds, and
+   chargebacks by outcome from the orders — reported, never subtracted.
+5. Report `gross_cents`, `refunded_cents` and `net_cents` in currency, with the
+   exact period boundaries and timezone.
 
 State the key mode when reporting. A number from a sandbox account is not the
 month's revenue, and it looks identical to one that is.
+
+**A close is a snapshot.** Record when the figures were pulled. Re-run later,
+the same month can move: a pending sale that succeeds raises its gross, and a
+chargeback lowers it, because both change a row dated in that month. A refund
+does not — it is a new row, dated when it was issued. When a closed month's
+figure changes, those three are the explanations to check first.
 
 ## What this skill will not do
 
@@ -232,8 +310,10 @@ month's revenue, and it looks identical to one that is.
 - **Recompute totals a different way** and present the result as EPD's figure.
   Report what the API returned, or report the reconciliation as a reconciliation.
 - **Report a truncated total** as if it were complete.
-- **Present `net_cents` as money kept** without saying that chargebacks are
-  excluded.
+- **Subtract chargebacks from `net_cents`.** They are already out of it. Report
+  them by outcome instead, and say that won disputes are money no total shows.
+- **Present a closed month's figure as final.** Pending sales and later
+  chargebacks can still move it.
 - **Convert currencies.** Amounts come back in the transaction's own currency in
   minor units; mixing currencies in one total is not something these tools do
   and not something to do by hand.

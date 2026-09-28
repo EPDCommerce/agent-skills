@@ -223,9 +223,12 @@ August 2026, the 16 chargeback transactions were:
 | `chargeback_accepted` | Lost — the money is gone | 7 | $4,622.87 |
 | `chargeback_dismissed` | **Won** — the merchant kept it | 1 | $89.97 |
 
-All 16 are excluded from `gross_cents`, the won one included. `list_orders`
-accepts both outcome values as filters, although its schema lists only
-`chargeback`:
+All 16 are excluded from `gross_cents`, the won one included — a chargeback
+changes the original sale's status, so the sale is already out of gross and out
+of net. **Never subtract chargebacks from net**; that takes the same money off
+twice. What to report is the split: the lost ones are correctly absent, and the
+won ones are money kept that no total shows. `list_orders` accepts both outcome
+values as filters, although its schema lists only `chargeback`:
 
 ```
 tool: list_orders

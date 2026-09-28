@@ -608,11 +608,11 @@
       "group": "Webhook Endpoints",
       "tier": "T2 write",
       "depth": "prose-only",
-      "total": 2,
+      "total": 3,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-webhook-ops"
@@ -639,11 +639,11 @@
       "group": "Webhook Endpoints",
       "tier": "T0 read",
       "depth": "prose-only",
-      "total": 2,
+      "total": 3,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "integration/epd-webhooks",
         "workflows/epd-webhook-ops"
@@ -685,11 +685,11 @@
       "group": "Webhook Versions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 3,
+      "total": 4,
       "code": 1,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "integration/epd-webhooks",
         "workflows/epd-webhook-ops"
@@ -700,11 +700,11 @@
       "group": "Webhook Versions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 2,
+      "total": 3,
       "code": 1,
       "head": 0,
       "table": 0,
-      "prose": 1,
+      "prose": 2,
       "skills": [
         "integration/epd-webhooks",
         "workflows/epd-webhook-ops"
@@ -728,9 +728,9 @@
       "name": "list_coupons",
       "group": "Coupons",
       "tier": "T0 read",
-      "depth": "prose-only",
-      "total": 2,
-      "code": 0,
+      "depth": "documented",
+      "total": 3,
+      "code": 1,
       "head": 0,
       "table": 0,
       "prose": 2,
@@ -1079,6 +1079,16 @@
         "customer_id",
         "amount",
         "plan_id"
+      ]
+    },
+    {
+      "skill": "workflows/epd-coupons",
+      "file": "workflows/epd-coupons/SKILL.md",
+      "line": 253,
+      "tool": "list_coupons",
+      "keys": [
+        "archived",
+        "limit"
       ]
     },
     {

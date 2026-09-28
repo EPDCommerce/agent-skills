@@ -8,7 +8,7 @@ Regenerate with `node audit/matrix.mjs`.
 | | |
 |---|---|
 | Tools on the server | **67** across 12 groups |
-| Documented today | 35 |
+| Documented today | 36 |
 | Not mentioned anywhere today | 0 |
 | Proposed: worked example | 47 |
 | Proposed: reference row only | 19 |
@@ -37,7 +37,7 @@ confirmation. Uniform coverage across all 67 would be padding.
 | Transactions | 2 | 1 | 0 | epd-transaction-triage |
 | Webhook Endpoints | 12 | 1 | 0 | epd-webhook-ops |
 | Webhook Versions | 3 | 2 | 0 | epd-webhook-ops |
-| Coupons | 9 | 2 | 0 | epd-coupons |
+| Coupons | 9 | 3 | 0 | epd-coupons |
 | Composite | 11 | 9 | 0 | epd-onboard-customer, epd-catalog, epd-subscriptions, epd-reporting, epd-refunds, epd-webhook-ops |
 
 ## Coverage by safety tier
@@ -46,7 +46,7 @@ Tiers are derived from the server's own annotations, not assigned by hand.
 
 | Tier | Tools | Documented today | Absent today |
 |---|---|---|---|
-| T0 read | 29 | 15 | 0 |
+| T0 read | 29 | 16 | 0 |
 | T2 write | 18 | 9 | 0 |
 | T2 external | 2 | 0 | 0 |
 | T3 destructive | 18 | 11 | 0 |
@@ -158,7 +158,7 @@ One remains open for `epd-mcp-operator`:
 | `preview_webhook_payload` | Webhook Versions | readOnly, idempotent | T0 read | — | documented (epd-webhooks, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE |  |
 | `compare_webhook_versions` | Webhook Versions | readOnly, idempotent | T0 read | — | documented (epd-webhooks, epd-webhook-ops) | `epd-webhook-ops` | EXAMPLE |  |
 | `create_coupon` | Coupons | idempotent | T2 write | optional | documented (epd-coupons) | `epd-coupons` | EXAMPLE |  |
-| `list_coupons` | Coupons | readOnly, idempotent | T0 read | — | prose-only (epd-coupons) | `epd-coupons` | REFERENCE |  |
+| `list_coupons` | Coupons | readOnly, idempotent | T0 read | — | documented (epd-coupons) | `epd-coupons` | REFERENCE |  |
 | `retrieve_coupon` | Coupons | readOnly, idempotent | T0 read | — | prose-only (epd-coupons) | `epd-coupons` | REFERENCE |  |
 | `update_coupon` | Coupons | idempotent | T2 write | optional | table-only (epd-coupons) | `epd-coupons` | EXAMPLE |  |
 | `archive_coupon` | Coupons | destructive, idempotent | T3 destructive | optional | table-only (epd-coupons) | `epd-coupons` | EXAMPLE | Archive vs delete distinction must be explicit — unarchive_coupon exists, so archive is reversible and should not be described as deletion. |

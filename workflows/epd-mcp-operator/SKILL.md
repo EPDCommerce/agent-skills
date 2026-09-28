@@ -3,7 +3,7 @@ name: epd-mcp-operator
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than a domain workflow's steps — which tool to use and whether it can be called at all, composite versus primitive, whether a call is safe, test-vs-live mode, idempotency and retries, rate limits, and permission errors. Triggers when the user names an EPD tool and asks whether to use it ("should I use create_customer_and_charge", "is process_order the right one"), asks which tool to reach for, whether a composite beats the primitives or a tool works headlessly, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out and a retry is uncertain, or before the first write of a session. Skip when the tool choice is settled and only domain steps remain — load the owning skill from this skill's routing table. Tool-selection and safety questions load this skill first, even inside a domain workflow.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key. Restricted keys cannot reach the MCP endpoint.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -380,6 +380,13 @@ The first one is the trap: **a refund that fails comes back as HTTP 200.** An
 agent that checks only the status code, or only for a JSON-RPC `error`, will
 tell the customer it worked. Check `isError` on every result, and guard the
 `JSON.parse` — shape 2 throws.
+
+The reverse is a trap too: **a declined charge is not an error at all.**
+`create_order`, `retry_order` and `create_subscription` each answered a decline
+with `isError: false` and an object whose `status` is `"failed"` — measured on
+28 September 2026. `isError` says whether the call worked, not whether money
+moved. On any call that charges a card, read the returned object's `status` as
+well, and report a decline as a decline.
 
 Every envelope carries `type`, `code`, `message` and `request_id`. Validation
 failures add `param` (the first bad field) and `field_errors[]` (**all** of

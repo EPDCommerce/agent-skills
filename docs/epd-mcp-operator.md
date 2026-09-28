@@ -1,7 +1,7 @@
 ---
 skill: epd-mcp-operator
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -128,6 +128,9 @@ After any session that went through this skill:
       no such parameter — and none of those five was retried.
 - [ ] **`isError` was checked**, not just the absence of an exception. A reported
       success with no object ID in it is the shape of this going wrong.
+- [ ] **On a charge, the object's `status` was read too.** A declined
+      `create_order`, `retry_order` or `create_subscription` returns
+      `isError: false` and an object reading `failed`.
 - [ ] **`request_id` was surfaced** on every failure reported to a human. It is
       the first thing EPD support asks for and it is not recoverable afterwards.
 - [ ] If the session was long, **it was paced against the hourly bucket.** 1000

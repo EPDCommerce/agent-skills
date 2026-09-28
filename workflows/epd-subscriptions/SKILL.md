@@ -377,12 +377,15 @@ so if you apply it, rather than citing it as a tier fact.
 
 Templates:
 
-> "This will cancel the $29.99/month Pro subscription for Alice Liddell,
-> effective immediately. No further charges. Proceed?"
+> I'm about to call **`cancel_subscription`** on subscription `<id>` —
+> Alice Liddell's $29.99/month Pro plan — effective immediately, in
+> **<mode>** mode. No further charges, and nothing is refunded. This is
+> irreversible. Proceed?
 
-> "This will retry the $29.99 charge for Alice that failed on 2026-04-30,
-> on the card ending in 4242 that's already on the order. It reconciles
-> that billing cycle, so the scheduled retry won't also charge her. Proceed?"
+> I'm about to call **`retry_order`** on order `<id>` for **$29.99 USD** —
+> Alice's charge that failed on 2026-04-30 — on the card ending 4242 that is
+> already on the order, in **<mode>** mode. It reconciles that billing cycle,
+> so the scheduled retry won't also charge her. Proceed?
 
 ## Common operator mistakes
 

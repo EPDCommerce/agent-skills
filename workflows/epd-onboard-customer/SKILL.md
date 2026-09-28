@@ -3,7 +3,7 @@ name: epd-onboard-customer
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs a customer's identity or payment methods managed — create, look up, update or delete the customer record, or attach and remove a card. Also owns the two composites that bundle a first charge or a first subscription into the same call as signup — create_customer_and_charge and create_customer_and_subscribe — for a genuinely new customer. References MCP tool names, not REST endpoints. Triggers when the user says "onboard a customer", "sign up a new customer with a card", "update the customer record", "remove their card", or chains customer creation with a first charge or subscription. Skip when the dev is integrating from their own backend — load the integration skill epd-best-practices instead. Skip when charging or starting a subscription for a customer who already exists — load epd-catalog or epd-subscriptions.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -371,20 +371,25 @@ pattern in `epd-mcp-operator`'s "Running a confirmation" section: read what
 you have (the price, the card's last four), then echo it back before
 calling. Domain-specific templates:
 
-> "This will create customer Alice Liddell and charge $29.99 to the card
-> ending in 4242. Proceed?"
+> I'm about to call **`create_customer_and_charge`** to create customer
+> Alice Liddell (alice@example.com) and charge **$29.99 USD** to the card
+> ending 4242, in **<mode>** mode. It moves money. Proceed?
 
-> "This will create customer Alice Liddell and start a $29.99/month
-> subscription billed on the 1st. Proceed?"
+> I'm about to call **`create_customer_and_subscribe`** to create customer
+> Alice Liddell (alice@example.com) and start plan **<plan>** at
+> **$29.99 USD** a month, billed on the 1st, in **<mode>** mode. The first
+> charge is taken now. Proceed?
 
 `delete_payment_method` and `delete_customer` are T3 as well:
 
-> "This will remove Alice Liddell's Visa ending 4242 (her default card) and
-> make the Mastercard ending 5454 her default, in test mode. Proceed?"
+> I'm about to call **`delete_payment_method`** to remove Alice Liddell's
+> Visa ending 4242 (her default card) and make the Mastercard ending 5454 her
+> default, in **test** mode. This is irreversible. Proceed?
 
-> "This will delete customer Alice Liddell (alice@example.com,
-> `3fa85f64-…`) in test mode. Her order history is kept, but she will no
-> longer appear in customer lists. Proceed?"
+> I'm about to call **`delete_customer`** on Alice Liddell
+> (alice@example.com, `3fa85f64-…`) in **test** mode. Her order history is
+> kept, but she will no longer appear in customer lists. This is
+> irreversible. Proceed?
 
 After successful execution, surface the order/subscription ID so the user
 can find it in the dashboard.

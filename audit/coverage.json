@@ -107,11 +107,11 @@
       "group": "Customers",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 3,
+      "total": 4,
       "code": 1,
       "head": 0,
       "table": 1,
-      "prose": 1,
+      "prose": 2,
       "skills": [
         "workflows/epd-onboard-customer"
       ]
@@ -154,11 +154,11 @@
       "group": "Payment Methods",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 4,
+      "total": 5,
       "code": 1,
       "head": 0,
       "table": 1,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "workflows/epd-onboard-customer"
       ]
@@ -366,11 +366,11 @@
       "group": "Orders",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 23,
+      "total": 24,
       "code": 2,
       "head": 1,
       "table": 3,
-      "prose": 17,
+      "prose": 18,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-catalog",
@@ -447,11 +447,11 @@
       "group": "Subscriptions",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 13,
+      "total": 14,
       "code": 1,
       "head": 1,
       "table": 3,
-      "prose": 8,
+      "prose": 9,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -847,11 +847,11 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 12,
+      "total": 13,
       "code": 2,
       "head": 1,
       "table": 5,
-      "prose": 4,
+      "prose": 5,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -973,11 +973,11 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 15,
+      "total": 16,
       "code": 2,
       "head": 1,
       "table": 7,
-      "prose": 5,
+      "prose": 6,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",

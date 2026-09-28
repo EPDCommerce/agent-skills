@@ -18,6 +18,12 @@
  *   6. Every `tool:` block, in a guide or a SKILL.md, names a tool the
  *      committed tools/list snapshot declares, passes only parameters that
  *      tool declares, and passes all of the ones it requires.
+ *   7. Every recipe in recipes/ carries the shared sections, is indexed, and
+ *      makes claims its own tool calls bear out: the tier it says is its
+ *      highest, whether it can run unattended, and which skills it chains.
+ *      Every step has a checkpoint, every step that calls something says what
+ *      to do when the call fails, and no identifier in a call is either a
+ *      literal UUID or taken from a step that has not happened yet.
  *
  * Exits 0 on success, 1 on any failure.
  */
@@ -44,6 +50,29 @@ const REQUIRED_SECTIONS = [
 ];
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
+
+const RECIPES_DIR = path.join(REPO_ROOT, 'recipes');
+const RECIPES_INDEX = path.join(RECIPES_DIR, 'README.md');
+const COVERAGE_MD = path.join(REPO_ROOT, 'audit', 'COVERAGE.md');
+
+/** Sections every recipe answers, in the order recipes/README.md promises. */
+const RECIPE_SECTIONS = [
+  'Outcome',
+  'Before you start',
+  'The chain',
+  'Steps',
+  'Where it can stop',
+  'Running it unattended',
+  'What was verified',
+];
+
+/**
+ * T1 is not a tier a tool has — it is any write made in test mode — so a
+ * recipe's highest tier is stated for live mode and is one of these three.
+ */
+const TIER_RANK = { T0: 0, T2: 2, T3: 3 };
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 /** Directories that are not ours to validate. */
 const SKIP_DIRS = new Set(['node_modules', '.git']);
@@ -217,7 +246,7 @@ function loadToolSnapshot() {
  * are normalised first: a Windows checkout with core.autocrlf stores CRLF, and
  * a \n-only pattern silently matches nothing there.
  */
-function extractToolCalls(src) {
+function extractToolBlocks(src) {
   const text = src.replace(/\r\n/g, '\n');
   const fence = '`'.repeat(3);
   // `input:` is followed either by an indented block or by an inline `{}`,
@@ -229,9 +258,13 @@ function extractToolCalls(src) {
   while ((m = re.exec(text)) !== null) {
     const args = [...m[2].matchAll(/^ {2}(\w+):/gm)].map((a) => a[1]);
     const line = text.slice(0, m.index).split('\n').length;
-    out.push({ tool: m[1], args, line });
+    out.push({ tool: m[1], args, line, body: m[2] });
   }
   return out;
+}
+
+function extractToolCalls(src) {
+  return extractToolBlocks(src).map(({ tool, args, line }) => ({ tool, args, line }));
 }
 
 function checkToolCalls(snapshot, files) {
@@ -342,6 +375,174 @@ function checkGuides(manifest) {
   }
 }
 
+/**
+ * A tool's tier, derived from its server annotations by the same rule
+ * scripts/gen-tiers.mjs uses for references/tiers.md, so a recipe's stated
+ * tier is checked against the table readers are told to trust.
+ */
+function tierOfTool(def) {
+  const a = (def && def.annotations) || {};
+  if (a.readOnlyHint) return 'T0';
+  if (a.destructiveHint) return 'T3';
+  return 'T2';
+}
+
+/**
+ * Tool ownership, read from audit/COVERAGE.md. The table itself lives in
+ * audit/matrix.mjs, which writes files when it runs and so cannot be imported;
+ * COVERAGE.md is its committed output. Returns null unless every tool in the
+ * snapshot has an owner, so a change to the table's layout fails loudly
+ * instead of leaving every tool unowned and every recipe passing.
+ */
+function loadOwners(snapshot) {
+  if (!snapshot || !fs.existsSync(COVERAGE_MD)) return null;
+  const owners = new Map();
+  for (const line of fs.readFileSync(COVERAGE_MD, 'utf8').split(/\r?\n/)) {
+    // | `tool` | Group | Annotations | Tier | `idempotency_key` | Today | `owner` | Treatment | Notes |
+    const cells = line.split('|').map((c) => c.trim());
+    const tool = /^`(\w+)`$/.exec(cells[1] || '');
+    const owner = /^`([\w-]+)`$/.exec(cells[7] || '');
+    if (tool && owner) owners.set(tool[1], owner[1]);
+  }
+  return snapshot.tools.every((t) => owners.has(t.name)) ? owners : null;
+}
+
+/**
+ * The `### N. Title` steps under `## Steps`, each with the text up to the next
+ * step. Headings inside fenced blocks are not headings.
+ */
+function recipeSteps(content) {
+  const steps = [];
+  let inFence = false;
+  let inSteps = false;
+  let current = null;
+  for (const line of content.replace(/\r\n/g, '\n').split('\n')) {
+    if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
+    if (!inFence && /^## /.test(line)) {
+      inSteps = /^## Steps\s*$/.test(line);
+      current = null;
+      continue;
+    }
+    const step = !inFence && inSteps && /^### (\d+)\.\s+(.*)$/.exec(line);
+    if (step) {
+      current = { num: Number(step[1]), title: step[2].trim(), body: '' };
+      steps.push(current);
+      continue;
+    }
+    if (current) current.body += `${line}\n`;
+  }
+  return steps;
+}
+
+/**
+ * Everything wrong with one recipe, as messages. Pure apart from its inputs,
+ * so the tests can hand it a broken recipe without writing files.
+ */
+function recipeProblems({ name, src, manifest, snapshot, owners, index }) {
+  const problems = [];
+  const { data: fm = {}, content } = matter(src);
+  const skillNames = new Set(manifest.skills.map((s) => s.name));
+
+  if (fm.recipe !== name) problems.push(`frontmatter recipe "${fm.recipe}" != "${name}"`);
+  if (!SEMVER.test(String(fm.recipe_version || ''))) {
+    problems.push(`recipe_version "${fm.recipe_version}" is not semver`);
+  }
+  if (manifest.api_version && fm.api_version !== manifest.api_version) {
+    problems.push(`api_version "${fm.api_version}" != manifest "${manifest.api_version}"`);
+  }
+  // YAML reads an unquoted date as a Date, so accept either form.
+  const verified = fm.verified instanceof Date ? fm.verified.toISOString().slice(0, 10) : String(fm.verified || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(verified)) problems.push(`verified "${fm.verified}" is not a date`);
+
+  const skills = Array.isArray(fm.skills) ? fm.skills : [];
+  if (!skills.length) problems.push('frontmatter lists no skills');
+  for (const s of skills) {
+    if (!skillNames.has(s)) problems.push(`names skill "${s}", which is not in the manifest`);
+    else if (!content.includes(`${s}.md`) && !content.includes(`${s}/SKILL.md`)) {
+      problems.push(`names skill "${s}" but never links to it`);
+    }
+  }
+
+  for (const section of RECIPE_SECTIONS) {
+    const heading = new RegExp(`^##\\s+${section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'm');
+    if (!heading.test(content)) problems.push(`missing required section "## ${section}"`);
+  }
+  if (!index.includes(`(./${name}.md)`)) problems.push('is not linked from recipes/README.md');
+
+  // The tier, the owners and the identifiers, from the calls themselves.
+  let highest = 'T0';
+  for (const { tool, body, line } of extractToolBlocks(src)) {
+    const def = snapshot.tools.find((t) => t.name === tool);
+    if (!def) continue; // checkToolCalls reports the unknown tool
+    const tier = tierOfTool(def);
+    if (TIER_RANK[tier] > TIER_RANK[highest]) highest = tier;
+    const owner = owners.get(tool);
+    if (owner && !skills.includes(owner)) {
+      problems.push(`line ${line}: calls ${tool}, which ${owner} owns, but ${owner} is not in its skills`);
+    }
+    if (UUID.test(body)) {
+      problems.push(`line ${line}: passes ${tool} a literal UUID — an identifier comes from an earlier response`);
+    }
+  }
+  if (fm.highest_tier !== highest) {
+    problems.push(`highest_tier "${fm.highest_tier}" but its tool calls reach ${highest}`);
+  }
+  // SAFETY.md grants no standing authorizations, so only a chain of reads may
+  // run with nobody present. When EPD grants one, this rule has to learn which
+  // tools, in which mode, the authorization names.
+  const unattended = highest === 'T0' ? 'runs' : 'refuses';
+  if (fm.unattended !== unattended) {
+    problems.push(`unattended "${fm.unattended}", but a chain reaching ${highest} ${unattended}`);
+  }
+
+  const steps = recipeSteps(content);
+  if (!steps.length) problems.push('has no "### N." steps under "## Steps"');
+  const numbers = new Set(steps.map((s) => s.num));
+  steps.forEach((step, i) => {
+    if (step.num !== i + 1) problems.push(`step "${step.num}. ${step.title}" is out of sequence`);
+    if (!/\*\*Checkpoint/.test(step.body)) problems.push(`step ${step.num} has no **Checkpoint**`);
+    const calls = /^tool: \w+$/m.test(step.body) || /^```http\s*$/m.test(step.body);
+    if (calls && !/\*\*If it fails/.test(step.body)) {
+      problems.push(`step ${step.num} calls something but has no **If it fails**`);
+    }
+    for (const ref of step.body.matchAll(/<(step [^>]*)>/g)) {
+      for (const n of ref[1].matchAll(/\bstep (\d+)/g)) {
+        const from = Number(n[1]);
+        if (!numbers.has(from)) problems.push(`step ${step.num} takes <${ref[1]}> from a step that does not exist`);
+        else if (from > step.num) problems.push(`step ${step.num} takes <${ref[1]}> from a later step`);
+      }
+    }
+  });
+
+  return problems;
+}
+
+function checkRecipes(manifest, snapshot) {
+  if (!fs.existsSync(RECIPES_INDEX)) {
+    fail('recipes/README.md not found');
+    return 0;
+  }
+  if (!snapshot) return 0; // checkToolCalls has already reported it
+  const owners = loadOwners(snapshot);
+  if (!owners) {
+    fail(`${rel(COVERAGE_MD)} does not give an owner for every tool — regenerate it with node audit/matrix.mjs`);
+    return 0;
+  }
+
+  const index = fs.readFileSync(RECIPES_INDEX, 'utf8');
+  const files = fs.readdirSync(RECIPES_DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
+  if (!files.length) fail('recipes/ holds no recipes');
+
+  for (const file of files) {
+    const name = file.replace(/\.md$/, '');
+    const src = fs.readFileSync(path.join(RECIPES_DIR, file), 'utf8');
+    for (const p of recipeProblems({ name, src, manifest, snapshot, owners, index })) {
+      fail(`recipes/${file}: ${p}`);
+    }
+  }
+  return files.length;
+}
+
 function main() {
   if (!fs.existsSync(DOCS_DIR)) {
     fail('docs/ not found');
@@ -353,16 +554,18 @@ function main() {
 
   const markdown = findMarkdown(REPO_ROOT);
   checkLinks(markdown);
-  const toolCalls = checkToolCalls(loadToolSnapshot(), markdown);
+  const snapshot = loadToolSnapshot();
+  const toolCalls = checkToolCalls(snapshot, markdown);
+  const recipes = checkRecipes(manifest, snapshot);
 
-  return finish(manifest.skills.length, markdown.length, toolCalls);
+  return finish(manifest.skills.length, markdown.length, toolCalls, recipes);
 }
 
-function finish(guideCount, mdCount = 0, toolCalls = 0) {
+function finish(guideCount, mdCount = 0, toolCalls = 0, recipeCount = 0) {
   if (errors.length === 0) {
     process.stdout.write(
-      `ok — ${guideCount} guide(s) validated, ${mdCount} markdown file(s) link-checked, ` +
-        `${toolCalls} tool call(s) checked against the snapshot\n`,
+      `ok — ${guideCount} guide(s) validated, ${recipeCount} recipe(s) validated, ` +
+        `${mdCount} markdown file(s) link-checked, ${toolCalls} tool call(s) checked against the snapshot\n`,
     );
     process.exit(0);
   }
@@ -375,13 +578,19 @@ if (require.main === module) main();
 
 module.exports = {
   MIN_TOOL_BLOCKS,
+  RECIPE_SECTIONS,
   REQUIRED_SECTIONS,
   extractLinks,
+  extractToolBlocks,
   extractToolCalls,
   findBrokenLinks,
   headingAnchors,
   isExternal,
+  loadOwners,
   loadToolSnapshot,
+  recipeProblems,
+  recipeSteps,
   slugify,
   stripFences,
+  tierOfTool,
 };

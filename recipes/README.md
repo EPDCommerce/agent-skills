@@ -80,10 +80,27 @@ corrected in the same change — see the [CHANGELOG](../CHANGELOG.md).
 
 ## Keeping these honest
 
-Like every other Markdown file in the repository, each recipe is checked by
-`npm run validate:docs`: every tool call against the `tools/list` snapshot — a
-tool the server does not have, or an argument it does not declare, fails the
-build — and every link and anchor must resolve.
+`npm run validate:docs` fails when a recipe:
 
-What that does not catch is a checkpoint that checks the wrong thing. Those
+- is missing one of the seven sections, or is not listed on this page;
+- has frontmatter that is malformed or disagrees with the manifest's
+  `api_version`, names a skill that does not exist, or does not link to each
+  skill it names;
+- calls a tool whose owning skill — per [`audit/COVERAGE.md`](../audit/COVERAGE.md)
+  — is not in its `skills` list;
+- claims a `highest_tier` other than the highest tier of the tools it calls,
+  derived from the server's annotations the same way
+  [`references/tiers.md`](../workflows/epd-mcp-operator/references/tiers.md) is;
+- says it `runs` unattended while calling anything above T0, or says it
+  `refuses` while calling nothing above T0;
+- has a step with no **Checkpoint**, or a step that calls a tool with no **If it
+  fails**;
+- passes a literal UUID in a tool call, or a `<step N: …>` value from a step that
+  comes later or does not exist.
+
+Like every other Markdown file in the repository, each recipe's tool calls are
+also checked against the `tools/list` snapshot, and each link and anchor must
+resolve.
+
+What none of that catches is a checkpoint that checks the wrong thing. Those
 were read by a human against the sandbox run, and the run is the evidence.

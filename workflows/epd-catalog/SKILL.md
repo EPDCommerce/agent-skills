@@ -3,7 +3,7 @@ name: epd-catalog
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to manage what is for sale or place a one-off order against it. Triggers when the user asks to create or update a product, change a price, manage product images, asks what plans exist or what a plan contains, asks to place or charge an order for a customer, asks to retry a failed charge on an existing order, or hits a shipping-address or line-item error while ordering. Skip when the task is recurring billing on a subscription - load epd-subscriptions. Skip when the task is discounting rather than pricing - load epd-coupons.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -148,6 +148,12 @@ either a new product, a coupon, or a conversation.
 `idempotency_key` is **required** here, unlike most writes. It is a money-moving
 call and the server insists.
 
+**A decline is a successful call.** Measured on 28 September 2026: a declined
+card returned `isError: false` and an order with `status: "failed"`,
+`failure_code`, `attempt_count: 1` and `next_retry_at: null`. Read `status`
+before telling anyone the order went through. The order row stays, reading
+`failed`; nothing retries a one-off order by itself.
+
 Line-item rules, all observed:
 
 | Attempt | Result |
@@ -176,8 +182,35 @@ input:
 ```
 
 Both fields are **required**. There is no third parameter: no amount, and
-critically **no payment-method switch**. To charge a different card you create a
-new order; there is no way to retry onto one.
+critically **no payment-method switch**. `retry_order` cannot move onto a
+different card.
+
+To charge a different card for a failed one-off order, create a new order for
+the same items and name the failed order in its metadata:
+
+```
+tool: create_order
+input:
+  customer_id: <the failed order's customer_id>
+  payment_method_id: <the new card's id>
+  items:
+    - product_id: <the failed order's product_id>
+      quantity: <the failed order's quantity>
+  metadata:
+    recovers_order: <the failed order's id>
+  idempotency_key: <UUID v4>
+```
+
+Nothing else will connect the two. The failed order keeps reading `failed`, and
+`create_order` keeps `metadata` — measured, and returned on `list_orders` — so
+this is how the next person to read the account sees the failure was paid for.
+`description` is not a substitute: sent on `create_order`, it came back `null`.
+
+`retry_failed_charge`, owned by `epd-subscriptions`, also charges a different
+card by creating a new order. It stores no link, and it does not refuse a
+second call on a failure it has already recovered — measured, it charged again.
+Before any recovery, check the customer's later orders for one that already
+happened.
 
 That single constraint decides when the tool is useful. A decline caused by the
 card itself — expired, lost or stolen, transaction not allowed — fails again

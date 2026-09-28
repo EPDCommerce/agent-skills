@@ -297,11 +297,11 @@
       "group": "Orders",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 22,
-      "code": 6,
+      "total": 25,
+      "code": 7,
       "head": 1,
       "table": 3,
-      "prose": 12,
+      "prose": 14,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-catalog",
@@ -314,12 +314,13 @@
       "group": "Orders",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 12,
+      "total": 13,
       "code": 2,
       "head": 0,
       "table": 1,
-      "prose": 9,
+      "prose": 10,
       "skills": [
+        "workflows/epd-catalog",
         "workflows/epd-mcp-operator",
         "workflows/epd-refunds",
         "workflows/epd-reporting",
@@ -365,11 +366,11 @@
       "group": "Orders",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 22,
+      "total": 23,
       "code": 2,
       "head": 1,
       "table": 3,
-      "prose": 16,
+      "prose": 17,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-catalog",
@@ -1005,11 +1006,11 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 16,
+      "total": 17,
       "code": 1,
       "head": 1,
       "table": 4,
-      "prose": 10,
+      "prose": 11,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-catalog",
@@ -1049,10 +1050,23 @@
     {
       "skill": "workflows/epd-catalog",
       "file": "workflows/epd-catalog/SKILL.md",
-      "line": 172,
+      "line": 178,
       "tool": "retry_order",
       "keys": [
         "order_id",
+        "idempotency_key"
+      ]
+    },
+    {
+      "skill": "workflows/epd-catalog",
+      "file": "workflows/epd-catalog/SKILL.md",
+      "line": 192,
+      "tool": "create_order",
+      "keys": [
+        "customer_id",
+        "payment_method_id",
+        "items",
+        "metadata",
         "idempotency_key"
       ]
     },

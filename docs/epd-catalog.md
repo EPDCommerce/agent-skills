@@ -1,7 +1,7 @@
 ---
 skill: epd-catalog
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -119,7 +119,7 @@ It was resolved the other way, and `audit/matrix.mjs` was corrected to match.
 | **Remove a shipping address to make an order go through.** | The rejection is the system working. Find the item that requires shipping. |
 | **Retry `reorder_product_images` on a timeout.** | It has no `idempotency_key` parameter, so a retry is a fresh side effect. Read the product back with `get_product` instead. |
 | **Send a partial image order.** | Reordering replaces the whole sequence, so a partial list silently drops an image out of position. |
-| **Switch the card on `retry_order`.** | There is no such parameter. A different card means a new order — which is exactly why `retry_order` is useless against `expired_card`, `lost_stolen_card`, `transaction_not_allowed` and `incorrect_cvv`. |
+| **Switch the card on `retry_order`.** | There is no such parameter. A different card means a new order — which is exactly why `retry_order` is useless against `expired_card`, `lost_stolen_card`, `transaction_not_allowed` and `incorrect_cvv`. The new order carries `metadata.recovers_order` naming the failed one; nothing else connects them, and the failed order reads `failed` for good. |
 | **Decide why a charge failed.** | That is triage, which is read-only and safe to run first. |
 | **Create or change a plan.** | Read-only here. |
 | **Delete a product to fix a pricing mistake.** | `delete_product` is T3 and irreversible; `update_product` changes the price. There is no price history and no scheduled change — the new price applies to the next order, and existing orders keep what they were charged. |

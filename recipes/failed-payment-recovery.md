@@ -222,11 +222,11 @@ Then choose with the human:
 
 | Situation | Class | Path |
 |---|---|---|
-| One-off, `insufficient_funds`, `issuer_unavailable`, `card_limit_exceeded` | soft | **A** if the human wants a retry now. Nothing will retry it otherwise: `next_retry_at` was `null` on every one-off failed order measured. |
+| One-off, `insufficient_funds`, `issuer_unavailable`, `card_limit_exceeded` | soft | **A** if the human wants a retry now. Nothing will retry it otherwise: `next_retry_at` is `null` on all 593 failed one-off orders on the sandbox. |
 | One-off, `do_not_honor` or `processor_declined`, first time | ambiguous | **A**, once, later. The same code again means a new card. |
 | One-off, `expired_card`, `transaction_not_allowed`, `incorrect_cvv` | hard | **B**. The same card fails the same way. |
 | `lost_stolen_card`, anywhere | hard | **B** or **C**, and the old card is never retried by any route. |
-| Subscription `active` with `attempt_count > 0` and `next_retry_at` set | dunning | **C**. Soft codes can simply wait for `next_retry_at`. |
+| Subscription `active` with `attempt_count > 0` and `next_retry_at` set — on the **subscription** | dunning | **C**. Soft codes can simply wait for `next_retry_at`. |
 | Subscription `status: "failed"`, `cycles: []` | first charge failed | **D**, whatever the code. |
 
 **Checkpoint.** The class, the reason in words — "`do_not_honor`: the issuer
@@ -261,8 +261,8 @@ input:
 
 **Checkpoint.** The response is the order. Read `status`: `"succeeded"` goes to
 step 9. On a subscription cycle, the tool's own description says a success
-reconciles the cycle so dunning will not charge again — step 9 checks
-`next_retry_at` to see that it did.
+reconciles the cycle so dunning will not charge again — step 9 checks the
+subscription's `next_retry_at` to see that it did.
 
 **If it fails**
 
@@ -464,9 +464,11 @@ input:
 
 **Checkpoint.** One succeeded payment covers the failure: either the failed order
 itself now has a succeeded sale (path A), or exactly one later order does (B, D).
-On a subscription, the cycle reads `succeeded` and `next_retry_at` is clear — if
-it is still set after a manual retry, tell the human another attempt is
-scheduled. For a **new** subscription, read cycle 1's order: its `total` must be
+On a subscription, the cycle reads `succeeded` and the **subscription's**
+`next_retry_at` is clear — if it is still set after a manual retry, tell the
+human another attempt is scheduled. Do not read this off the order: across all
+6,017 orders on the sandbox, none carried `next_retry_at`, including the cycle
+orders of the subscriptions that had a retry scheduled. For a **new** subscription, read cycle 1's order: its `total` must be
 the amount the confirmation quoted. If it is not, and nothing known explains it
 — a coupon, a one-time amount on the plan — stop, report both figures with the
 `request_id`, and start no further subscriptions on that plan until it is

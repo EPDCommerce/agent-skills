@@ -64,9 +64,11 @@ the transaction does not:
   customer's later orders before calling a failure outstanding, because
   `retry_failed_charge` will charge a recovered failure again — measured on
   28 September 2026.
-- `next_retry_at` — a retry may already be scheduled. A manual retry on top of
-  it is two charges. On a one-off order it has been `null` every time: nothing
-  retries a one-off by itself.
+- `next_retry_at` — a retry may already be scheduled, and a manual retry on top
+  of it is two charges. Read it on the **subscription** for a cycle: on the
+  sandbox no order carries it, including the cycle orders of the subscriptions
+  that do have a retry scheduled. On a one-off order it is `null` on all 593
+  failed ones: nothing retries a one-off by itself.
 - `attempt_count` — a third `do_not_honor` on the same card is not ambiguous any
   more.
 - `subscription_id` / `subscription_cycle` — this is a dunning failure, not a
@@ -159,8 +161,9 @@ reasoning:
       `failure_code` and the transaction was a chargeback, the diagnosis is
       already wrong.
 - [ ] **A class was stated, with a reason** — not just the code.
-- [ ] **`next_retry_at` was read and reported.** If a retry is already scheduled,
-      that fact belongs in the recommendation, not in a footnote.
+- [ ] **`next_retry_at` was read and reported** — from the subscription, for a
+      cycle. If a retry is already scheduled, that fact belongs in the
+      recommendation, not in a footnote.
 - [ ] **The customer's later orders were checked** before the failure was called
       outstanding. A recovered failure still reads `failed`.
 - [ ] **"Charged" rests on a succeeded `sale` transaction**, not on the order's

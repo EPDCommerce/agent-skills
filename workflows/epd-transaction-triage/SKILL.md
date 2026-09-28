@@ -137,13 +137,13 @@ Say which class a code falls into and why, rather than only reporting the code.
 
 ## What the order tells you that the transaction does not
 
-Always read the order as well. `get_order` carries the retry state:
+Always read the order as well. `get_order` carries the attempt history:
 
 ```json
 {
   "status": "failed",
   "attempt_count": 1,
-  "next_retry_at": "2026-09-25T10:00:00.000Z",
+  "next_retry_at": null,
   "failure_code": "do_not_honor",
   "subscription_id": "…",
   "subscription_cycle": 3,
@@ -175,10 +175,16 @@ Six things the transaction alone will not tell you:
   same items and total may be. A failure reported as outstanding after it was
   recovered is how a customer gets charged twice — `retry_failed_charge` does
   not refuse a failure it has already recovered.
-- **`next_retry_at`** — a retry may already be scheduled. Retrying manually on
-  top of it risks charging twice. Check this before recommending any retry. On
-  a **one-off** order it was `null` on every failed order measured: nothing
-  retries a one-off by itself, so "wait for the retry" is not an option there.
+- **`next_retry_at` — read it on the subscription, not only here.** A retry
+  may already be scheduled, and retrying manually on top of it risks charging
+  twice. The order has a field of that name, but across all 6,017 orders on
+  the sandbox it was `null` on every one — including the cycle orders of the
+  two subscriptions that **do** have a retry scheduled, where the date shows
+  only on the subscription (measured 28 September 2026). So for a
+  subscription cycle, `get_subscription` is where the schedule is read, and
+  "nothing scheduled" is never concluded from the order alone. On a one-off
+  order nothing retries by itself: all 593 failed one-off orders read `null`,
+  and "wait for the retry" is not an option there.
 - **`attempt_count`** — how many times this has already failed. A third
   `do_not_honor` on the same card is not ambiguous any more.
 - **`subscription_id` / `subscription_cycle`** — this is a dunning failure, not
@@ -250,8 +256,8 @@ guaranteed to fail. The customer needs to supply a new card first.
   goes through the routing table.
 - **Recommend retrying a hard decline.** `expired_card`, `lost_stolen_card` and
   `transaction_not_allowed` need a new payment method, not another attempt.
-- **Recommend a retry without checking `next_retry_at`.** A scheduled retry plus
-  a manual one is two charges.
+- **Recommend a retry without checking `next_retry_at`** — on the subscription,
+  for a cycle. A scheduled retry plus a manual one is two charges.
 - **Claim a gateway-versus-issuer distinction** the data does not support on
   this account.
 - **Echo card data.** `card_last_four` and `card_brand` only.

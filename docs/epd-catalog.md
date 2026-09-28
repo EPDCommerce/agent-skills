@@ -144,7 +144,7 @@ After an order:
 
 After `retry_order` on a subscription cycle:
 
-- [ ] **The cycle reconciled** and the original order's `next_retry_at` is now
+- [ ] **The cycle reconciled** and the subscription's `next_retry_at` is now
       null. That reconciliation is the whole reason to prefer `retry_order`
       here.
 

@@ -132,9 +132,10 @@ After a dunning recovery — this is the checklist that matters most:
 
 - [ ] **Read the subscription back with `expand: cycles`** and check the failed
       cycle's `status`.
-- [ ] **Check `next_retry_at` on the original cycle's order.** If it is still
-      set after a manual retry, a second attempt is scheduled and the human
-      needs to be told, not reassured.
+- [ ] **Check `next_retry_at` on the subscription.** If it is still set after a
+      manual retry, a second attempt is scheduled and the human needs to be
+      told, not reassured. The cycle order's field of the same name read `null`
+      on every order on the sandbox, scheduled or not, so it proves nothing.
 - [ ] **The cycle was reconciled**, which `retry_order` does and
       `retry_failed_charge` does not claim to.
 - [ ] **If `retry_failed_charge` ran, the failed-to-new order mapping is in the
@@ -198,6 +199,8 @@ input:
 {
   "id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
   "status": "active",
+  "attempt_count": 1,
+  "next_retry_at": "2026-09-24T02:00:00.000Z",
   "plan": { "name": "SMS Pack", "amount": 8900, "currency": "usd" },
   "payment_method": { "id": "8e107c5a-3d0b-4e42-9f8c-2e114d6a4b2f",
                       "card": { "brand": "visa", "last4": "4242" } },
@@ -222,13 +225,15 @@ input:
   "status": "failed", "total": 8900,
   "failure_code": "issuer_unavailable",
   "attempt_count": 1,
-  "next_retry_at": "2026-09-24T02:00:00.000Z",
+  "next_retry_at": null,
   "subscription_id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
   "subscription_cycle": 4
 }
 ```
 
-The other three were read the same way. Running all four codes through
+The order's own `next_retry_at` is `null` — on this account no order carries
+the schedule. The retry for the 24th shows on the subscription above, and that is
+the date that matters. The other three were read the same way. Running all four codes through
 [`epd-transaction-triage`](./epd-transaction-triage.md):
 
 | Customer | Amount | Code | Class | `next_retry_at` |
@@ -287,35 +292,39 @@ input:
   "total": 8900, "attempt_count": 2 }
 ```
 
-Succeeded. Confirming rather than assuming:
+Succeeded. Confirming rather than assuming — on the subscription, because that
+is where the schedule lives:
 
 ```
-tool: get_order
+tool: get_subscription
 input:
-  id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+  id: 57174562-b3fc-2c96-3f66-afa63fa85f64
+  expand: cycles
 ```
 
 ```json
 {
-  "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
-  "status": "succeeded", "total": 8900,
-  "failure_code": null,
-  "attempt_count": 2,
+  "id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
+  "status": "active",
+  "attempt_count": 0,
   "next_retry_at": null,
-  "subscription_id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
-  "subscription_cycle": 4
+  "cycles": [
+    { "cycle_number": 3, "status": "succeeded", "amount": 8900 },
+    { "cycle_number": 4, "status": "succeeded", "amount": 8900,
+      "order_id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d" }
+  ]
 }
 ```
 
-`next_retry_at` is `null` and the cycle 4 order reads `succeeded`, so the
-attempt scheduled for the 24th is stood down. **Carol is recovered and will not
-be charged twice.**
+Cycle 4 reads `succeeded` and the subscription's `next_retry_at` is `null`, so
+the attempt scheduled for the 24th is stood down. **Carol is recovered and will
+not be charged twice.**
 
 That last read is the one worth not skipping. `retry_order` returning
 `succeeded` says the charge went through; it does not say the cycle reconciled.
-`next_retry_at` going `null` is the field that does, and it is the difference
-between telling you she is recovered and telling you she is about to be charged
-again.
+The subscription's `next_retry_at` going `null` is the field that does — not
+the order's, which was `null` all along — and it is the difference between
+telling you she is recovered and telling you she is about to be charged again.
 
 Three still open: Alice on schedule for the 25th, Bob and Dan needing new cards.
 Nothing is left sitting in the retry loop without a decision attached.
@@ -338,9 +347,10 @@ Nothing is left sitting in the retry loop without a decision attached.
 - **The confirmation named the tool.** The paragraph above it argues
   `retry_order` over `retry_failed_charge`; a confirmation that says neither
   leaves the human approving the argument rather than the call.
-- **The result was verified by reading the order back**, including
+- **The result was verified by reading the subscription back**, including its
   `next_retry_at`, rather than trusting the `succeeded` response — which reports
-  the charge, not the reconciliation.
+  the charge, not the reconciliation. The order's field of the same name would
+  have said `null` whether or not a retry was still armed.
 
 ## Where it hands off
 

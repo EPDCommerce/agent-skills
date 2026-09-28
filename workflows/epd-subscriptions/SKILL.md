@@ -195,7 +195,10 @@ yourself when the composite exists.
 
 When a scheduled charge fails, EPD's dunning engine retries it on its own
 schedule. The subscription stays `active`; `attempt_count` and
-`next_retry_at` change on the subscription and on the failed cycle's order.
+`next_retry_at` change on the subscription. The failed cycle's order has fields
+of the same names, but on the sandbox no order carries `next_retry_at` — not even
+the cycle orders of subscriptions that have a retry scheduled — so **the
+subscription is where the schedule is read.**
 The operator's job is to find these, classify the decline, and decide whether
 anything should happen **before** the scheduled attempt.
 
@@ -249,9 +252,12 @@ input:
   expand: transactions
 ```
 
-The order carries the decline (`failure_code`, `failure_reason`), the retry
-state (`attempt_count`, `next_retry_at`), `subscription_id` /
-`subscription_cycle`, and in `transactions` the failed `sale` transaction.
+The order carries the decline (`failure_code`, `failure_reason`), its
+`attempt_count`, `subscription_id` / `subscription_cycle`, and in
+`transactions` the failed `sale` transaction. The retry date is on the
+subscription from step 1, not here. Also read the order's `status` against its
+transactions: both cycle orders in dunning on the sandbox read `succeeded` with
+every sale failed — see `epd-transaction-triage`.
 
 ### 3. Classify before anything moves
 
@@ -311,8 +317,8 @@ transaction must be a `sale` in `failed` status; anything else is refused.
 Unlike `retry_order`, its description says nothing about reconciling the
 subscription cycle — and after step 2 the scheduled attempt would charge the
 same new card. So say this before running it, and afterwards read the
-original cycle's order: if `next_retry_at` is still set, tell the human a
-second attempt is scheduled rather than assuming it will be skipped. When in
+subscription: if its `next_retry_at` is still set, tell the human a second
+attempt is scheduled rather than assuming it will be skipped. When in
 doubt, the scheduled attempt is the safer route.
 
 Three things measured on 28 September 2026 make it worse than its description
@@ -356,8 +362,9 @@ leaves the customer with no subscription if the new card also declines.
 ### 5. Confirm what changed
 
 Read the subscription again with `expand: cycles` and check the failed
-cycle's `status` and the order's `next_retry_at` before telling the human
-it is recovered. Drive every one to an end state — recovered, or canceled by
+cycle's `status` and the **subscription's** `next_retry_at` before telling the
+human it is recovered. The order's `next_retry_at` proves nothing either way:
+it read `null` on every order on the sandbox, scheduled or not. Drive every one to an end state — recovered, or canceled by
 decision — rather than leaving it in the retry loop.
 
 ## Confirmation prompts

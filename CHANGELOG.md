@@ -104,6 +104,13 @@ have told a human something untrue about money.
   reads the customer's later orders first. "Charged" rests on a succeeded sale:
   both subscription cycle orders in dunning read `succeeded` with every sale
   failed.
+- `epd-transaction-triage` and `epd-subscriptions` — **the retry schedule is on
+  the subscription, not the order.** Both told agents to check the order's
+  `next_retry_at` before retrying. Across all 6,017 orders on the sandbox it was
+  `null` on every one, including the cycle orders of the two subscriptions that
+  do have a retry scheduled — so that check always answered "nothing
+  scheduled". Both skills, the subscriptions transcript and the recovery recipe
+  now read it on the subscription.
 - `epd-catalog` 1.2.0 — a recovery onto a new card carries
   `metadata.recovers_order`, since nothing else links it to the failure;
   `description` is not stored. A decline is a successful call returning a

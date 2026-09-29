@@ -9,7 +9,7 @@ skills:
   - epd-transaction-triage
 highest_tier: T3
 unattended: refuses
-verified: 2026-09-28
+verified: 2026-09-29
 ---
 
 # Launching a promotion
@@ -21,11 +21,13 @@ A discount goes live that applies to exactly what was intended, at the rate
 intended, for the customers intended — proven on a real order in test mode
 first, with an end date, and with a way to see afterwards what it did.
 
-The chain is shaped by one fact: **a coupon's rate cannot be changed once
-anyone has used it.** After the first redemption, `percentage`, `amount` and
-`duration` are locked, and a correction means a new coupon and a new code for
-everyone who already has the old one. So every check in this recipe happens
-before the code is announced.
+The chain is shaped by one fact: **a coupon's rate and scope cannot be changed
+once anyone has used it.** After the first redemption, `percentage`, `amount`,
+`duration`, the product and plan scope, `first_time_customer_only`,
+`max_discount_amount` and the name are all locked — measured — and a correction
+means a new coupon and a new code for everyone who already has the old one. The
+caps and the dates stay editable. So every check in this recipe happens before
+the code is announced.
 
 ## Outcome
 
@@ -51,12 +53,12 @@ inferred ([rule 5](../SAFETY.md#5-a-missing-required-field-is-a-stop-not-a-guess
 
 | Input | Why it matters |
 |---|---|
-| **Kind** — one shared code (`promo`) or many unique codes (`generated`) | Set at creation, never changeable. A `promo` name *is* the code: 4–50 characters of `A–Z`, `0–9` and `-`. |
+| **Kind** — one shared code (`promo`) or many unique codes (`generated`) | Set at creation, never changeable. A `promo` name *is* the code: 4–50 letters, digits and hyphens. Spaces are rejected; case is not — the code is case-insensitive. |
 | **Rate** — a percentage or an amount in minor units, not both | Locked after the first redemption. |
-| `duration` — `once`, `repeating` with a cycle count, or `forever` | About **subscription cycles**, not the calendar. "Until the end of the month" is `expires_at`. |
-| **Scope** — which products and which plans, both stated | Omitting both is accepted and means **every product and every plan**. |
+| `duration` — `once`, `repeating` with a cycle count, or `forever` | About **subscription cycles**, not the calendar. "Until the end of the month" is `expires_at`. Locked after the first redemption. |
+| **Scope** — which products and which plans, both stated | Omitting both is accepted and means **every product and every plan**. Locked after the first redemption. |
 | Per-customer cap | Defaults to **1** on a promo coupon — measured — whether or not anyone intended it. |
-| Total cap, `minimum_amount`, first-time-only, `starts_at`, `expires_at` | Each changes who can use it. |
+| Total cap, `minimum_amount`, first-time-only, `starts_at`, `expires_at` | Each changes who can use it. First-time-only locks at the first redemption; the others stay editable. |
 | For `generated`: how many codes | Over-minting cannot be undone. There is no delete for codes. |
 
 ## The chain
@@ -85,7 +87,7 @@ flowchart TD
 | 4 | Create and read back | coupons | `create_coupon`, `retrieve_coupon` | T2 | stored terms equal agreed terms |
 | 5 | Mint codes (`generated` only) | coupons | `generate_coupon_codes`, `list_coupon_codes` | T2 | `total_count` equals the agreed count |
 | 6 | Validate in both directions | coupons | `validate_coupon` | T0 | valid in scope, refused out of scope |
-| 7 | Prove it on a test order | catalog | `create_order` | T1 | discount lands in the total |
+| 7 | Prove it on a test order | catalog | `create_order` | test only | discount lands in the total |
 | 8 | Recreate in live | operator, catalog, coupons | as 1, 3–6 | T2 | live read-back and validation pass |
 | 9 | Watch it | coupons, triage | `retrieve_coupon`, `list_orders` | T0 | figures quoted from responses |
 | 10 | End it | coupons | `update_coupon` or `archive_coupon`, `validate_coupon` | T2 / T3 | the code is refused |
@@ -125,7 +127,7 @@ product scope, plan scope, caps, dates, and for `generated` a count.
 
 | Condition | What it means | Do |
 |---|---|---|
-| "Summer Sale" as a promo | Spaces and lowercase are rejected for `promo` | Offer `SUMMER-SALE` as a promo, or a `generated` coupon with that display name. |
+| "Summer Sale" as a promo | Spaces are rejected for `promo`. Lowercase is accepted, and the code matches in any case | Offer `SUMMER-SALE` as a promo, or a `generated` coupon with that display name. |
 | "Runs until the 30th" given as a duration | A calendar end is `expires_at` | Set `expires_at`; ask separately how many subscription cycles it discounts. |
 | No scope given | The default is everything | Ask. Do not create without both scopes. |
 
@@ -227,7 +229,7 @@ input:
 
 | Condition | What it means | Do |
 |---|---|---|
-| `validation_error` on a `promo` coupon | Promo coupons have one code | Nothing to mint. |
+| `resource_in_use` on a `promo` coupon | Promo coupons have one code — the name | Nothing to mint. |
 | `value_too_large` | Over 500 | Split into calls of 500. |
 | Timeout | Unknown | Retry with the **same** key — measured: the replay succeeded and the coupon still held one batch, not two. |
 | More codes than agreed | Over-minted | They cannot be deleted. Report it; `archive_coupon` retires the whole coupon, not codes. |
@@ -295,7 +297,8 @@ input:
 **Checkpoint.** `applied_coupon.code` is the code, `discount_amount` is the rate
 applied to `subtotal`, `total` is `subtotal` minus `discount_amount`, and
 `status` is `"succeeded"`. `retrieve_coupon` now shows `total_redemptions: 1`.
-This test coupon's rate is now locked — which is why this step is in test.
+This test coupon's rate and scope are now locked — which is why this step is in
+test.
 
 **If it fails**
 
@@ -303,7 +306,8 @@ This test coupon's rate is now locked — which is why this step is in test.
 |---|---|---|
 | `code_not_found` | A typo; the whole order fails and nothing is charged | Compare with step 4. |
 | `customer_limit_reached` | That customer has used it up to the per-customer cap | Expected on a second order with a cap of 1 — measured. Use another test customer. |
-| `status: "failed"` with no error | The test card declined | A card problem, not a coupon problem. |
+| `product_not_eligible` | An item is out of scope. The whole order is refused and nothing is charged — measured; it is not placed at full price | Compare the items with step 3. |
+| `status: "failed"` with no error | The test card declined | A card problem, not a coupon problem. The redemption is released — measured — so the same customer can use the code on another card. |
 
 ### 8. Recreate it in live
 
@@ -334,7 +338,7 @@ The tables of steps 3–6 apply. The one that matters most here:
 | Condition | What it means | Do |
 |---|---|---|
 | Live scope wrong, not yet announced | No one has the code | Fix with `update_coupon` before announcing. |
-| Live rate wrong, already redeemed | Locked — `update_coupon` returns `field_locked`, measured | A new coupon with a new code. Archive the old one (T3) so it stops being redeemable. |
+| Live rate or scope wrong, already redeemed | Locked — `update_coupon` returns `field_locked`, measured for both | A new coupon with a new code. Archive the old one (T3) so it stops being redeemable. |
 
 ### 9. Watch it
 
@@ -351,28 +355,35 @@ input:
 For `generated` coupons, `list_coupon_codes` with `redeemed` shows which codes
 were used. For what it earned there is no coupon filter on any tool, so page the
 orders over the promotion's window and keep the ones carrying the code — order
-rows include `applied_coupon`, measured:
+rows include `applied_coupon`, measured. Do not pass `coupon_code` to
+`list_orders`: it is not a parameter, and it is ignored without an error, so
+the rows back include orders with no coupon at all.
 
 ```
 tool: list_orders
 input:
   created_after: <step 8: coupon starts_at or created_at>
   created_before: <step 8: coupon expires_at>
-  status: succeeded,partially_refunded,refunded
+  status: succeeded,partially_refunded,refunded,chargeback,chargeback_accepted,chargeback_dismissed
   limit: 100
 ```
 
+The dispute statuses are there because a discounted order that was later
+disputed still used the code; without them it drops out of the count.
+
 **Checkpoint.** Redemptions, discount given (the sum of `discount_amount`) and
 revenue on discounted orders (the sum of `total`), each quoted from these
-responses, with the window stated. Refunded orders are shown separately, not
-netted silently.
+responses, with the window stated. Refunded and disputed orders are shown
+separately, not netted silently. A refund does not give the redemption back —
+measured: `total_redemptions` stays the same, and a customer at the
+per-customer cap still gets `customer_limit_reached`.
 
 **If it fails**
 
 | Condition | What it means | Do |
 |---|---|---|
 | Many pages | One call per 100 orders against 60 a minute and 1,000 an hour | Narrow the window, or pace against the hourly budget. |
-| `total_redemptions` and the order count disagree | Refunded or failed orders in the count | Report both and the difference. |
+| `total_redemptions` is above the orders found | An order the window or the status filter leaves out. Not a declined order: a decline releases its redemption and is never counted — measured. Refunded orders are counted, and are in the list | Widen the window to the coupon's `created_at`; report both figures and the difference. |
 
 ### 10. End it
 
@@ -380,7 +391,9 @@ netted silently.
 date, T3 to archive
 
 If `expires_at` was set, the promotion ends by itself and this step is a check.
-To end it early, prefer moving `expires_at` — reversible, T2 — over archiving:
+To end it early, prefer moving `expires_at` — reversible, T2 — over archiving.
+It stays editable after redemptions, and it accepts a time in the past, which
+ends the promotion at once — measured:
 
 ```
 tool: update_coupon
@@ -430,7 +443,7 @@ archived code fails with `coupon_inactive` and is not created.
 | 4 in live, before 6 | A live coupon nobody has checked | Do not announce it. Run step 6 now. |
 | 5, over-minted | Extra codes that cannot be deleted | Report the count. They are only usable if distributed. |
 | 7 | A redeemed test coupon, locked | Expected. It never reaches live. |
-| 8, announced with wrong scope | Customers using a coupon on the wrong things | Fix scope — it stays editable after redemption. |
+| 8, announced with wrong scope | Customers using a coupon on the wrong things | Scope is locked once anyone has used the code — measured. New coupon, then archive the old one. |
 | 8, announced with wrong rate | Locked | New coupon, then archive the old one. |
 | 10, archived early by mistake | A retired coupon | Unarchive, set `active: true`, validate. |
 
@@ -457,5 +470,22 @@ Run against the EPD sandbox on **28 September 2026**:
 | 9 | `list_orders` rows carry `applied_coupon.code` and `discount_amount` |
 | 10 | After `archive_coupon`: `active: false`, `validate_coupon` returns `coupon_inactive`, an order with the code fails `coupon_inactive`. `list_coupons` rejects `archived: true` with `invalid_value` |
 
-**Not verified:** anything in live mode, and `duration: "repeating"` or
-`"forever"` on a subscription, which needs renewals to observe.
+Run again end to end on **29 September 2026**, on five new coupons and five new
+customers named `recipe-f.retest-*`: 125 calls, 74 of them sandbox writes, many
+deliberately refused. Every coupon was archived and every charge refunded.
+
+| Step | Measured |
+|---|---|
+| 2 | A promo named `Summer Sale`: `validation_error`, "letters, numbers, or hyphens (used as the redeemable code; case-insensitive)". A lowercase promo name was **accepted**. Three characters: `validation_error` |
+| 3 | `list_products` `q` finds by name and by SKU, and returns nothing for a nonsense term; `list_plans` `search` likewise |
+| 4 | Stored terms matched field by field; `max_redemptions_per_customer: 1`; `starts_at: null`. A replay under the same key returned the same coupon. Both validation messages in the table, and `value_too_large`, as quoted. Scopes omitted: stored `all` / `all`. `kind` sent to `update_coupon` changes nothing |
+| 5 | A `generated` coupon: `max_redemptions_per_customer: null`. `count: 501`: `value_too_large`. Five minted with prefix `rt`, stored as `RT…`; a same-key replay left five. `redeemed: true` listed the one code used. On a promo: `resource_in_use` |
+| 6 | All four validations as above. `starts_at` in the future: `coupon_not_yet_active`. `expires_at` in the past: `coupon_expired` |
+| 7 | The code sent in lowercase: applied. Subtotal 100, discount 20, total 80. A declined order carried no discount and left `total_redemptions` at 0; the same customer then used the code on a new card. Second order: `customer_limit_reached`, no order created. Typo: `code_not_found`, nothing created. An out-of-scope product with the code: `product_not_eligible`, nothing charged |
+| 8 | After one redemption, `field_locked` on `percentage`, `duration`, `product_ids`, `product_scope`, `plan_scope`, `first_time_customer_only`, `max_discount_amount` and `name`. Still editable: `max_redemptions`, `max_redemptions_per_customer`, `minimum_amount`, `starts_at`, `expires_at`, `description`, `active`. The tool's description says scope stays editable |
+| 9 | The window found every redemption, rows carrying `applied_coupon.code` and `discount_amount`. `coupon_code` on `list_orders`: ignored, no error. A refund left `total_redemptions` unchanged, and the customer still got `customer_limit_reached` |
+| 10 | `expires_at` moved into the past: `coupon_expired`, and an order with the code refused. Archiving twice: success. Unarchive alone: still `coupon_inactive`; `active: true` restored it |
+
+**Not verified:** anything in live mode; `duration: "repeating"` or `"forever"`
+on a subscription, which needs renewals to observe; a disputed discounted
+order, which cannot be created on demand.

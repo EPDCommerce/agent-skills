@@ -173,7 +173,7 @@ for write tools.
 | **Subtract chargebacks from `net_cents`.** | They are already out of it. A board pack carrying net-minus-chargebacks understates the month by every charged-back sale. |
 | **Present a closed month's figure as final.** | A pending sale that settles raises it; a chargeback that lands later lowers it. Both change rows dated in that month. |
 | **Convert currencies.** | Amounts come back in the transaction's own currency in minor units. Mixing currencies in one total is not something these tools do and not something to do by hand. |
-| **Print payment-method data on a revenue question.** | The only T0 obligation is not to copy more customer data into the reply than the question needed. `get_customer_financial_summary` returns a `payment_methods` array with brand and last four; a lifetime-value question does not need it. |
+| **Print payment-method data on a revenue question.** | The only T0 obligation is not to copy more customer data into the reply than the question needed. `get_customer_financial_summary` returns a `payment_methods` array with brand, last four and expiry, and its orders carry the card's first six digits (`bin`). A lifetime-value question needs none of it, and the `bin` is never repeated. |
 
 ## What to check afterwards
 
@@ -193,6 +193,9 @@ for write tools.
       `list_transactions` with `type=sale, status=succeeded`.
 - [ ] `lifetime_value_cents` was not placed beside a period total.  It carries no
       period and is not comparable.
+- [ ] `lifetime_value_cents` was not described as what the customer paid. It is
+      built from order status, so it counts open disputes and orders whose
+      sales all failed.
 
 ## A worked transcript
 

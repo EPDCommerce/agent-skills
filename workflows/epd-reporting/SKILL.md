@@ -258,10 +258,20 @@ subscriptions; the response has no such key, measured on 28 September 2026, and
 subscriptions, `list_subscriptions` with `customer_id` is the call — it is owned
 by `epd-subscriptions`, and it is a read.
 
-`lifetime_value_cents` nets refunds **including pending ones** — a customer with
-two succeeded sales of 100 and one pending refund of 100 read 100 — while
-`get_revenue_summary` leaves pending refunds out. The two disagree on purpose,
-and neither is wrong.
+`lifetime_value_cents` is built from **order status**, not from what was paid:
+the totals of orders reading `succeeded`, `refunded`, `chargeback` or
+`chargeback_dismissed`, less every refund, pending ones included. That rule
+matched all 101 customers tested on 29 September 2026; "succeeded sales minus
+refunds" matched 76. So it counts an **open** dispute as value, and a cycle
+order that reads `succeeded` although every sale on it failed — the two in
+dunning on the sandbox are counted. A lost dispute (`chargeback_accepted`) and
+failed, pending and voided orders are left out. It is not what the customer
+has paid; for that, read the succeeded sales on their orders.
+
+It also disagrees with `get_revenue_summary` on purpose, in two ways: it nets
+pending refunds, which the revenue summary leaves out, and it counts open and
+won disputes, whose sales the revenue summary has already dropped from gross.
+Neither figure is wrong; they answer different questions.
 
 | Argument | Default | Effect |
 |---|---|---|
@@ -272,10 +282,13 @@ and neither is wrong.
 is no order limit. So `include_transactions: false` narrows the response but
 does not make it small.
 
-The `customer` object carries a `payment_methods` array with card brand and last
-four. That is the most sensitive thing this skill returns. Include it only when
-the question was about payment methods; a lifetime-value question does not need
-it.
+The `customer` object carries a `payment_methods` array with card brand, last
+four and expiry. Each of `recent_orders` carries a `payment_method` with
+**`bin`, the card's first six digits** — on every order created through the API,
+measured on 29 September 2026. The `bin` is the most sensitive thing this skill
+returns: never repeat it. Include card details only when the question was about
+payment methods, and then brand and last four; a lifetime-value question needs
+none of it.
 
 `lifetime_value_cents` is a single figure with no period attached. It is not
 comparable to a `get_revenue_summary` result for a date range, and putting the

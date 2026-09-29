@@ -111,12 +111,20 @@ have told a human something untrue about money.
   the order, and a won dispute is money no total shows. Also: pending refunds
   are in no total; the month has a timezone; "refunds in August" is two
   figures; a close is a snapshot; the customer summary has no subscriptions.
+  And **lifetime value is built from order status, not from payments**: it
+  counts open disputes and orders whose every sale failed, so it is not what a
+  customer paid. The summary's orders carry the card's first six digits, which
+  is more sensitive than the saved cards the skill named.
 - `epd-subscriptions` 1.2.0 — **a declined first charge makes a `failed`
   subscription, and it is final.** The skill said `failed` never occurred.
   Updating its card, `retry_order` and `retry_failed_charge` all fail to revive
   it; a new subscription and then a cancel is the route. `retry_failed_charge`
   stores no link and charged again when called twice on one failure. Cycle 1's
-  total is now read back against the confirmation.
+  total is now read back against the confirmation. The attempt on the old card
+  after a card swap, unexplained at first, is the engine's own retry of a failed
+  first charge, within about a minute; the skill now waits it out before a
+  replacement. That retry charged the old card after the swap, so a dunning
+  retry's card is now checked afterwards rather than assumed.
 - `epd-transaction-triage` 1.2.0 — **a failed order may already be paid for.**
   A recovery makes a new order and leaves the failed one untouched, so triage
   reads the customer's later orders first. "Charged" rests on a succeeded sale:

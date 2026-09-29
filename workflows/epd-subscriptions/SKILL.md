@@ -35,7 +35,7 @@ statuses were:
 | `paused`    | Not billing. Exists, but the public surface has no way to enter or leave it. |
 | `canceled`  | Permanently ended. History preserved; no further billing.            |
 | `completed` | Reached its `billing_cycles` cap (finite-term subscription finished). |
-| `failed`    | Its **first** charge declined. No cycles, no retry scheduled, and nothing will ever charge it — see "A subscription whose first charge failed". |
+| `failed`    | Its **first** charge declined. No cycles and no retry scheduled: after one automatic attempt on the same card within about a minute, nothing charges it again — see "A subscription whose first charge failed". |
 
 The tool schemas also name `past_due` (as a `status` filter value), and the
 REST API reference names both `past_due` and `failed`. `past_due` never
@@ -127,8 +127,10 @@ input:
 Common patterns:
 
 - **Card update after a decline** — set `payment_method_id` to the newly
-  vaulted one. The server applies it at once, **including to the queued
-  retry**, so the dunning engine's next attempt already uses it. See
+  vaulted one. The tool's description says it applies at once, **including to
+  the queued retry**, so the dunning engine's next attempt should use it. The
+  one engine retry that could be watched went the other way — see "A
+  subscription whose first charge failed" — so check the card afterwards. See
   "Recovering a failed renewal" before also retrying by hand.
 - **Plan change** — there is no `plan_id` on update. `products` can replace
   the recurring product lines from the next cycle, but moving to a different
@@ -295,8 +297,14 @@ gets charged twice.
    documented in `epd-onboard-customer`.
 2. `update_subscription` with the new `payment_method_id`. It applies at
    once, including to the queued retry.
-3. **Default: let the attempt at `next_retry_at` run.** It will use the new
-   card, and it is the engine's own cycle, so there is nothing to reconcile.
+3. **Default: let the attempt at `next_retry_at` run.** By the tool's
+   description it uses the new card, and it is the engine's own cycle, so
+   there is nothing to reconcile. That has not been observed on a renewal —
+   one cannot be made to fail on demand — and the one automatic retry that
+   could be watched, on a failed first charge, charged the order's old card
+   after the swap. So after `next_retry_at`, read the cycle order's
+   transactions and check `card_last_four` before telling anyone the new card
+   was charged.
 
 If the human wants the new card charged now rather than at `next_retry_at`,
 the only tool that retries on a different card is `retry_failed_charge`:
@@ -340,8 +348,11 @@ suggests:
 ### A subscription whose first charge failed
 
 `status: "failed"`, `cycles: []`, `next_retry_at: null`, and one failed order
-carrying the `subscription_id`. It has never billed and nothing will retry it.
-The obvious repairs all failed in sandbox:
+carrying the `subscription_id`. It has never billed. The engine makes **one
+more attempt by itself, on the declined card**, within about a minute —
+measured on 29 September 2026, 48 seconds after the decline with nothing else
+done — and `attempt_count` goes to 2. After that nothing retries it. One-off
+orders get no such attempt. The obvious repairs all failed in sandbox:
 
 | Tried | Result |
 |---|---|
@@ -349,10 +360,14 @@ The obvious repairs all failed in sandbox:
 | `retry_order` on the failed order | Re-charged the order's card — the old one — and failed. |
 | `retry_failed_charge` onto the new card | Charged the customer, on an order with `subscription_id: null`; the subscription stayed `failed`. Paid for, and never billing. |
 
-Also observed: 18 seconds after the card swap, another attempt appeared on the
-failed order, on the old card, with no call in flight. The cause is not known;
-after any change to a failed subscription, read the order's transactions again
-before the next step.
+That automatic attempt is what the 28 September run saw 18 seconds after a card
+swap and could not explain; a run with no card swap got it too, so the swap did
+not cause it. It charges the **order's** card — the old one — even after
+`update_subscription` has moved the subscription to a new card. So wait until a
+minute has passed since the decline, then read the order's transactions again
+before the next step. With a real card that attempt could succeed. If it did,
+the first charge is paid, and a replacement subscription created now would
+charge the customer twice.
 
 What works is a **new subscription on the new card, then `cancel_subscription`
 on the failed one**, in that order and as two confirmations. The failed one

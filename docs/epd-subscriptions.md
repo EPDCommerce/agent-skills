@@ -43,7 +43,11 @@ occur: `active`, `paused`, `canceled`, `completed`.
 **A failed *first* charge is `failed`, and it is final.** `create_subscription`
 does not error when its first charge declines. Measured on 28 September 2026, it
 returns a subscription with `status: "failed"`, no cycles and no retry
-scheduled — one that has never billed and never will. Updating its card,
+scheduled. The engine tries the same card once more by itself within about a
+minute — the charge attempt the first run saw after a card swap, and could not
+explain — and after that nothing charges it. It has never billed, and it will
+not. Wait out that minute before starting a replacement: on a real card the
+automatic attempt could succeed. Updating its card,
 `retry_order` and `retry_failed_charge` all failed to revive it; the last
 charged the customer on an order detached from the subscription. The skill's
 route is a new subscription on the new card, then a cancel of the failed one,
@@ -104,7 +108,7 @@ Both skills now state the boundary in the same terms.
 | **Update a cancelled subscription.** | The server returns `subscription_not_modifiable`. Create a new one on the same customer, or say the action is not possible. |
 | **Trust `status: past_due`.** | Returns everything. So does `list_past_due_subscriptions`. |
 | **Recover a failure twice.** | `retry_failed_charge` leaves the failed order reading `failed`, stores no link to the order that replaced it, and — measured — charged the customer again when called a second time on the same transaction under a new key. The skill checks for a later succeeded order first and records the mapping after. |
-| **Report a `failed` subscription as started.** | The call that created it returned no error. The customer believes they are subscribed and nothing will ever bill them. |
+| **Report a `failed` subscription as started.** | The call that created it returned no error. The customer believes they are subscribed, and after one automatic attempt on the same card within a minute, nothing will bill them. |
 | **Cite `update_subscription` as destructive.** | It is a T2 write and the server does not annotate it otherwise. Confirming it anyway before a payment-method swap on a live subscription is good practice — but the skill requires that to be stated as an operator judgment, not as a fact about the server. |
 
 ## What to check afterwards

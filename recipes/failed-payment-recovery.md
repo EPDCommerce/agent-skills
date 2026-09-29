@@ -11,7 +11,7 @@ skills:
   - epd-refunds
 highest_tier: T3
 unattended: refuses
-verified: 2026-09-28
+verified: 2026-09-29
 ---
 
 # Failed payment recovery
@@ -27,7 +27,8 @@ never ends in "retried until something worked", and never in a second charge.
 The chain has one hard rule, and the sandbox run is why: **check that the
 failure is still unpaid before recovering it.** A recovery onto a new card
 creates a new order and leaves the failed one reading `failed` for good, with nothing on either
-order pointing at the other. The next person to look sees an unpaid failure.
+order pointing at the other unless the recovery writes the link itself — path B
+does. The next person to look sees an unpaid failure.
 And `retry_failed_charge`, called again on the same failed transaction under a
 new key, charged the customer a second time.
 
@@ -49,7 +50,7 @@ step 3 routes them away. Writing retry logic into the merchant's own backend is
 
 | Input | Why it matters |
 |---|---|
-| A handle on the failure: the order UUID, a transaction UUID, or the customer's email | `get_order` takes a UUID only. An `order_number` from a receipt has **no lookup** on this surface. |
+| A handle on the failure: the order UUID, a transaction UUID, the customer's email, or — for a subscription payment — the subscription | `get_order` takes a UUID only. An `order_number` from a receipt has **no lookup** on this surface. |
 | Whether the human wants a retry now or is content to wait | Decides the path at step 4. Nothing here retries to find out. |
 | For a new card: how it arrives — a browser with EPD Elements, or headless | Picks `add_payment_method` or `secure.epd.com` ([rule 8](../SAFETY.md#8-raw-card-data-never-touches-the-mcp-surface)). |
 
@@ -77,7 +78,7 @@ flowchart TD
 | # | Step | Skill | Tools | Tier | Checkpoint |
 |---|---|---|---|---|---|
 | 1 | Establish the mode | operator | `ping` | T0 | mode stated |
-| 2 | Find the failed order | triage | `list_customers`, `list_orders`, `get_order` | T0 | one order, read with its transactions |
+| 2 | Find the failed order | triage, subscriptions | `list_customers`, `list_orders`, `list_subscriptions`, `get_subscription`, `get_order` | T0 | one order, read with its transactions |
 | 3 | Check it is still unpaid | triage | `list_orders` | T0 | no succeeded sale, no later recovery, and a decline |
 | 4 | Classify and pick a path | triage, subscriptions | `get_subscription` | T0 | class, reason and path agreed with the human |
 | 5 | Path A — same card | catalog | `retry_order` | T3 | `status: "succeeded"` |
@@ -136,6 +137,29 @@ input:
 An `order_number` the customer quoted can be matched within that one customer's
 orders. Paging the whole account for it is guessing, and spends the rate limit.
 
+A **subscription payment** is found from the subscription, not by that search. A
+cycle order in dunning can read `succeeded` although every sale on it failed —
+both on the sandbox do — so `status: failed` never returns it. For one of those
+customers it returned two unrelated failures instead. Read the cycles:
+
+```
+tool: list_subscriptions
+input:
+  customer_id: <step 2: customer.id>
+  limit: 100
+```
+
+```
+tool: get_subscription
+input:
+  id: <step 2: subscription.id>
+  expand: cycles
+```
+
+A cycle with `status: "failed"` names the failed order in its `order_id`. The
+subscription's own `status`, `attempt_count` and `next_retry_at` are read again
+in step 4.
+
 ```
 tool: get_order
 input:
@@ -153,7 +177,7 @@ card on it, and every transaction quoted from this response.
 |---|---|---|
 | `invalid_order_id` | An order number was passed as an ID | Find the customer instead. |
 | Several failed orders | The human's handle is ambiguous | List them — date, amount, number — and ask which. |
-| No failed order, but the human insists | The failure may be a transaction on an order that later succeeded | Go on to step 3; it answers exactly this. |
+| No failed order, but the human insists | A transaction on an order that later succeeded, or a subscription cycle whose order reads `succeeded` | Read the subscription's cycles, above, then go on to step 3; it answers exactly this. |
 
 ### 3. Check it is still unpaid
 
@@ -167,7 +191,10 @@ order's `status` alone — it can point either way. An order that failed and the
 succeeded on `retry_order` reads `succeeded` above its failed row. And both
 subscription cycle orders in dunning on the sandbox read `succeeded` while every
 one of their sale transactions had failed. If the order's status and its
-transactions disagree, report both and stop.
+transactions disagree, the subscription decides where there is one: a cycle
+reading `failed` in step 2's `get_subscription` is unpaid, whatever its order
+says — carry on, and name the disagreement in the report. Both dunning cycles on
+the sandbox read `failed` there. Otherwise, report both and stop.
 
 **Was it already recovered by a new order?** Recovery onto a new card creates a
 new order and leaves this one `failed`. Look at the customer's later orders:
@@ -177,21 +204,27 @@ tool: list_orders
 input:
   customer_id: <step 2: failed order.customer_id>
   created_after: <step 2: failed order.created_at>
-  status: succeeded,partially_refunded,refunded
+  status: succeeded,partially_refunded,refunded,chargeback,chargeback_accepted,chargeback_dismissed
   limit: 20
 ```
 
-A row with `metadata.recovers_order` equal to this order's id is a recovery made
-by path B. A row with the same items and total, made after the failure, may be
-one made by `retry_failed_charge`, which records no link — ask the human before
-treating it as either.
+The three dispute statuses are there because an order that was paid and then
+disputed was still paid; without them the search misses it. They are not in the
+schema's list, and the server accepts them — measured.
+
+A row with `metadata.recovers_order` equal to this order's id, whose own sale
+succeeded, is a recovery made by path B. If that row was refunded, the money
+went back — ask the human whether the failure is owed again. A row with the same
+items and total, made after the failure, may be one made by
+`retry_failed_charge`, which records no link — ask the human before treating it
+as either.
 
 **Is it a decline at all?** A transaction `status` of `chargeback`, `voided` or
 `pending` is not a decline. A chargeback is a dispute on money that arrived;
 pending means wait.
 
 **Checkpoint.** All three stated: no succeeded sale, no later recovery, and a
-`failed` decline.
+`failed` decline — on the order, or on its subscription cycle.
 
 **If it fails**
 
@@ -200,7 +233,7 @@ pending means wait.
 | A sale succeeded | The customer paid | Stop. Report the order and transaction, and that nothing is owed. |
 | A later order looks like the recovery | Someone recovered it already | Stop. Recovering again is the double charge this step exists to prevent. |
 | `chargeback`, `voided` or `pending` | Not a decline | Stop and route: a dispute is not retried. |
-| Status and transactions disagree | The data contradicts itself | Report both and escalate with the `request_id`. |
+| Status and transactions disagree, and no failed cycle explains it | The data contradicts itself | Report both, with the order `id`, and escalate. A successful read carries no `request_id` in its result; only an error does. |
 
 ### 4. Classify the failure and pick a path
 
@@ -287,7 +320,7 @@ input:
 ```
 
 The new order charges **today's** catalog price, not the failed order's total,
-so read it before quoting it:
+so read it before quoting it. It is `pricing.amount`, in `pricing.currency`:
 
 ```
 tool: get_product
@@ -364,6 +397,13 @@ a different card — but see path B: it links nothing, and in the one case
 measured its new order carried `subscription_id: null`. Afterwards the scheduled
 retry may still be armed; step 9 checks.
 
+The default rests on the tool's description, and the one engine retry that could
+be observed went the other way. On a failed first charge, the automatic attempt
+that followed a card swap charged the **order's** card — the old one — while the
+subscription already held the new card. Whether a dunning retry does the same is
+not measured. After `next_retry_at`, read the cycle order's transactions and check
+`card_last_four` before telling anyone the new card was charged.
+
 ```
 tool: get_subscription
 input:
@@ -386,8 +426,11 @@ input:
 
 `create_subscription` does not fail when its first charge declines. It returns
 no error and a subscription with `status: "failed"`, `cycles: []` and
-`next_retry_at: null`; the declined order carries the `subscription_id`. Nothing
-will ever charge it again.
+`next_retry_at: null`; the declined order carries the `subscription_id`. The
+engine then makes **one more attempt by itself, on the declined card**, within
+about a minute — 48 seconds after the decline with nothing else done, 39 seconds
+after it when the card was swapped in between. `attempt_count` then reads 2,
+`next_retry_at` stays `null`, and no further attempt came in the minute after.
 
 The sandbox run tried the obvious repairs, and none of them works:
 
@@ -397,10 +440,14 @@ The sandbox run tried the obvious repairs, and none of them works:
 | `retry_order` on the failed order | Re-charged the old card, which is the order's, and failed. |
 | `retry_failed_charge` onto the new card | Charged the customer — but the new order had `subscription_id: null`, took its amount from the line items rather than the failed order's total, and the subscription stayed `failed`. Paid for, and never billing. |
 
-And 18 seconds after the card swap, another attempt appeared on the failed order,
-on the old card, with no call from the session in flight. The cause is not
-known. After any change to a failed subscription, read the order's transactions
-again before deciding the next thing.
+That automatic attempt is what the 28 September run saw 18 seconds after a card
+swap and could not explain; with no swap at all, it came anyway. So **wait until
+a minute has passed since the decline, then read the order's transactions
+again** before anything in this step is charged. Every attempt on the sandbox
+declines, because the decline token always does. With a real card on a soft
+decline, that attempt could succeed; if it did, the first charge is paid and
+this is no longer path D — go back to step 3. Creating a replacement first would
+charge the customer twice.
 
 **What works: a new subscription, then cancel the failed one.** In that order.
 The failed subscription cannot bill, so leaving it for a moment costs nothing,
@@ -460,7 +507,9 @@ input:
 |---|---|---|
 | The new subscription also reads `failed` | The new card declined | Stop. Neither subscription bills. Report both, and ask the customer for another card; cancelling either is the human's call. |
 | The plan's amount and the failed charge disagree | The same charge would repeat | Stop before `create_subscription`. |
-| `cancellation_reason` rejected with `invalid_value` | Reasons come from the account's catalog | Put the reason in `cancellation_notes`, which is free text. |
+| `cancellation_reason` rejected with `invalid_value` | Reasons come from the account's catalog. Nothing was cancelled — measured | Put the reason in `cancellation_notes`, which is free text. |
+| `already_canceled` on the cancel | An earlier attempt went through — a retry after a timeout, say. It is an error, although the tool's schema calls a repeat a no-op | Read the subscription; if it reads `canceled`, the step is done. Do not send it again. |
+| The automatic attempt a minute after the decline succeeded | The first charge is paid | Stop before `create_subscription`. Back to step 3. |
 
 ### 9. Confirm the customer paid exactly once
 
@@ -496,8 +545,9 @@ orders of the subscriptions that had a retry scheduled.
 For a **new** subscription, read cycle 1's order: its `total` must be the amount
 the confirmation quoted. If it is not, and nothing known explains it
 — a coupon, a one-time amount on the plan — stop, report both figures with the
-`request_id`, and start no further subscriptions on that plan until it is
-explained.
+subscription `id` and the cycle order's `id`, and start no further subscriptions
+on that plan until it is explained. The call succeeded, so there is no
+`request_id` in its result to quote.
 
 **If it fails**
 
@@ -521,7 +571,8 @@ input:
 ```
 
 A refund, unlike a recovery, cannot be doubled: a second `refund_order` on the
-same order returned `invalid_state_transition` — measured.
+same order returned `invalid_state_transition`, and a replay under the same key
+added no second refund — measured.
 
 ### 10. Report
 
@@ -543,8 +594,9 @@ by any route, waiting on a new card".
 | 6 or 7, card added, no charge | A card on file | Resume the charge; nothing was taken. |
 | 6, succeeded, report not written | A recovery linked by `metadata` | Write the report. |
 | `retry_failed_charge` succeeded, response not recorded | A recovery with **no** link anywhere | Find it by step 3's `list_orders` and record it now, before anyone recovers the failure again. |
-| 7, card swapped, waiting | A subscription that will retry on the new card at `next_retry_at` | Nothing to do before that time. |
-| 8, new subscription created, old not cancelled | Two subscriptions: one active, one `failed` that cannot bill | Resume with the cancel. |
+| 7, card swapped, waiting | A subscription that retries at `next_retry_at` — on the new card, by the tool's description | Nothing to do before that time. Afterwards, check which card the retry charged. |
+| 8, first charge declined under a minute ago | One automatic attempt still to come, on the declined card | Wait, then read the order's transactions. |
+| 8, new subscription created, old not cancelled | Two subscriptions: one active, one `failed` that cannot bill | Resume with the cancel. `already_canceled` means it was done. |
 | 9, duplicate found, not refunded | The customer is out of pocket | Refund it; this is the one stop state that costs the customer. |
 
 ## Running it unattended
@@ -572,12 +624,34 @@ orders created for the purpose and reported:
 | A | `retry_order` on the same card: no error, `status: "failed"`, `attempt_count: 2`, a second failed sale appended |
 | B, via `retry_failed_charge` | New order `succeeded`. Original still `failed`, `attempt_count: 2`. New order `metadata: {}`. A second call on the same transaction with a new key: **another succeeded order** |
 | B, via `create_order` | `metadata.recovers_order` kept, and returned by `list_orders`. `description` came back `null` |
-| D | Every row of the step 8 table, including the unexplained attempt on the old card; `cancel_subscription` on a `failed` subscription returns it `canceled` |
+| D | Every row of the step 8 table, including an attempt on the old card after the card swap; `cancel_subscription` on a `failed` subscription returns it `canceled` |
 | 3 | Across all 6,017 orders on the account, the two that read `succeeded` with no succeeded sale are the two subscription cycle orders in dunning |
 | 9 | `refund_order` on the duplicate: order `refunded`; a second call `invalid_state_transition` |
 
+Run again on **29 September 2026**, on four new customers named
+`recipe-f.retest-*`: 116 calls, 30 of them sandbox writes, every object reported.
+Each duplicate charge was refunded, and every subscription cancelled.
+
+| Step or path | Measured |
+|---|---|
+| Decline | As above, on a fresh customer. Left alone, it still had one attempt 12 minutes later: the automatic attempt below is a subscription's, not a one-off order's |
+| 2 | `list_orders` with `status: failed` and `sort` returned the order, and `sort` is honoured; `get_order` carries every checkpoint field; `get_transaction` gives `order_id`; `get_order` with an order number: `invalid_order_id` |
+| 2, subscriptions | On both seeded subscriptions in dunning, `status: failed` did not return the cycle order — it reads `succeeded` — and for one customer returned two unrelated failures. `get_subscription` with `expand: cycles` shows that cycle `status: "failed"` |
+| 3 | `created_after` is inclusive and honoured; the comma-separated `status` filter is honoured. The recipe's earlier filter left out a paid-then-disputed order; with the three dispute statuses added, the server accepts it and returns that order |
+| A | As above; a replay under the same key made no further attempt |
+| B, via `create_order` | As above; `pricing.amount` on `get_product` equalled the failed total; a replay under the same key returned the same order |
+| B, via `retry_failed_charge` | As above: `original_order_id` in the response and nothing stored; the original stayed `failed`; a replay under the same key returned the same new order; a second call under a new key charged again |
+| D | `create_subscription` on a decline: no error, `status: "failed"`, `cycles: []`, `next_retry_at: null`. Every row of the step 8 table again. Vaulting a new default card left the subscription's card unchanged; `update_subscription` changed it. With **no** card swap, a second attempt on the declined card came 48 seconds after the first; with a swap, 39 seconds after, on the old card. An unknown `cancellation_reason`: `invalid_value`, nothing cancelled. A second cancel: `already_canceled`. `update_subscription` on a cancelled subscription: `subscription_not_modifiable` |
+| 9 | Two succeeded payments found for one failure; the later refunded once; a same-key replay added no refund; a new key, `invalid_state_transition` |
+| Errors | A successful call carries its `request_id` only in the `x-request-id` HTTP header, which the tool result does not include; an error carries it in the body |
+
 **Not verified:** path C end to end. A renewal fails on the engine's schedule
 and cannot be made to fail on demand; the two subscriptions in dunning on the
-sandbox are seeded data this run read and did not change. The claims that
+sandbox are seeded data both runs read and did not change. The claims that
 `update_subscription` reaches the queued retry and that `retry_order` reconciles
-the cycle are from the tools' own descriptions. Nothing was run in live mode.
+the cycle are from the tools' own descriptions, and the one engine retry that
+could be observed charged the order's old card. Path A succeeding: the decline
+token always declines, so `retry_order` cannot succeed on the sandbox.
+`shipping_address_required`: no product on the sandbox requires shipping. A price
+change between the failure and the recovery: from `create_order`'s own statement
+that the price always comes from the catalog. Nothing was run in live mode.

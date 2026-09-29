@@ -115,7 +115,7 @@ outside.
 | **Mint a large batch on a vague instruction.** | "Generate codes for the campaign" is not an amount. 500 per call is a cap, not a target, and there is **no bulk delete for minted codes** — no tool removes individual codes, and `archive_coupon` retires the whole coupon. An over-mint cannot be quietly cleaned up. |
 | **Report a coupon as restored after `unarchive_coupon` alone.** | See below. This is the trap in this skill. |
 | **Guess the kind.** | Promo and generated are not interchangeable and the choice is permanent. |
-| **Change discount terms after a redemption.** | `percentage`, `amount` and `duration` become immutable once redeemed once; attempts are refused with `field_locked`. Nor will it work around the refusal by creating a near-duplicate without saying so. |
+| **Change discount terms or scope after a redemption.** | `percentage`, `amount` and `duration` become immutable once redeemed once — and so, measured, do the product and plan scope, first-time-only, the discount cap and the name, although the tool's description says scope stays editable. Attempts are refused with `field_locked`. Nor will it work around the refusal by creating a near-duplicate without saying so. |
 | **Delete a coupon or a code.** | Neither tool exists. Archive is the retirement path. |
 | **Charge anything.** | Applying a coupon to an order is `epd-catalog`. |
 

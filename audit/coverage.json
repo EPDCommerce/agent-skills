@@ -1074,7 +1074,7 @@
     {
       "skill": "workflows/epd-coupons",
       "file": "workflows/epd-coupons/SKILL.md",
-      "line": 66,
+      "line": 72,
       "tool": "create_coupon",
       "keys": [
         "name",
@@ -1091,7 +1091,7 @@
     {
       "skill": "workflows/epd-coupons",
       "file": "workflows/epd-coupons/SKILL.md",
-      "line": 185,
+      "line": 191,
       "tool": "validate_coupon",
       "keys": [
         "code",
@@ -1103,7 +1103,7 @@
     {
       "skill": "workflows/epd-coupons",
       "file": "workflows/epd-coupons/SKILL.md",
-      "line": 253,
+      "line": 259,
       "tool": "list_coupons",
       "keys": [
         "archived",

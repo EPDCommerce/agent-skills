@@ -140,7 +140,11 @@ have told a human something untrue about money.
 - `epd-coupons` 1.2.0 — **a bare code is not a validity check on a scoped
   coupon**: it returns `product_not_eligible`. Adds that reason and
   `plan_not_eligible`; `archived` on `list_coupons` is a string; locked terms
-  fail with `field_locked`.
+  fail with `field_locked`. And **scope locks at the first redemption too**,
+  whatever the tool's description says — so do first-time-only, the discount
+  cap and the name — so a coupon launched with the wrong scope needs replacing,
+  not editing. A lowercase promo name is accepted, not rejected; minting under a
+  promo is `resource_in_use`.
 - `epd-mcp-operator` 1.2.0 — **a declined charge is not an error.**
   `create_order`, `retry_order` and `create_subscription` return
   `isError: false` and an object reading `failed`. Read `status` as well.

@@ -44,12 +44,18 @@ Set at creation and not changeable afterwards.
 | `generate_coupon_codes` | **rejected** | the point |
 | `max_redemptions_per_code` | rejected — use `max_redemptions` | applies |
 
-A promo name with spaces or lowercase is rejected outright:
+A promo name with spaces is rejected outright. Case is not the problem — a
+lowercase name is accepted, and the code matches in any case — measured on
+29 September 2026:
 
 ```
 name: "Summer Sale"  ->  validation_error
-"For kind=\"promo\", name must be 4-50 characters: letters, numbers or hyphens."
+"For kind=\"promo\", name must be 4-50 characters: letters, numbers, or hyphens
+(used as the redeemable code; case-insensitive)."
 ```
+
+Minting codes under a promo is refused with `resource_in_use`, not a
+validation error: its one code is its name.
 
 So `SUMMER-SALE` is the promo. `"Summer Sale"` is a generated coupon whose
 display name happens to have a space, and whose codes are separate strings.
@@ -283,8 +289,15 @@ immutable once the coupon has been redeemed once, and an attempt is refused with
 redeemed." — so check `total_redemptions` with `retrieve_coupon` first; above
 zero, the terms are already locked.
 
-Scope and limit fields — `max_redemptions`, `max_redemptions_per_customer`,
-product and plan scope, `expires_at` — stay editable.
+**Scope locks too.** The tool's description says scope and limit fields stay
+editable. Measured on 29 September 2026, after one redemption `field_locked`
+also refused `product_ids`, `product_scope`, `plan_scope`,
+`first_time_customer_only`, `max_discount_amount` and `name`. What stays
+editable is the limits and the dates: `max_redemptions`,
+`max_redemptions_per_customer`, `minimum_amount`, `starts_at`, `expires_at`,
+plus `description` and `active`. A coupon announced with the wrong scope is
+fixed the same way as a wrong rate — a new coupon, then archive the old one —
+unless nobody has used it yet.
 
 The practical consequence: **the discount rate is a decision, not a draft.**
 Before creating, confirm the percentage or amount explicitly. "Set up 20% off"

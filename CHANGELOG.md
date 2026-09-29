@@ -94,9 +94,14 @@ have told a human something untrue about money.
   `T3 charges` beside the server's own hints; a test fails if `SAFETY.md` and
   the file name different tools, or if the server starts annotating one of them
   destructive. Proposed for EPD's review — it is a redline decision.
-- Recipes — **customer 360 and failed payment recovery, run again on 29
-  September.** Customer 360: `lifetime_value_cents` is built from order status,
-  so it counts open disputes; orders carry the card's first six digits;
+- Recipes — **four of the six run again on 29 September.** Launching a
+  promotion: scope locks at the first redemption, so a wrongly scoped coupon is
+  replaced, not edited (see `epd-coupons`). Month-end reconciliation: August
+  reproduced to the cent; a September rehearsal showed step 5's
+  failed/voided/pending call needs `type: sale`, or pending refunds are counted
+  as pending sales, and the class table needs a pending-refund row. Customer
+  360: `lifetime_value_cents` is built from order status, so it counts open
+  disputes; orders carry the card's first six digits;
   `list_orders` ignores filters it does not know and returns other customers'
   orders; a soft-deleted customer's summary never loads. Failed payment
   recovery: path C could not be reached — a cycle order in dunning reads

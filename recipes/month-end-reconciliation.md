@@ -9,7 +9,7 @@ skills:
   - epd-subscriptions
 highest_tier: T0
 unattended: runs
-verified: 2026-09-28
+verified: 2026-09-29
 ---
 
 # Month-end reconciliation
@@ -206,11 +206,16 @@ transactions say `USD` where the catalog says `usd`.
 ```
 tool: list_transactions
 input:
+  type: sale
   status: failed,voided,pending
   created_after: <step 2: from>
   created_before: <step 2: to>
   limit: 100
 ```
+
+Keep `type: sale`. Without it, `pending` returns pending **refunds** as well,
+and they land in the "pending sales" row with the wrong sign — measured on
+September 2026, 14 of them. August had none, which is why it did not show.
 
 **Chargebacks: read the orders, not the transactions.** A chargeback's outcome
 lives only on the order. The transaction reads `chargeback` whether the dispute
@@ -254,34 +259,52 @@ input:
   limit: 100
 ```
 
+Then page the whole window with no filter at all. It is the only way to know
+the classes cover every row:
+
+```
+tool: list_transactions
+input:
+  created_after: <step 2: from>
+  created_before: <step 2: to>
+  limit: 100
+```
+
 **Checkpoint.** A table like this one, from August 2026, with every row counted
 and summed from a response:
 
-| Class | Rows | Amount | In `gross_cents`? |
+| Class | Rows | Amount | In a total? |
 |---|---|---|---|
-| Succeeded sales | 429 | $489,658.41 | yes |
-| Succeeded refunds | 16 | −$23,125.61 | in `refunded_cents` |
+| Succeeded sales | 429 | $489,658.41 | `gross_cents` |
+| Succeeded refunds | 16 | −$23,125.61 | `refunded_cents` |
 | Failed | 88 | $98,688.71 | no — never money |
 | Voided | 15 | $30,396.31 | no — never settled |
 | Pending sales | 8 | $2,509.67 | **not yet** |
+| Pending refunds | 0 | $0.00 | **not yet** — issued, but in no total until they succeed |
 | Chargebacks | 16 | $10,741.74 | no — split by outcome above |
 
 The rows sum to the unfiltered 572, which is how you know nothing was missed.
+September 2026, closed early as a rehearsal, needs every row: 313 succeeded
+sales, 21 succeeded and 14 pending refunds, 65 failed, 6 voided, 3 pending
+sales and 5 chargebacks make its 427.
 
 **If it fails**
 
 | Condition | What it means | Do |
 |---|---|---|
 | The classes do not sum to the unfiltered count | A status or type outside those listed | Report the unaccounted rows by status and type. Do not fold them into a class. |
+| Refund rows in the failed, voided and pending result | `type: sale` was left off | Add it; pending refunds are their own row, from the call above. |
 | Chargeback orders do not match chargeback transactions | Order and transaction windows differ, or a status outside the three | Report both counts. |
 
 ### 6. Answer the refund question that was asked
 
 **Skill:** [`epd-transaction-triage`](../docs/epd-transaction-triage.md) · **Tier:** T0
 
-`refunded_cents` is refunds **issued** in the window — cash out this month. The
-other question is refunds **of** this month's sales, which can be issued weeks
-later:
+`refunded_cents` is refunds **issued** in the window that have also succeeded —
+cash out this month. A refund issued in the window and still `pending` is in
+neither figure: September 2026 had 14, issued and uncounted. Add step 5's
+pending-refund row to "issued in", labelled as pending. The other question is
+refunds **of** this month's sales, which can be issued weeks later:
 
 ```
 tool: list_orders
@@ -293,15 +316,19 @@ input:
   limit: 100
 ```
 
-The expansion carries each order's refund transactions with their dates and
-amounts, so this is one page rather than a call per order.
+The expansion carries each order's refund transactions with their dates,
+amounts and status, so this is one page rather than a call per order. The other
+direction does not work that way: `list_transactions` with `expand: order` embeds
+only the order's `id`, `order_number` and `total` — no date — so which month a
+refund's sale was made in comes from the orders.
 
 Measured on August 2026: the 16 refunds issued in August split into 11 on August
 sales and 5 on July sales. The 25 August sales that were refunded split into 11
 refunded in August and 14 refunded in September. The two figures share 11 rows.
 
 **Checkpoint.** The figure reported is the one finance asked for, labelled
-"issued in" or "of sales made in".
+"issued in" or "of sales made in", with pending refunds shown apart from
+succeeded ones in either.
 
 **If it fails**
 
@@ -334,7 +361,7 @@ dates.
 
 | Condition | What it means | Do |
 |---|---|---|
-| Many pages | Each page is a call against 60 a minute and 1,000 an hour | Pace against the hourly budget. August took 15 calls, and 6 more to page the unfiltered list as a cross-check. |
+| Many pages | Each page is a call against 60 a minute and 1,000 an hour | Pace against the hourly budget. August took 20 calls, 6 of them paging the unfiltered cross-check. |
 
 ### 8. Record the close as a snapshot
 
@@ -387,13 +414,13 @@ lets reads run freely with nobody present. As a scheduled job:
   it establish either.
 - Its output goes to whoever [decision 6](../SAFETY.md#how-to-redline-this-file)
   names. That is currently unspecified.
-- Budget: August took 15 calls, 21 with the cross-check. A full year of closes
+- Budget: August took 20 calls, 6 of them the cross-check. A full year of closes
   in one run is where the 1,000-an-hour ceiling starts to set the pace.
 
 ## What was verified
 
 Run against the EPD sandbox on **28 September 2026**, for August 2026. Every
-figure in this recipe is from that run.
+August figure in this recipe is from that run.
 
 | Step | Measured |
 |---|---|
@@ -409,3 +436,19 @@ Also measured, and worth knowing before anyone asks for it:
 transaction and were `null` on all 572 August rows. A reconciliation against
 bank deposits cannot be done from this data on this account. Whether live
 accounts populate them was not observed.
+
+Run again on **29 September 2026**: the whole chain for August, then for
+September as a rehearsal close. 75 calls, every one a read.
+
+| Step | Measured |
+|---|---|
+| August | Every figure above reproduced to the cent a day later: all four step 2 ranges, each reconciled against the list at the same boundaries; the summary; the 572 rows and $608,869.23; the class table; the chargeback split and amounts; the 11 + 5 and 11 + 14 refund splits; the two subscriptions in dunning. Nothing in the closed month moved |
+| 2 | A bare date: `invalid_format`, "Invalid ISO datetime". `from` after `to`, and `from` equal to `to`: `invalid_date_range` |
+| 3 | The summary's keys are `period`, `gross_cents`, `refunded_cents`, `net_cents`, `transaction_count`, `refund_count`, `truncated` — no currency |
+| 5 | September: `status: failed,voided,pending` with no `type` returned 14 pending refunds among the sales. The unfiltered 427 rows partition into the seven classes above, and only with the pending-refund row |
+| 6 | `list_transactions` with `expand: order` embeds `id`, `order_number` and `total` only. On 28 and 29 September, `refunded_cents` was 0 against 5 and 7 pending refunds |
+| 8 | The 14 August sales refunded in September are still succeeded sale rows inside August, so the refunds did not move it. Every chargeback is the original sale row with its status changed — no chargeback row exists |
+
+**Not verified:** a truncated summary — no window on this account reaches
+10,000 transactions a side; a pending sale settling, or a chargeback landing on
+a closed month, which cannot be made to happen; and live mode.

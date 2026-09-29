@@ -11,7 +11,7 @@ skills:
   - epd-refunds
 highest_tier: T3
 unattended: refuses
-verified: 2026-09-28
+verified: 2026-09-29
 ---
 
 # New merchant to first live charge
@@ -88,7 +88,7 @@ flowchart TD
 | 4 | Card on file | onboard | `secure.epd.com` or `add_payment_method`, `list_payment_methods` | T2 | the card is listed and is the default |
 | 5 | First test order | catalog | `create_order` | T3 | order `status: "succeeded"`, total equals the price |
 | 6 | Rehearse a decline | catalog, triage | `create_order`, `get_order` | T3 | decline reported as a decline, not a success |
-| 7 | Test webhook endpoint | webhook-ops | `create_webhook_endpoint`, `list_webhook_delivery_logs` | T2 | a delivery for a test order is logged |
+| 7 | Test webhook endpoint | webhook-ops | `create_webhook_endpoint`, `list_webhook_events`, `list_webhook_delivery_logs` | T2 | the order's event is recorded, and its delivery logged |
 | 8 | Switch to live | operator | `ping` | T0 | `environment: "live"`, merchant name as expected |
 | 9 | Live product, customer, card | catalog, onboard | as 2–4 | T2 | each read back, one confirmation per object |
 | 10 | Live webhook endpoint | webhook-ops | as 7 | T2 | secret captured, events confirmed |
@@ -164,7 +164,8 @@ test-mode only and will not exist in stage 3.
 | `list_products` returns the SKU | A previous run got this far | Read it with `get_product`. If price and shipping match, use it; if not, ask. Do not create a variant. |
 | `sku_already_exists` | SKUs are unique per account — measured | Same as above. Never "fix" it by altering the SKU. |
 | `invalid_type` naming `description` | A required field is missing | Ask for it. Do not write one. |
-| `invalid_format` on `sku` | Uppercase, spaces, or over 30 characters | Propose a corrected SKU and get it confirmed. |
+| `invalid_format` on `sku` | Uppercase or spaces — measured | Propose a corrected SKU and get it confirmed. |
+| `value_too_large` on `sku` | Over 30 characters — measured | The same. |
 | Timeout | Unknown whether it was created | Retry with the **same** key. MCP replays it — measured: the same product `id` came back. |
 
 ### 3. Create the customer
@@ -335,10 +336,19 @@ input:
   idempotency_key: <new UUID v4>
 ```
 
-The response carries `signing_secret`, **once**. Give it to the human
-immediately and say it will not be shown again; do not put it in a logged
-summary. Read the event names back character by character — `order.suceeded`
-is accepted and matches nothing. Place one more test order as in step 5, then:
+The response carries `signing_secret`, **once** — `get_webhook_endpoint` never
+returns it. Give it to the human immediately and say it will not be shown again;
+do not put it in a logged summary. Read the event names back character by
+character — `order.suceeded` is accepted and matches nothing. Place one more
+test order as in step 5, then read what the endpoint was sent, and then what
+was delivered:
+
+```
+tool: list_webhook_events
+input:
+  id: <step 7: endpoint.id>
+  limit: 10
+```
 
 ```
 tool: list_webhook_delivery_logs
@@ -347,15 +357,21 @@ input:
   limit: 10
 ```
 
-**Checkpoint.** A delivery for that order is logged, and the receiver accepted
-it.
+The events list is the one that proves the names: it records each event the
+endpoint matched, whether or not anything was delivered. Measured: an
+`order.succeeded` event for the test order within 15 seconds; `*` and `order.*`
+also matched `order.created`.
+
+**Checkpoint.** The test order's event is in `list_webhook_events`, and a
+delivery for it is logged, and the receiver accepted it.
 
 **If it fails**
 
 | Condition | What it means | Do |
 |---|---|---|
 | `validation_error`, "URL must be a valid HTTPS endpoint" | `http://` | Ask for the HTTPS URL. |
-| Log is empty | Nothing was sent: an event name is wrong, or nothing matching happened | Compare event names with the receiver's owner. |
+| No event for the order | An event name is wrong, or nothing matching happened | Compare event names with the receiver's owner. |
+| The event is there, but the log is empty | EPD matched it and would not send it. Measured: a host that is not publicly reachable is accepted at registration, then nothing is delivered **and nothing is logged**; `test_webhook_endpoint` on it returns `invalid_url`, "internal or private network address" | Get a public HTTPS URL from the receiver's owner. |
 | Entries show failures | EPD is sending; the receiver rejects or is unreachable | Receiver code — [`epd-webhooks`](../docs/epd-webhooks.md). |
 | The secret was not captured | Write-only after creation | `rotate_webhook_secret` (T3) issues a new one; it starts a 24-hour overlap. |
 
@@ -472,9 +488,9 @@ input:
 ```
 
 **Checkpoint.** `status: "succeeded"`, `total` as quoted, one `sale` with
-`status: "succeeded"`, and — with an endpoint — a delivery for this order in
-`list_webhook_delivery_logs`. Report the order `id`, `order_number`, amount and
-card last four.
+`status: "succeeded"`, and — with an endpoint — this order's event in
+`list_webhook_events` and its delivery in `list_webhook_delivery_logs`, as in
+step 7. Report the order `id`, `order_number`, amount and card last four.
 
 **If it fails**
 
@@ -482,7 +498,7 @@ card last four.
 |---|---|---|
 | `status: "failed"` | A real decline | [Failed payment recovery](./failed-payment-recovery.md), from step 2. Never retry to find out. |
 | Timeout | Unknown whether it charged | Retry with the **same** key; MCP replays. Then `get_order`. |
-| No delivery logged | Event names, or the receiver | Step 7's table. The charge itself stands. |
+| No delivery logged | Event names, a URL EPD will not send to, or the receiver — the events list says which | Step 7's table. The charge itself stands. |
 
 ### 12. Refund a check charge — optional
 
@@ -564,6 +580,24 @@ named `recipe-f` and reported:
 | 7 | Registration and the `disabled` no-op were measured on a probe endpoint in [webhook version migration](./webhook-version-migration.md#what-was-verified). Deliveries were not: there was no receiver to send them to. |
 | 12 | `refund_order` returns the order as `refunded` with a `pending` refund transaction; a second refund returns `invalid_state_transition` |
 
+Stage 1 run again on **29 September 2026**, every failure branch the sandbox
+can reach included, on objects named `retest-*` / `recipe-f.retest-nm*`: 86
+calls. Every charge was refunded and every endpoint deleted; the two products
+and three customers remain as evidence.
+
+| Step | Measured |
+|---|---|
+| 1 | As above, plus `x-epd-test-mode: true; No real charges will be processed`. A restricted key: HTTP 403 `insufficient_permissions`, on `ping` too |
+| 2 | No description: `invalid_type`, `param: "description"`. Uppercase or a space in the SKU: `invalid_format`; over 30 characters: `value_too_large`. Same key: same `id`; new key: `sku_already_exists` |
+| 3 | Three bad fields in one call: all three in `field_errors`. Same key: same customer. Same email: `email_already_exists`; same phone: `phone_already_exists` |
+| 4 | `secure.epd.com`: `201` with the fields listed. Resent with the same key: `409 idempotency_key_conflict`. Resent with a new key: the card vaulted twice. `add_payment_method` with a card number as the token: `invalid_format`, `param: "card_token"` |
+| 5 | As above. Same key: the same order, one sale. An unknown product: `resource_not_found`, "Product with ID … not found". A `requires_shipping` product with no address: `shipping_address_required`, no order created; with the address inline: `succeeded`, address stored |
+| 6 | As above. `4000 0000 0000 0002` through `secure.epd.com`: vaulted, and the order `succeeded` |
+| 7 | `http://`: `validation_error`, "URL must be a valid HTTPS endpoint." `signing_secret` at creation only. `order.suceeded` accepted. `list_webhook_events` recorded the test order's `order.succeeded` within 15 seconds; `*` and `order.*` also matched `order.created`. On a host that is not publicly reachable, the delivery log stayed empty and `test_webhook_endpoint` returned `invalid_url`. `disabled: true`: success, still `enabled` |
+| 12 | As above; a replay under the same key added no second refund, and a new key returned "Cannot refund order. Current status: refunded." |
+
 **Not verified:** stage 3 in live mode. The tools and arguments are the same;
 the behaviour of a live account was not observed, and a sandbox success is not
-evidence that the same call succeeds live.
+evidence that the same call succeeds live. Nor a delivery that reached a
+receiver: that needs a public URL, and sending sandbox events to a third party
+was not done.

@@ -39,7 +39,7 @@ skill without any other edit.
 
 | # | Decision | Currently | Where |
 |---|---|---|---|
-| 1 | **Tool-level overrides.** Any tool EPD wants treated more strictly than its server annotation warrants. | **None.** Tiers follow the annotations exactly. | [The four tiers](#the-four-tiers) |
+| 1 | **Tool-level overrides.** Any tool EPD wants treated more strictly than its server annotation warrants. | **Two, proposed in Phase F:** `create_order` and `create_subscription` are T3. Both charge a card, and the server annotates neither as destructive, so the annotations alone made them T2. Every other tool follows its annotations. | [The four tiers](#the-four-tiers) |
 | 2 | **Sandbox writes.** Whether T1 proceeds without asking. | Proceeds, then echoes every object ID. | [T1](#t1--writes-in-test-mode) |
 | 3 | **Batching at T2.** Whether ten products may be approved in one yes. | No batching. One confirmation, one object — or an explicit batch approval that names all ten. | [T2](#t2--live-writes-that-do-not-destroy) |
 | 4 | **Standing authorizations.** Which tools may run unattended, under what ceiling, in which mode. | **None granted.** Every T2 and T3 refuses without a human. | [Standing authorizations](#standing-authorizations) |
@@ -78,8 +78,9 @@ disagree, this file wins and the other is a bug.
 ## The four tiers
 
 Tiers are not assigned by hand. Every EPD MCP tool declares four annotation
-hints, and the tier follows from them. The per-tool table is generated from the
-live tool list in
+hints, and the tier follows from them — except where
+[decision 1](#how-to-redline-this-file) holds a tool to a stricter tier. The
+per-tool table is generated from the live tool list in
 [`workflows/epd-mcp-operator/references/tiers.md`](workflows/epd-mcp-operator/references/tiers.md)
 and regenerates with `npm run gen:tiers`, so it cannot drift from the server.
 
@@ -87,8 +88,17 @@ and regenerates with `npm run gen:tiers`, so it cannot drift from the server.
 |---|---|---|
 | **T0** | `readOnlyHint` | 29 |
 | **T1** | any write while in test mode | mode-dependent |
-| **T2** | writes that change live state without destroying it | 18 + 2 external |
-| **T3** | `destructiveHint` | 18 |
+| **T2** | writes that change live state without destroying it | 16 + 2 external |
+| **T3** | `destructiveHint`, and the two charges decision 1 adds | 18 + 2 |
+
+**The two charges.** `create_order` charges a card at once, and
+`create_subscription` charges the first cycle at once. The server annotates
+neither as destructive, so by annotation alone they would be T2 — while
+`process_order` and `create_customer_and_charge`, which charge the same card
+the same way, are T3. A charge moves money whichever tool makes it, so both are
+T3. The list is kept in `scripts/tier-overrides.json`, which the tier table and
+the recipe validator both read, and a test fails if this section and that file
+ever name different tools.
 
 Mode is established with `ping`, which returns `environment` and `is_sandbox`;
 responses also carry `x-epd-environment` and `x-epd-test-mode`. T1 exists
@@ -162,8 +172,8 @@ across ten objects when the user approved one.
 
 ### T3 — destructive
 
-Refunds, voids, cancellations, deletes, secret rotation, coupon archival, and
-account version upgrades.
+Charges, refunds, voids, cancellations, deletes, secret rotation, coupon
+archival, and account version upgrades.
 
 **Requires:** everything in T2, plus the agent must echo the exact amount,
 currency, and object ID, and state the key mode aloud, before waiting for
@@ -184,11 +194,11 @@ webhook secret breaks every consumer that has not been updated.
 
 #### T3 divides by retry risk, and the schema says how
 
-The 18 destructive tools split cleanly, and the split is not arbitrary:
+The 20 T3 tools split cleanly, and the split is not arbitrary:
 
 | | Count | What they are |
 |---|---|---|
-| `idempotency_key` **required** | 8 | money movement — refunds, charges, orders, retries |
+| `idempotency_key` **required** | 10 | money movement — refunds, charges, orders, retries |
 | `idempotency_key` **optional** | 10 | deletes, cancels, archives, rotations |
 
 Deleting twice leaves the same state; charging twice does not. Both tiers still
@@ -198,7 +208,7 @@ require full T3 confirmation. They differ **after a timeout with no response**:
   deduplicate. This is the only safe retry, and it is what the key is for.
 - **State removal** — do not retry. Read current state back first, then decide.
 
-Treating all 18 identically is the obvious mistake, and it is wrong in both
+Treating all 20 identically is the obvious mistake, and it is wrong in both
 directions: it makes safe refund retries look dangerous, and dangerous
 delete retries look safe.
 

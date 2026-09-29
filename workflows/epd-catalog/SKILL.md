@@ -20,12 +20,13 @@ tier requires is defined once in
 [SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
 Do not hand-maintain a tier list here.
 
-Four here are T3, for two different reasons, and the distinction matters before
+Five here are T3, for two different reasons, and the distinction matters before
 you reach for one: `delete_product` and `delete_product_image` are irreversible,
-while `process_order` and `retry_order` charge a card. `create_order` charges a
-card too; it sits in T2 only because the server does not annotate it
-destructive. The plan printed before confirming it still states the amount —
-that is the expected effect T2 asks for.
+while `create_order`, `process_order` and `retry_order` charge a card.
+`create_order` is not annotated destructive; it is T3 because
+[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md)
+decision 1 holds every charge there, and `tiers.md` labels it `T3 charges`. Its
+confirmation echoes the amount, currency, card and key mode like any other T3.
 
 `reorder_product_images` has **no `idempotency_key` parameter**, so it cannot be
 safely retried on a timeout. Read the product back with `get_product` instead.
@@ -163,8 +164,8 @@ Line-item rules, all observed:
 | `items: []` | `value_too_small` — "expected array to have >=1 items" |
 | unknown `product_id` | `resource_not_found`, naming the id |
 
-Both create an order and charge the card. `create_order` is T2 and supports
-coupons and shipping. `process_order` is T3, supports neither, and leaves a
+Both create an order and charge the card, and both are T3. `create_order`
+supports coupons and shipping. `process_order` supports neither, and leaves a
 failed order row behind with no rollback. Prefer `create_order` unless you
 specifically want the customer-validation step — see `epd-mcp-operator`'s
 composites section.

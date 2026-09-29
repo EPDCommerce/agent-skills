@@ -43,6 +43,9 @@ confirmation. Uniform coverage across all 67 would be padding.
 ## Coverage by safety tier
 
 Tiers are derived from the server's own annotations, not assigned by hand.
+`SAFETY.md` decision 1 later held `create_order` and `create_subscription` to T3,
+because they move money; this table keeps the annotations as the server declares them. The operative
+per-tool tiers are in [`references/tiers.md`](../workflows/epd-mcp-operator/references/tiers.md).
 
 | Tier | Tools | Documented today | Absent today |
 |---|---|---|---|

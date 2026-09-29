@@ -372,7 +372,9 @@ decision — rather than leaving it in the retry loop.
 Tiers and which tools are destructive come from `references/tiers.md` — see
 the pointer above; do not hand-list them here. `cancel_subscription`,
 `cancel_subscription_and_report`, `retry_order` and `retry_failed_charge` are
-T3. Confirm each using the pattern in `epd-mcp-operator`'s "Running a
+T3. So is `create_subscription`: the server does not annotate it destructive,
+but it charges the first cycle at once, and `SAFETY.md` decision 1 holds every
+charge to T3. Confirm each using the pattern in `epd-mcp-operator`'s "Running a
 confirmation" section.
 
 `update_subscription` is **T2**, not destructive — the server does not

@@ -5,7 +5,8 @@
      Regenerate after any API release:  node scripts/gen-tiers.mjs -->
 
 Tiers are not assigned by hand. Every EPD MCP tool declares four annotation
-hints, and the tier is a pure function of them:
+hints, and the tier is a function of them — with the written exceptions
+`SAFETY.md` makes under decision 1, listed below:
 
 | Annotation | Tier | What the agent must do |
 |---|---|---|
@@ -13,10 +14,23 @@ hints, and the tier is a pure function of them:
 | `destructiveHint` | **T3** | Print the plan, echo amount, currency, object id and key mode, wait for an explicit yes. |
 | `openWorldHint` | **T2** | Calls an external URL. Confirm first; not idempotent. |
 | none of the above | **T2** | An ordinary write. Print the plan and confirm. |
+| named in `SAFETY.md` decision 1 | **as decided** | The tier the decision gives, whatever the hints say. |
 
 `SAFETY.md` defines what each tier requires. This file only says which tool
 sits in which tier, and shows the raw hints so the mapping can be checked
 rather than taken on trust.
+
+### Held to a stricter tier by `SAFETY.md`
+
+These are policy, not server facts: the Annotations column below still shows
+what the server declares. The list lives in `scripts/tier-overrides.json`, and
+a test fails if `SAFETY.md` names different tools or the server starts
+annotating one of them destructive.
+
+| Tool | Server annotations | Tier | Why |
+|---|---|---|---|
+| `create_order` | idempotent | T3 charges | Charges the card at once. The server does not annotate it destructive, but it moves money, and SAFETY.md puts every tool that moves money in T3. |
+| `create_subscription` | idempotent | T3 charges | Charges the first cycle to the card at once. The server does not annotate it destructive, but it moves money, and SAFETY.md puts every tool that moves money in T3. |
 
 ### `idempotentHint` does not set the tier
 
@@ -39,15 +53,16 @@ signal that a retry is a fresh side effect.
 | Tier | Tools |
 |---|---|
 | T0 read | 29 |
-| T2 write | 18 |
+| T2 write | 16 |
 | T2 external | 2 |
 | T3 destructive | 18 |
+| T3 charges | 2 |
 | **Total** | **67** |
 
-## Destructive tools, split by retry risk
+## T3 tools, split by retry risk
 
 Not every T3 is dangerous in the same way, and the schema says which is which.
-Of the destructive tools, the ones that **require** an idempotency key are
+Of the T3 tools, the ones that **require** an idempotency key are
 exactly the ones that move money; the ones where it is **optional** are
 deletes, cancels and archives, which are naturally idempotent — deleting twice
 leaves the same state, charging twice does not.
@@ -56,10 +71,12 @@ Both still need T3 confirmation. The difference is what happens after a
 timeout with no response: for the money-movers, retry with the same key and
 let the server deduplicate. For the rest, read current state back first.
 
-**Money movement — key required (8):**
+**Money movement — key required (10):**
 
+- `create_order`
 - `refund_order`
 - `retry_order`
+- `create_subscription`
 - `create_customer_and_subscribe`
 - `process_order`
 - `refund_transaction`
@@ -117,12 +134,12 @@ read current state back instead.
 | `reorder_product_images` | Products | idempotent | T2 write | none |
 | `list_plans` | Plans | readOnly, idempotent | T0 read | none |
 | `get_plan` | Plans | readOnly, idempotent | T0 read | none |
-| `create_order` | Orders | idempotent | T2 write | required |
+| `create_order` | Orders | idempotent | T3 charges | required |
 | `list_orders` | Orders | readOnly, idempotent | T0 read | none |
 | `get_order` | Orders | readOnly, idempotent | T0 read | none |
 | `refund_order` | Orders | destructive, idempotent | T3 destructive | required |
 | `retry_order` | Orders | destructive, idempotent | T3 destructive | required |
-| `create_subscription` | Subscriptions | idempotent | T2 write | required |
+| `create_subscription` | Subscriptions | idempotent | T3 charges | required |
 | `list_subscriptions` | Subscriptions | readOnly, idempotent | T0 read | none |
 | `get_subscription` | Subscriptions | readOnly, idempotent | T0 read | none |
 | `update_subscription` | Subscriptions | idempotent | T2 write | optional |

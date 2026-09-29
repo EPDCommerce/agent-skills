@@ -297,11 +297,11 @@
       "group": "Orders",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 25,
+      "total": 27,
       "code": 7,
       "head": 1,
       "table": 3,
-      "prose": 14,
+      "prose": 16,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-catalog",
@@ -384,11 +384,11 @@
       "group": "Subscriptions",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 15,
+      "total": 17,
       "code": 6,
       "head": 0,
       "table": 1,
-      "prose": 8,
+      "prose": 10,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -1025,7 +1025,7 @@
     {
       "skill": "workflows/epd-catalog",
       "file": "workflows/epd-catalog/SKILL.md",
-      "line": 47,
+      "line": 48,
       "tool": "create_product",
       "keys": [
         "name",
@@ -1039,7 +1039,7 @@
     {
       "skill": "workflows/epd-catalog",
       "file": "workflows/epd-catalog/SKILL.md",
-      "line": 133,
+      "line": 134,
       "tool": "create_order",
       "keys": [
         "customer_id",
@@ -1051,7 +1051,7 @@
     {
       "skill": "workflows/epd-catalog",
       "file": "workflows/epd-catalog/SKILL.md",
-      "line": 178,
+      "line": 179,
       "tool": "retry_order",
       "keys": [
         "order_id",
@@ -1061,7 +1061,7 @@
     {
       "skill": "workflows/epd-catalog",
       "file": "workflows/epd-catalog/SKILL.md",
-      "line": 192,
+      "line": 193,
       "tool": "create_order",
       "keys": [
         "customer_id",

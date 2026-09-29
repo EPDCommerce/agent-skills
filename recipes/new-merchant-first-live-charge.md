@@ -86,13 +86,13 @@ flowchart TD
 | 2 | Create the product | catalog | `list_products`, `create_product` | T2 | price and shipping flag read back as stated |
 | 3 | Create the customer | onboard | `list_customers`, `create_customer` | T2 | exactly one customer with that email |
 | 4 | Card on file | onboard | `secure.epd.com` or `add_payment_method`, `list_payment_methods` | T2 | the card is listed and is the default |
-| 5 | First test order | catalog | `create_order` | T2 | order `status: "succeeded"`, total equals the price |
-| 6 | Rehearse a decline | catalog, triage | `create_order`, `get_order` | T2 | decline reported as a decline, not a success |
+| 5 | First test order | catalog | `create_order` | T3 | order `status: "succeeded"`, total equals the price |
+| 6 | Rehearse a decline | catalog, triage | `create_order`, `get_order` | T3 | decline reported as a decline, not a success |
 | 7 | Test webhook endpoint | webhook-ops | `create_webhook_endpoint`, `list_webhook_delivery_logs` | T2 | a delivery for a test order is logged |
 | 8 | Switch to live | operator | `ping` | T0 | `environment: "live"`, merchant name as expected |
 | 9 | Live product, customer, card | catalog, onboard | as 2–4 | T2 | each read back, one confirmation per object |
 | 10 | Live webhook endpoint | webhook-ops | as 7 | T2 | secret captured, events confirmed |
-| 11 | First live order | catalog | `create_order`, `get_order` | T2 | `succeeded`, one succeeded sale, delivery logged |
+| 11 | First live order | catalog | `create_order`, `get_order` | T3 | `succeeded`, one succeeded sale, delivery logged |
 | 12 | Refund a check charge (optional) | refunds | `refund_order` | T3 | order reads `refunded` |
 
 ## Steps
@@ -254,7 +254,7 @@ input:
 
 ### 5. Place the first test order
 
-**Skill:** [`epd-catalog`](../docs/epd-catalog.md) · **Tier:** T1 here, T2 live
+**Skill:** [`epd-catalog`](../docs/epd-catalog.md) · **Tier:** T1 here, T3 live
 
 ```
 tool: create_order
@@ -444,9 +444,9 @@ Step 7's table applies.
 
 ### 11. Place the first live order
 
-**Skill:** [`epd-catalog`](../docs/epd-catalog.md) · **Tier:** T2 — it charges a
-card; the server does not annotate it destructive, so the plan still states the
-amount
+**Skill:** [`epd-catalog`](../docs/epd-catalog.md) · **Tier:** T3 — it charges a
+card. The server does not annotate it destructive;
+[decision 1](../SAFETY.md#how-to-redline-this-file) holds every charge to T3
 
 > I'm about to call **`create_order`** for customer **<name>** (`<step 9:
 > customer.id>`): 1 × **<product>** at **<price> <currency>**, charged to the

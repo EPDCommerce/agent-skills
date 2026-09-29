@@ -1,0 +1,15 @@
+{
+  "_about": "SAFETY.md decision 1, tool-level overrides: tools held to a stricter tier than their server annotations give. This is a policy decision, not a fact about the server - the annotations are still shown as the server declares them. Read by scripts/gen-tiers.mjs, scripts/check-docs.js and audit/matrix.mjs. A test fails if SAFETY.md and this file name different tools, or if the server starts annotating one of them destructive. Change the decision in SAFETY.md and here together.",
+  "tools": {
+    "create_order": {
+      "tier": "T3",
+      "label": "T3 charges",
+      "why": "Charges the card at once. The server does not annotate it destructive, but it moves money, and SAFETY.md puts every tool that moves money in T3."
+    },
+    "create_subscription": {
+      "tier": "T3",
+      "label": "T3 charges",
+      "why": "Charges the first cycle to the card at once. The server does not annotate it destructive, but it moves money, and SAFETY.md puts every tool that moves money in T3."
+    }
+  }
+}

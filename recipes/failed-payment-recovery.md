@@ -82,7 +82,7 @@ flowchart TD
 | 3 | Check it is still unpaid | triage | `list_orders` | T0 | no succeeded sale, no later recovery, and a decline |
 | 4 | Classify and pick a path | triage, subscriptions | `get_subscription` | T0 | class, reason and path agreed with the human |
 | 5 | Path A — same card | catalog | `retry_order` | T3 | `status: "succeeded"` |
-| 6 | Path B — new card, one-off | onboard, catalog | `list_payment_methods`, `get_product`, `create_order` | T2 | new order succeeded, linked by `metadata` |
+| 6 | Path B — new card, one-off | onboard, catalog | `list_payment_methods`, `get_product`, `create_order` | T3 | new order succeeded, linked by `metadata` |
 | 7 | Path C — new card, dunning | onboard, subscriptions | `update_subscription`, `get_subscription` | T2 | subscription bills the new card |
 | 8 | Path D — first charge failed | subscriptions, catalog | `get_plan`, `create_subscription`, `cancel_subscription` | T3 | new subscription active, failed one cancelled |
 | 9 | Paid exactly once | triage, subscriptions, refunds | `list_orders`, `get_subscription`, `refund_order` | T0, T3 | one succeeded payment for the failure |
@@ -307,7 +307,8 @@ subscription's `next_retry_at` to see that it did.
 ### 6. Path B — a new card, for a one-off order
 
 **Skills:** [`epd-onboard-customer`](../docs/epd-onboard-customer.md) for the card,
-[`epd-catalog`](../docs/epd-catalog.md) for the order · **Tier:** T2
+[`epd-catalog`](../docs/epd-catalog.md) for the order · **Tier:** T2 for the card,
+T3 for the order
 
 Put the new card on file exactly as in
 [step 4 of the first-charge recipe](./new-merchant-first-live-charge.md#4-put-a-card-on-file),
@@ -422,7 +423,7 @@ input:
 
 ### 8. Path D — a subscription whose first charge failed
 
-**Skill:** [`epd-subscriptions`](../docs/epd-subscriptions.md) · **Tier:** T2, then T3
+**Skill:** [`epd-subscriptions`](../docs/epd-subscriptions.md) · **Tier:** T3, twice
 
 `create_subscription` does not fail when its first charge declines. It returns
 no error and a subscription with `status: "failed"`, `cycles: []` and
@@ -471,8 +472,9 @@ subscription would charge the same way. Report both figures and let the human
 decide before anything is charged again.
 
 > I'm about to call **`create_subscription`** for **<customer>** on plan
-> **<plan>** at **<amount> <currency>** per cycle, billing the **<brand>** ending
-> **<last4>**, in **<mode>**. The first charge is taken now. Proceed?
+> **<plan>** (`<step 4: failed subscription.plan.id>`) at **<amount> <currency>**
+> per cycle, billing the **<brand>** ending **<last4>**, in **<mode>**. The first
+> charge is taken now. Proceed?
 
 ```
 tool: create_subscription

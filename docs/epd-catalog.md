@@ -40,10 +40,12 @@ created elsewhere. Two things catch people: a `billing_cycle` of
 month, and the two drift apart over a year; and a plan wraps `products`, so a
 plan's price and its product's price are separate numbers that can disagree.
 
-**Orders** — `create_order` (T2) is the default. `process_order` (T3) takes
-nearly the same arguments, supports neither coupons nor shipping, and leaves a
-failed order row behind with no rollback. `create_order` does more at a lower
-tier; reach for `process_order` only when you specifically want its
+**Orders** — `create_order` is the default. `process_order` takes nearly the
+same arguments, supports neither coupons nor shipping, and leaves a failed order
+row behind with no rollback. Both charge a card, so both are T3 — `create_order`
+by [`SAFETY.md`](../SAFETY.md) decision 1, since the server does not annotate it
+destructive. `create_order` does more at the same tier; reach for
+`process_order` only when you specifically want its
 customer-validation step.
 
 `idempotency_key` is **required** on `create_order`, unlike most writes. It
@@ -275,7 +277,7 @@ input:
 ```
 
 ```json
-{ "valid": true, "coupon_id": "…", "coupon_name": "Summer Sale", "kind": "promo" }
+{ "valid": true, "coupon_id": "…", "coupon_name": "Summer Sale", "kind": "promo", "percentage": 15 }
 ```
 
 Valid for Alice at this amount. That check was free and it is the difference
@@ -284,9 +286,10 @@ between a clean order and a rejection that looks like an ordering bug.
 > I'm about to call **`create_order`** for **Alice Liddell**
 > (`7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a`) in **LIVE** mode: **Onboarding Kit**
 > ($149.00) plus **Data Export Add-on** ($29.99), subtotal **$178.99**, coupon
-> `SUMMER-SALE` at 15% off, charged to her **Visa ending 1111** (her default
-> card), shipping to 12 Rabbit Hole Lane, Oxford OX1 2JD, GB. This charges the
-> card. Proceed?
+> `SUMMER-SALE` at 15% off — about **$152.15** USD; the server rounds the
+> discount, and I will read the exact total back — charged to her **Visa ending
+> 1111** (her default card), shipping to 12 Rabbit Hole Lane, Oxford OX1 2JD, GB.
+> This charges the card. Proceed?
 
 **Ops:** Go.
 

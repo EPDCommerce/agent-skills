@@ -54,6 +54,11 @@ const SEMVER = /^\d+\.\d+\.\d+$/;
 const RECIPES_DIR = path.join(REPO_ROOT, 'recipes');
 const RECIPES_INDEX = path.join(RECIPES_DIR, 'README.md');
 const COVERAGE_MD = path.join(REPO_ROOT, 'audit', 'COVERAGE.md');
+// SAFETY.md decision 1: tools held to a stricter tier than their annotations.
+// gen-tiers.mjs applies the same file, so the two cannot disagree.
+const TIER_OVERRIDES = JSON.parse(
+  fs.readFileSync(path.join(REPO_ROOT, 'scripts', 'tier-overrides.json'), 'utf8'),
+).tools;
 
 /** Sections every recipe answers, in the order recipes/README.md promises. */
 const RECIPE_SECTIONS = [
@@ -378,10 +383,13 @@ function checkGuides(manifest) {
 /**
  * A tool's tier, derived from its server annotations by the same rule
  * scripts/gen-tiers.mjs uses for references/tiers.md, so a recipe's stated
- * tier is checked against the table readers are told to trust.
+ * tier is checked against the table readers are told to trust. A tool in
+ * tier-overrides.json takes the tier SAFETY.md decision 1 gives it.
  */
 function tierOfTool(def) {
   const a = (def && def.annotations) || {};
+  const override = def && TIER_OVERRIDES[def.name];
+  if (override) return override.tier;
   if (a.readOnlyHint) return 'T0';
   if (a.destructiveHint) return 'T3';
   return 'T2';
@@ -593,4 +601,5 @@ module.exports = {
   slugify,
   stripFences,
   tierOfTool,
+  TIER_OVERRIDES,
 };

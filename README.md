@@ -290,8 +290,9 @@ live account.
 
 [`SAFETY.md`](./SAFETY.md) defines what an agent may do against a live account
 and what it must refuse: four confirmation tiers derived from the server's own
-tool annotations, the cross-cutting rules (idempotency, read-before-write, card
-data, rate limits), and the policy for unattended runs.
+tool annotations — with one written exception, that a tool which charges a card
+is T3 whatever its annotations say — the cross-cutting rules (idempotency,
+read-before-write, card data, rate limits), and the policy for unattended runs.
 
 Every workflow skill inherits it through `epd-mcp-operator` rather than
 restating it, so **it is the single place the policy changes.** It encodes a

@@ -205,8 +205,14 @@ Two sources, in order of preference:
    `readOnlyHint` → T0. `destructiveHint` → T3. `openWorldHint` → T2 external.
    Anything else that writes → T2.
 
-If the two ever disagree, the live annotations win and `tiers.md` is stale —
-regenerate it with `npm run gen:tiers`.
+**Two exceptions, by policy.** `create_order` and `create_subscription` are
+**T3**, although neither is annotated destructive. Both charge a card, and
+[`SAFETY.md`](../../SAFETY.md) decision 1 holds every charge to T3; `tiers.md`
+labels them `T3 charges`. Their annotations will say otherwise — that is the
+point of the exception, not a stale table.
+
+Apart from those two, if the sources ever disagree, the live annotations win and
+`tiers.md` is stale — regenerate it with `npm run gen:tiers`.
 
 #### Never hand-maintain a list of destructive tools
 
@@ -576,13 +582,13 @@ is the better default:
 
 | | `create_order` | `process_order` |
 |---|---|---|
-| Tier | **T2** | T3 destructive |
+| Tier | T3 charges — [`SAFETY.md`](../../SAFETY.md) decision 1 | T3 destructive |
 | Coupons | `coupon_code`, reserved atomically and released if the card declines | not supported |
 | Shipping | `shipping_address` / `shipping_address_id` | not supported |
 | On gateway failure | — | order row persists as `failed`, no rollback |
 
 Reach for `process_order` only when you specifically want its customer
-validation step. Otherwise `create_order` does more, at a lower tier.
+validation step. Otherwise `create_order` does more, at the same tier.
 
 ### The rule
 

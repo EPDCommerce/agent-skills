@@ -32,9 +32,12 @@ The expensive failure this prevents is not an agent that checks the wrong
 environment. It is a human who assumes the session is sandbox because the
 conversation started as an experiment.
 
-**2. Finds the tier and runs the confirmation.** Tiers are a pure function of
-the annotations the server declares on each tool — `readOnlyHint` is T0,
-`destructiveHint` is T3, `openWorldHint` is T2-external, any other write is T2.
+**2. Finds the tier and runs the confirmation.** Tiers are a function of the
+annotations the server declares on each tool — `readOnlyHint` is T0,
+`destructiveHint` is T3, `openWorldHint` is T2-external, any other write is T2 —
+with one written exception: `create_order` and `create_subscription` charge a
+card without being annotated destructive, and
+[`SAFETY.md`](../SAFETY.md) decision 1 holds them to T3.
 The per-tool table is generated from the `tools/list` snapshot by
 `npm run gen:tiers`, so it cannot disagree with the server. The skill supplies
 the confirmation templates; [`SAFETY.md`](../SAFETY.md) supplies the rules about

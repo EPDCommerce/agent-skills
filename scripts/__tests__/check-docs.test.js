@@ -30,6 +30,7 @@ const {
   slugify,
   stripFences,
   tierOfTool,
+  TIER_OVERRIDES,
 } = require(CHECK_DOCS);
 
 const RECIPES_DIR = path.join(REPO_ROOT, 'recipes');
@@ -306,6 +307,22 @@ test('the recipe tier rule agrees with the generated tiers.md for every tool', (
     const row = new RegExp(`^\\| \`${def.name}\` \\|[^|]*\\|[^|]*\\| (T\\d)`, 'm').exec(tiers);
     assert.ok(row, `no row for ${def.name} in tiers.md`);
     assert.equal(tierOfTool(def), row[1], def.name);
+  }
+});
+
+test('SAFETY.md decision 1 and tier-overrides.json name the same tools, and each override still does something', () => {
+  const safety = fs.readFileSync(path.join(REPO_ROOT, 'SAFETY.md'), 'utf8');
+  const row = /^\| 1 \| \*\*Tool-level overrides\.\*\*.*$/m.exec(safety);
+  assert.ok(row, 'decision 1 row not found in SAFETY.md');
+  const named = new Set([...row[0].split('|')[3].matchAll(/`([a-z_]+)`/g)].map((m) => m[1]));
+  assert.deepEqual([...named].sort(), Object.keys(TIER_OVERRIDES).sort(), 'SAFETY.md decision 1 and scripts/tier-overrides.json disagree');
+  const rank = { T0: 0, T2: 2, T3: 3 };
+  for (const [name, o] of Object.entries(TIER_OVERRIDES)) {
+    const def = SNAPSHOT.tools.find((t) => t.name === name);
+    assert.ok(def, `${name} is overridden but is not in the tools/list snapshot`);
+    const byAnnotation = tierOfTool({ ...def, name: undefined });
+    assert.ok(rank[o.tier] > rank[byAnnotation], `${name}: its annotations already give ${byAnnotation}; the override is stale — remove it from SAFETY.md and tier-overrides.json`);
+    assert.equal(tierOfTool(def), o.tier, name);
   }
 });
 

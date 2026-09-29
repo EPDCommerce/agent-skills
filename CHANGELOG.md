@@ -85,6 +85,15 @@ Phase F — recipes, plus the corrections that running them against sandbox
 turned up. Each is a case where an agent following the skill as written would
 have told a human something untrue about money.
 
+- `SAFETY.md` decision 1 — **a charge is T3, whichever tool makes it.**
+  `create_order` and `create_subscription` charge a card, but the server does
+  not annotate either as destructive, so they were T2 while `process_order` and
+  `create_customer_and_charge`, which charge the same card the same way, were
+  T3. Both are now T3. The list lives in `scripts/tier-overrides.json`, read by
+  `gen-tiers`, the recipe validator and the audit; `tiers.md` shows them as
+  `T3 charges` beside the server's own hints; a test fails if `SAFETY.md` and
+  the file name different tools, or if the server starts annotating one of them
+  destructive. Proposed for EPD's review — it is a redline decision.
 - `epd-reporting` 1.1.0 — **chargebacks are already out of net; never subtract
   them.** A chargeback changes the original sale's status rather than adding a
   row, so a charged-back sale is in neither gross nor net. The skill said net

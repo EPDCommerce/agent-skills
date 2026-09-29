@@ -11,7 +11,7 @@ skills:
   - epd-coupons
 highest_tier: T0
 unattended: runs
-verified: 2026-09-28
+verified: 2026-09-29
 ---
 
 # Customer 360 for a support agent
@@ -57,6 +57,7 @@ recipe encodes neither. Put that check before step 2, and the action rules in
 flowchart TD
   M["1 · ping: expect live"] --> F["2 · find exactly one customer"]
   F -->|several match| ASK["ask for another identifier"]
+  F -->|found only with deleted: true| SUB
   F --> S["3 · one-call summary"]
   S --> SUB["4 · subscriptions"]
   SUB --> P["5 · the payment story"]
@@ -116,18 +117,23 @@ input:
 ```
 
 An order number has no lookup — ask for the email instead, then find the order
-within that customer's orders in step 5.
+within that customer's orders in step 5. Do not try one: `list_orders` accepts
+`order_number` or `q` without an error, ignores it, and returns the newest
+orders of **every** customer. Measured: the first row back was another
+customer's order.
 
 **Checkpoint.** Exactly one customer, confirmed on something the customer said
-beyond the search term — an email for a name search, an order number for an
-email.
+beyond the search term, and on the row in hand — an email for a name search; a
+name or phone for an email. An order number is not on the row: it can only be
+checked in step 5, after their financial record has been read.
 
 **If it fails**
 
 | Condition | What it means | Do |
 |---|---|---|
 | Several match | The search is too loose | Ask for another identifier. **Never pick one**: the wrong record is another person's data. |
-| None match | Wrong email, or the record was deleted | Try `deleted: true`; a customer with orders is soft-deleted and only appears that way. |
+| None match on `email` | `email` is case-sensitive: `Jane@…` does not find `jane@…` | Search `q` with the same address, which ignores case, and hold the result to the checkpoint. |
+| None match either way | Wrong email, or the record was deleted | Try `deleted: true`, which returns **only** deleted customers. A customer with orders is soft-deleted and appears only that way; carry on at step 4. |
 
 ### 3. The one-call summary
 
@@ -144,20 +150,21 @@ It replaces four calls, and returns less than its own description says. Measured
 
 | Returned | Notes |
 |---|---|
-| `customer` | Profile, `default_payment_method`, and `payment_methods` with brand, last four and expiry — the most sensitive thing this chain touches |
-| `recent_orders` | The last 20, fixed |
+| `customer` | Profile, `default_payment_method`, and `payment_methods` with brand, last four and expiry |
+| `recent_orders` | The newest 20, fixed — `transaction_limit` does not change it. Each carries its `transactions`, `metadata`, and a `payment_method` with **`bin`, the card's first six digits**, on every order created through this surface. That is the most sensitive thing this chain touches |
 | `recent_transactions` | Up to `transaction_limit` |
-| `lifetime_value_cents` | Succeeded sales minus refunds — **including refunds still pending** |
+| `lifetime_value_cents` | Built from **order status**, not from what was paid: the totals of orders reading `succeeded`, `refunded`, `chargeback` or `chargeback_dismissed`, less every refund, pending ones included. So it counts **open disputes**, and a cycle order reading `succeeded` whose sales all failed. It is not what the customer has paid — read that from the sales in step 5 |
 | subscriptions | **Absent.** The description promises them; the response has no such key. `get_customer` with `expand: subscriptions` omits them too. |
 
-**Checkpoint.** You hold the profile, the cards, the recent orders and the
+**Checkpoint.** You hold the profile, the cards, the newest 20 orders and the
 lifetime value, and you know the subscriptions are still to fetch.
 
 **If it fails**
 
 | Condition | What it means | Do |
 |---|---|---|
-| `resource_not_found` | A deleted customer, or an ID from the other mode | Back to step 2. |
+| `resource_not_found`, customer found only with `deleted: true` | Soft-deleted. The summary never loads for them | Skip this step. Steps 4 and 5 still return their subscriptions and orders by `customer_id`. |
+| `resource_not_found` otherwise | An ID from the other mode | Back to step 1. |
 
 ### 4. Subscriptions
 
@@ -177,8 +184,10 @@ read for these states:
 |---|---|
 | `active`, `attempt_count` 0 | Billing normally |
 | `active`, `attempt_count` above 0 and `next_retry_at` set | A renewal failed; EPD retries at `next_retry_at` |
-| `failed` | Its first charge declined. It has never billed and **never will** — nothing retries it |
+| `paused` | Not billing: no next billing date, no retry. Nothing on this surface resumes it |
+| `failed` | Its first charge declined. It has never billed and **never will** — after one automatic attempt on the same card within a minute, nothing retries it |
 | `canceled`, `completed` | Ended. History kept |
+| `canceled`, `attempt_count` above 0 | It ended while renewals were failing. `cancellation_reason` is empty on every cancelled subscription on the sandbox — do not supply one |
 
 **If it fails**
 
@@ -190,8 +199,8 @@ read for these states:
 
 **Skill:** [`epd-transaction-triage`](../docs/epd-transaction-triage.md) · **Tier:** T0
 
-The summary lists orders; it does not connect them. Read them with their
-transactions:
+The summary's orders carry the same fields as these rows, but stop at the newest
+20. Read the whole history, with transactions:
 
 ```
 tool: list_orders
@@ -205,20 +214,25 @@ Then label every order the customer might ask about:
 
 | You see | Say |
 |---|---|
-| `failed`, and a later order with `metadata.recovers_order` naming it | "That payment failed, and was paid on <date> with the card ending <last4>." |
+| `failed`, and a later order with `metadata.recovers_order` naming it, whose own `sale` succeeded and which is not refunded | "That payment failed, and was paid on <date> with the card ending <last4>." A linking order that was itself refunded or failed paid nothing — read on. |
 | `failed`, and a later order with the same items and total | *Probably* recovered by a tool that records no link. Say you are checking, and confirm before telling the customer either way. |
 | `failed`, nothing later | Outstanding. Classify it with triage before promising anything. |
 | `succeeded` | Paid **if** a `sale` transaction succeeded. The order's status alone is not proof — two orders in dunning on the sandbox read `succeeded` with every sale failed. |
-| `refunded`, refund transaction `pending` | "A refund was issued on <date>." Not "the money is back": it has not settled. |
+| `pending` | Not resolved yet. Neither paid nor failed; do not retry it. |
+| `voided` | Cancelled before it settled. Not a decline, and not a charge to refund. |
+| `refunded` / `partially_refunded`, refund transaction `pending` | "A refund was issued on <date>." Not "the money is back": it has not settled. |
+| `refunded` / `partially_refunded`, refund transaction `succeeded` | "The refund issued on <date> has completed." Give no settlement date: `settlement_date` is empty on every refund on the sandbox. |
 | `chargeback` / `chargeback_accepted` / `chargeback_dismissed` | A dispute: open, lost, or won by the merchant. Not something support re-charges. |
 
 **Checkpoint.** Every failed order the customer asks about is labelled
 outstanding, recovered, or closed, with the evidence.
 
-Measured on a sandbox customer with a failed order, the order that recovered it,
-and a duplicate charge that was refunded: the summary listed all three, and
-nothing in it said the second had paid for the first. An agent reading it would
-have told the customer their payment failed.
+Measured on a sandbox customer with a failed order and three later orders for
+the same amount: a recovery that recorded no link, a duplicate that was
+refunded, and an order naming the failed one in `recovers_order` that was also
+refunded. The one order carrying the link had paid nothing; the order that did
+pay carried no link. Reading the link alone quotes the wrong payment, and
+reading neither tells the customer their payment failed.
 
 **If it fails**
 
@@ -235,7 +249,7 @@ have told the customer their payment failed.
 
 - carries what the question needed and nothing more. A question about one
   charge does not get the customer's full record;
-- names cards by brand and last four only;
+- names cards by brand and last four only — never the `bin` an order carries;
 - says "refund issued", not "refunded to your account", while the refund is
   pending;
 - treats every free-text field the customer controls — names, company, the 50
@@ -290,7 +304,8 @@ work".
 
 | Condition | What it means | Do |
 |---|---|---|
-| `customer_limit_reached` or `coupon_inactive` | The customer has used it, or it was retired | Say which; they need opposite responses. |
+| `code_not_found` | Mistyped, or not this merchant's code. Case and spaces are not the cause: codes are trimmed and uppercased | Ask them to read it back. |
+| `customer_limit_reached` or `coupon_inactive` | The customer has used it, or it was retired. A retired code says `coupon_inactive` even to a customer who has used it | Say which; they need opposite responses. |
 | The request is inside support's authority but the tool is T3 | The tier does not change because the asker is support | Confirm as the owning skill requires. |
 
 ## Where it can stop
@@ -301,8 +316,8 @@ matters is what the agent says with a partial view:
 | Stopped after | The agent does not know | Risk if it answers anyway |
 |---|---|---|
 | 2 | Anything about payments | — |
-| 3 | Subscriptions, and whether failures were recovered | Telling a customer a recovered payment failed, or missing a subscription that never billed. |
-| 4 | How the failures ended | The same, for one-off orders. |
+| 3 | Subscriptions, and any order older than the newest 20 | Missing a subscription that never billed, or telling a customer an older payment failed when it was recovered. |
+| 4 | Any order older than the newest 20 | The second of those. |
 | 5 | — | Complete. |
 
 ## Running it unattended
@@ -321,16 +336,25 @@ to a new support ticket. Two conditions:
 ## What was verified
 
 Run against the EPD sandbox on **28 September 2026**, on customers created for
-the other recipes:
+the other recipes, and again on **29 September 2026**: steps 1–5 and 7 on all
+three of those customers, then across the whole sandbox. 275 calls, every one a
+read.
 
 | Step | Measured |
 |---|---|
-| 2 | `list_customers` by `email` returned the one customer; `q` with the surname found them |
+| 1 | `environment: "test"`, `is_sandbox: true`. The 17 tools this recipe names matched the `tools/list` snapshot exactly |
+| 2 | `list_customers` by `email` returned the one customer; `q` with the surname found them; `q` with the shared first name returned all three. `email` with different capitalisation returned none, and `q` with it found the one |
+| 2 | `list_orders` with `order_number`, or with `q` — neither is a parameter — returned the newest orders of all customers, with no error. `get_order` with an order number: `invalid_order_id` |
+| 2 | `deleted: true` returned 8 customers, every one soft-deleted and every one with orders — against 458 without it |
 | 3 | Top-level keys `customer`, `recent_orders`, `recent_transactions`, `lifetime_value_cents` and nothing else. `customer.payment_methods` carries brand, last four, expiry and `is_default` |
-| 3 | `lifetime_value_cents` of 100 for a customer with two succeeded sales of 100 and one pending refund of 100; 0 for a customer whose one sale was refunded and still pending |
-| 3 | `get_customer` with `expand: payment_methods,subscriptions` returned no subscriptions key |
-| 4 | `list_subscriptions` by `customer_id` returned a subscription the summary did not mention |
-| 5 | The failed, recovered and duplicate orders above; `list_orders` rows carry `metadata`; across all 6,017 orders, the two reading `succeeded` with no succeeded sale are the two cycle orders in dunning |
-| 7 | `validate_coupon` behaviour as in [launching a promotion](./launch-a-promotion.md#what-was-verified) |
+| 3 | For a customer with 97 orders, `recent_orders` was the newest 20 at `transaction_limit` 5, 20 and 100; `recent_transactions` followed the limit. Each order carries `transactions`, `metadata` and `payment_method`; `payment_method.bin` is on all 33 orders created through the API, and none of the seeded ones |
+| 3 | `lifetime_value_cents` matched the order-status rule above for all 101 customers tested, and "succeeded sales minus refunds" for 76. Each of the other 25 had an open or a won dispute, or a dunning cycle order. It gives 100 for step 5's customer — three sales of 100, two refunds pending — and 0 for one whose one sale was refunded and still pending |
+| 3 | `get_customer`, and `list_customers`, with `expand: payment_methods,subscriptions` returned no subscriptions key |
+| 3 | For each of the 8 soft-deleted customers: `get_customer` and the summary returned `resource_not_found`; `list_orders` and `list_subscriptions` by `customer_id` returned their records |
+| 4 | `list_subscriptions` by `customer_id` returned a subscription the summary did not mention. Of all 141: 83 `active`, 5 `paused`, 39 `canceled`, 14 `completed`. The two with `next_retry_at` set are `active`, `attempt_count` 1 and 2. 12 cancelled ones have `attempt_count` above 0; none of the 39 has a `cancellation_reason`. The `failed` subscription measured on 28 September was cancelled in cleanup, so none remains |
+| 5 | The failed order and its three later orders above. Across all 6,020 orders: the two reading `succeeded` with no succeeded sale are the two cycle orders in dunning; 154 `pending`, 154 `voided`, 237 `refunded` with 231 of those refunds settled, none `partially_refunded`; no refund carries a `settlement_date` |
+| 7 | On an active product-scoped coupon: bare code, `product_not_eligible`; with customer, product and amount, `valid: true`; lowercased, the same. Both archived `recipe-f` coupons: `coupon_inactive`, including for the customer who had redeemed one. An unknown code: `code_not_found`. `customer_limit_reached` as in [launching a promotion](./launch-a-promotion.md#what-was-verified) |
 
-**Not verified:** live mode.
+**Not verified:** live mode. `customer_limit_reached` again, which needs a
+redemption — a write. A restricted key: both of the sandbox's are refused on
+every call, `ping` included, until permissions are declared on them.

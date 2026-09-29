@@ -94,6 +94,15 @@ have told a human something untrue about money.
   `T3 charges` beside the server's own hints; a test fails if `SAFETY.md` and
   the file name different tools, or if the server starts annotating one of them
   destructive. Proposed for EPD's review — it is a redline decision.
+- Recipes — **customer 360 and failed payment recovery, run again on 29
+  September.** Customer 360: `lifetime_value_cents` is built from order status,
+  so it counts open disputes; orders carry the card's first six digits;
+  `list_orders` ignores filters it does not know and returns other customers'
+  orders; a soft-deleted customer's summary never loads. Failed payment
+  recovery: path C could not be reached — a cycle order in dunning reads
+  `succeeded`, so step 2 now finds a subscription payment from its cycles; the
+  attempt on the old card after a card swap is the engine's own retry of a
+  failed first charge, which path D now waits for.
 - `epd-reporting` 1.1.0 — **chargebacks are already out of net; never subtract
   them.** A chargeback changes the original sale's status rather than adding a
   row, so a charged-back sale is in neither gross nor net. The skill said net

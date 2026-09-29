@@ -94,7 +94,10 @@ have told a human something untrue about money.
   `T3 charges` beside the server's own hints; a test fails if `SAFETY.md` and
   the file name different tools, or if the server starts annotating one of them
   destructive. Proposed for EPD's review — it is a redline decision.
-- Recipes — **four of the six run again on 29 September.** Launching a
+- Recipes — **five of the six run again on 29 September.** New merchant to
+  first live charge: stage 1 held, with the shipping branch now measured; an
+  over-long SKU is `value_too_large`; step 7 reads `list_webhook_events` before
+  the delivery log. Launching a
   promotion: scope locks at the first redemption, so a wrongly scoped coupon is
   replaced, not edited (see `epd-coupons`). Month-end reconciliation: August
   reproduced to the cent; a September rehearsal showed step 5's
@@ -149,7 +152,10 @@ have told a human something untrue about money.
 - `epd-webhook-ops` 1.1.0 — **`disabled: true` is accepted and ignored.** The
   skill offered it as a reversible pause; the endpoint stays `enabled`. There
   is no pause. Adds `invalid_version_upgrade`, and that
-  `preview_webhook_payload` accepts misspelled event types.
+  `preview_webhook_payload` accepts misspelled event types. And **an empty
+  delivery log does not mean nothing matched**: a URL that is not publicly
+  reachable is accepted at registration, records every matching event, and logs
+  nothing — so the events list is read first, and it is what proves the names.
 - `epd-coupons` 1.2.0 — **a bare code is not a validity check on a scoped
   coupon**: it returns `product_not_eligible`. Adds that reason and
   `plan_not_eligible`; `archived` on `list_coupons` is a string; locked terms

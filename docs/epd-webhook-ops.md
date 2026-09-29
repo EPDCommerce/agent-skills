@@ -88,10 +88,10 @@ will not error — it will produce an endpoint that looks healthy in
 `list_webhook_endpoints` and is silently dead.
 
 The mitigation is procedural: confirm event names back character by character,
-then check `list_webhook_delivery_logs` once real traffic should have arrived.
-An empty delivery log on a new endpoint is the symptom. `preview_webhook_payload`
-is no check — it accepted `order.suceeded` and returned a sample — but
-`list_webhook_events` shows the types actually sent.
+then check `list_webhook_events` once real traffic should have arrived. No
+events on a new endpoint is the symptom. `preview_webhook_payload` is no check —
+it accepted `order.suceeded` and returned a sample — and neither is an empty
+delivery log, which has another cause (below).
 
 ### There is no pause
 
@@ -105,9 +105,13 @@ The skill says so rather than reporting an endpoint as paused.
 ### Diagnosis starts with the delivery log
 
 `list_webhook_events` and `list_webhook_delivery_logs` are both per-endpoint and
-both T0. An empty log distinguishes two very different problems:
+both T0. Read the events first. Together they separate three problems:
 
-- **empty** — nothing was ever sent. Wrong event names, or no matching activity.
+- **no events** — nothing matched. Wrong event names, or no matching activity.
+- **events, but an empty log** — EPD will not send to the URL. Measured on 29
+  September 2026: a host that is not publicly reachable is accepted at
+  registration, records every matching event, and logs nothing at all;
+  `test_webhook_endpoint` on it returns `invalid_url`.
 - **entries with failures** — sending is happening and the receiver is rejecting
   or unreachable. That is usually [`epd-webhooks`](./epd-webhooks.md) territory.
 
@@ -164,8 +168,9 @@ After creating an endpoint:
 
 - [ ] **The event names were read back character by character.** A typo here is
       invisible for as long as nobody looks at the log.
-- [ ] **The delivery log has entries** once traffic should have arrived. Empty
-      means nothing was ever sent.
+- [ ] **The events list has the traffic, and the delivery log has entries**, once
+      traffic should have arrived. No events: the names. Events but no log: the
+      URL.
 - [ ] **The signing secret was handed over once**, with a statement that it will
       not be shown again — and is not sitting in a summary that gets logged.
 

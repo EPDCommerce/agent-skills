@@ -165,9 +165,10 @@ says nothing about whether the name is real. `list_webhook_events` does: it
 shows the event types that have actually been sent to the endpoint.
 
 So: after `create_webhook_endpoint` or `update_webhook_endpoint`, confirm the
-event names back to the human character by character, and check
-`list_webhook_delivery_logs` once real traffic should have arrived. An empty
-delivery log on a new endpoint is the symptom.
+event names back to the human character by character, and once real traffic
+should have arrived, check `list_webhook_events`. No events on a new endpoint is
+the symptom of a typo. An empty delivery log is not proof of one — see
+"Deliveries, events and replay".
 
 ## Schema versions
 
@@ -229,11 +230,19 @@ outage — surface the date rather than only the flag.
 both T0. Start here when someone says webhooks stopped arriving — before
 touching the endpoint, and certainly before rotating anything.
 
-An empty delivery log distinguishes two very different problems:
+Read the events first, then the log. Together they separate three problems:
 
-- **empty** — nothing was ever sent. Wrong event names, or no matching activity.
+- **no events** — nothing matched. Wrong event names, or no matching activity.
+- **events, but an empty log** — EPD matched the event and did not send it.
+  Measured on 29 September 2026: an endpoint whose host is not publicly
+  reachable is accepted at registration, records every matching event, and logs
+  **nothing** — no failed attempt. `test_webhook_endpoint` on it returns
+  `invalid_url`, "Webhook URL points to an internal or private network address."
+  The URL has to change.
 - **entries with failures** — sending is happening and the receiver is rejecting
   or unreachable. That is often `epd-webhooks` territory.
+
+An empty log alone does not tell the first two apart.
 
 ### `test_webhook_endpoint` and `replay_webhook_event` hit a real URL
 

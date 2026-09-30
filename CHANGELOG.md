@@ -94,6 +94,28 @@ have told a human something untrue about money.
   `T3 charges` beside the server's own hints; a test fails if `SAFETY.md` and
   the file name different tools, or if the server starts annotating one of them
   destructive. Proposed for EPD's review — it is a redline decision.
+- Guides, README and `SAFETY.md` — **the Phase E documentation audited end to
+  end on 29 September**, every measurable claim re-run against the sandbox over
+  MCP and REST. Most held, several to the cent. What did not:
+  - `create_customer` accepts the same email in a different case and makes a
+    second customer, and the `email` filter is case-sensitive; `epd-onboard-customer`
+    now looks up with `q` as well. `deleted: true` returns only deleted customers.
+  - `refund_and_cancel` refunds the customer's newest succeeded order, which was
+    a later one-off rather than the subscription's charge; `epd-refunds` now
+    checks the order's `subscription_id` first. Partial refunds measured for the
+    first time; the success response documented.
+  - An MCP argument outside a tool's schema is dropped, not refused — `list_orders`
+    given `order_number` returns every customer's orders. `epd-mcp-operator` says
+    so; REST is the opposite and answers 400.
+  - Webhook events carry their own delivery state: on an unreachable URL they are
+    `dead_letter` at zero attempts. The event types seen are listed.
+  - The quickstart's "check whether the card landed" call was a `GET` that
+    returns 404; it is `GET /v1/customers/{id}?expand=payment_methods`.
+  - The triage and subscriptions transcripts showed shapes the API does not
+    return — the schedule on the order, the card nested under `card` — and are
+    corrected. The README's Cursor note predated Cursor's skills support; the
+    README adds the Claude Code `mcp add` command. `SAFETY.md`'s sandbox-card
+    note, and its `request_id` and error-shape rules, are corrected.
 - Recipes — **five of the six run again on 29 September.** New merchant to
   first live charge: stage 1 held, with the shipping branch now measured; an
   over-long SKU is `value_too_large`; step 7 reads `list_webhook_events` before

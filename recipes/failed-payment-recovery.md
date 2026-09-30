@@ -257,7 +257,7 @@ Then choose with the human:
 |---|---|---|
 | One-off, `insufficient_funds`, `issuer_unavailable`, `card_limit_exceeded` | soft | **A** if the human wants a retry now. Nothing will retry it otherwise: `next_retry_at` is `null` on all 593 failed one-off orders on the sandbox. |
 | One-off, `do_not_honor` or `processor_declined`, first time | ambiguous | **A**, once, later. The same code again means a new card. |
-| One-off, `expired_card`, `transaction_not_allowed`, `incorrect_cvv` | hard | **B**. The same card fails the same way. |
+| One-off, `expired_card`, `transaction_not_allowed` — and `incorrect_cvv`, which triage classes ambiguous but which fails the same way on the same stored card | hard in practice | **B**. The same card fails the same way. |
 | `lost_stolen_card`, anywhere | hard | **B** or **C**, and the old card is never retried by any route. |
 | Subscription `active` with `attempt_count > 0` and `next_retry_at` set — on the **subscription** | dunning | **C**. Soft codes can simply wait for `next_retry_at`. |
 | Subscription `status: "failed"`, `cycles: []` | first charge failed | **D**, whatever the code. |

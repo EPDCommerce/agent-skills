@@ -371,7 +371,7 @@ delivery for it is logged, and the receiver accepted it.
 |---|---|---|
 | `validation_error`, "URL must be a valid HTTPS endpoint" | `http://` | Ask for the HTTPS URL. |
 | No event for the order | An event name is wrong, or nothing matching happened | Compare event names with the receiver's owner. |
-| The event is there, but the log is empty | EPD matched it and would not send it. Measured: a host that is not publicly reachable is accepted at registration, then nothing is delivered **and nothing is logged**; `test_webhook_endpoint` on it returns `invalid_url`, "internal or private network address" | Get a public HTTPS URL from the receiver's owner. |
+| The event reads `dead_letter` with `attempts: 0`, and the log is empty | EPD matched it and never tried to send it. Measured: a host that is not publicly reachable is accepted at registration; each matching event is dead-lettered within a second and **nothing is logged**; `test_webhook_endpoint` on it returns `invalid_url`, "internal or private network address" | Get a public HTTPS URL from the receiver's owner. |
 | Entries show failures | EPD is sending; the receiver rejects or is unreachable | Receiver code — [`epd-webhooks`](../docs/epd-webhooks.md). |
 | The secret was not captured | Write-only after creation | `rotate_webhook_secret` (T3) issues a new one; it starts a 24-hour overlap. |
 

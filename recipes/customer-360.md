@@ -249,7 +249,8 @@ reading neither tells the customer their payment failed.
 
 - carries what the question needed and nothing more. A question about one
   charge does not get the customer's full record;
-- names cards by brand and last four only — never the `bin` an order carries;
+- names cards by brand and last four only — never the `bin` that orders and
+  subscriptions both carry;
 - says "refund issued", not "refunded to your account", while the refund is
   pending;
 - treats every free-text field the customer controls — names, company, the 50
@@ -276,7 +277,7 @@ steps 3–5:
 |---|---|---|---|
 | "Refund me" | [`epd-refunds`](../docs/epd-refunds.md) | `refund_order` | T3 |
 | "Cancel my subscription" | [`epd-subscriptions`](../docs/epd-subscriptions.md) | `cancel_subscription`, or `cancel_subscription_and_report` | T3 |
-| "Cancel and refund the last payment" | [`epd-refunds`](../docs/epd-refunds.md) | `refund_and_cancel` | T3 |
+| "Cancel and refund the last payment" | [`epd-refunds`](../docs/epd-refunds.md) | `refund_and_cancel` — only if the customer's newest succeeded order is that subscription's charge; it refunds the newest, whatever it is (measured). Otherwise cancel and `refund_order` separately | T3 |
 | "Remove my old card" | [`epd-onboard-customer`](../docs/epd-onboard-customer.md) | `delete_payment_method` | T3 |
 | "Update my email" | [`epd-onboard-customer`](../docs/epd-onboard-customer.md) | `update_customer` | T2 |
 | "Try my payment again" | [failed payment recovery](./failed-payment-recovery.md) | from its step 2 | T3 |

@@ -24,7 +24,7 @@ the same code paths work in both. What changes is whether the money is real.
 | Publishable key | `epd_test_pk_…` | `epd_live_pk_…` |
 | Account check | `GET /v1/account` returns `"is_sandbox": true` | `false` |
 | MCP check | `ping` returns `"environment": "test"` | `"environment": "live"` |
-| Response headers | `x-epd-environment: test`, `x-epd-test-mode: true` | no test-mode notice |
+| Response headers | `x-epd-environment: test`, `x-epd-sandbox: true`, `x-epd-test-mode: true; No real charges will be processed` | no test-mode notice |
 | Cards | deterministic test cards | real cards, real money |
 
 Three rules follow, and every workflow skill in this repo enforces them:
@@ -134,15 +134,15 @@ npx skills add EPDCommerce/agent-skills --list
 below. Skills load automatically when their `description` triggers match.
 
 **OpenAI Codex CLI** — auto-discovers skills under `$CODEX_HOME/skills/`
-(defaults to `~/.codex/skills/`). Invoke one explicitly with `$<skill-name>` in
-a prompt (e.g. `$epd-best-practices help me wire a refund`); Codex also
-auto-triggers off the same `description` frontmatter Claude Code uses.
+(defaults to `~/.codex/skills/`); the CLI installs project-level skills to
+`.agents/skills/`. Invoke one explicitly with `$<skill-name>` in a prompt (e.g.
+`$epd-best-practices help me wire a refund`); Codex also auto-triggers off the
+same `description` frontmatter Claude Code uses.
 
-**Cursor** — does not yet support filesystem skills natively. Point **Settings →
-Rules → Project Rules** at a cloned skill's `SKILL.md` and Cursor inlines it as
-a project rule. References are **not** lazy-loaded there, so link only the
-`SKILL.md` of the skill you actually use rather than the whole tree — otherwise
-you pay for all nine of `epd-best-practices`'s references on every prompt.
+**Cursor** — reads Agent Skills (`SKILL.md` folders) natively since Cursor 2.4.
+The CLI installs them to `.agents/skills/` in a project or `~/.cursor/skills/`
+for your user; Cursor's own project folder is `.cursor/skills/`. Selection runs
+off the same `description` frontmatter as the other agents.
 
 <details>
 <summary><strong>Manual install (no CLI)</strong></summary>
@@ -251,8 +251,18 @@ Version:    epd-version: 2026-02-11
 Accept:     application/json, text/event-stream
 ```
 
-Most MCP clients take this as an HTTP-transport server entry. The config key
-differs per client; the parameters do not:
+In Claude Code, one command adds it (`-s user` for every project, `-s project`
+to share it through `.mcp.json`):
+
+```bash
+claude mcp add --transport http epd-commerce https://api.epd.com/mcp \
+  --header "Authorization: Bearer $EPD_API_KEY" \
+  --header "epd-version: 2026-02-11"
+```
+
+Most other MCP clients take this as an HTTP-transport server entry. The config
+key and the environment-variable syntax differ per client; the parameters do
+not:
 
 ```json
 {
@@ -272,6 +282,12 @@ differs per client; the parameters do not:
 Confirm the connection with the `ping` tool: it takes no arguments and returns
 `merchant_id`, `name`, `environment`, `is_sandbox` and the account's
 `api_version`.
+
+Measured on 29 September 2026: without `epd-version` the call still works and
+the account default applies — so pin it. A client that does not accept
+`text/event-stream` is refused with HTTP 406, "Client must accept both
+application/json and text/event-stream"; MCP clients send it themselves, and it
+matters only when calling the endpoint by hand.
 
 **Two things to know before you connect a live key.**
 

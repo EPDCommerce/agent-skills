@@ -363,10 +363,12 @@ card data cannot pass through this surface, and route them — to Elements if
 they have a frontend, to `secure.epd.com` if they do not. Do not offer to
 "handle it just this once".
 
-**Sandbox note.** The test cards (`4111 1111 1111 1111` and friends, any future
-expiry, CVV `999`) work only against `secure.epd.com` with a `epd_test_sk_` key.
-They are not `card_token` values and will fail the `cct_` pattern if passed as
-one.
+**Sandbox note.** The test cards (`4111 1111 1111 1111`, any future expiry; CVV
+`123` in every measured run) work only against `secure.epd.com` with an
+`epd_test_sk_` key. `4000 0000 0000 0002` is not a decline card there — it vaults
+and charges; a sandbox decline comes from the legacy `card_visa_declined`
+token. None of these are `card_token` values, and they fail the `cct_` pattern if
+passed as one.
 
 **Why:** `secure.epd.com` is a PCI-scoped proxy and the MCP surface deliberately
 is not. Every place a PAN touches becomes part of the merchant's PCI scope, so
@@ -378,6 +380,9 @@ just makes sure an agent does not spend its effort trying to work around them.
 ### 9. Surface `request_id` on every failure
 
 Failures return a `request_id`. Include it verbatim when reporting to a human.
+A success carries one only in the `x-request-id` HTTP header, which a tool
+result does not include — so to escalate something a successful call returned,
+quote the object IDs instead.
 
 **Why:** it is the first thing EPD support asks for, and it is not recoverable
 after the fact.
@@ -385,7 +390,10 @@ after the fact.
 ### 10. Tool failures are not RPC errors
 
 A failed tool call returns a normal result with `isError: true` and the error
-JSON in `content[0].text`. It is not a JSON-RPC error.
+JSON in `content[0].text`. It is not a JSON-RPC error. A refusal before any tool
+runs — a restricted key, or a rate limit — is a third shape: HTTP 403 or 429
+with a bare error body and no MCP envelope at all. `epd-mcp-operator` lists all
+three.
 
 **Why:** an agent that only checks for RPC errors reads a failed refund as a
 success and reports it to the customer as done.

@@ -119,6 +119,12 @@ Together with the log they separate three problems:
   and the receiver is rejecting or unreachable. That is usually
   [`epd-webhooks`](./epd-webhooks.md) territory.
 
+A replay takes the event `id` from that list, and a failed replay is not an
+error response: it returns the attempt, with `status`, `error_message` and the
+`api_version` it was sent at. Measured on 30 September 2026, a replay to an
+unreachable host came back normally with `status: "failed"` and left the event
+`dead_letter`. The skill reads `status` before saying anything was redelivered.
+
 The event types seen on the sandbox for a signup, a card, a charge, a refund and
 a decline: `customer.created`, `customer.payment_method.updated`,
 `order.created`, `order.succeeded`, `order.failed`, `order.refunded` — measured,
@@ -126,8 +132,9 @@ not a catalogue.
 
 ### Versions are a separate line from the API version
 
-This account runs API `2026-02-11` and webhook schema `2026-02-10`. One does not
-imply the other. `preview_webhook_payload` and `compare_webhook_versions` are
+On this account `ping` reads `api_version: null` — not pinned — with
+`latest_api_version` `2026-02-11`, and endpoints run webhook schema
+`2026-02-10`. One does not imply the other. `preview_webhook_payload` and `compare_webhook_versions` are
 both T0 and cost nothing, so the sequence is preview, compare, then upgrade —
 not upgrade and find out.
 

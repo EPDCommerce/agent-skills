@@ -116,7 +116,13 @@ have told a human something untrue about money.
     corrected. The README's Cursor note predated Cursor's skills support; the
     README adds the Claude Code `mcp add` command. `SAFETY.md`'s sandbox-card
     note, and its `request_id` and error-shape rules, are corrected.
-- Recipes — **five of the six run again on 29 September.** New merchant to
+- Recipes — **all six run again, five on 29 September and webhook version
+  migration on 30 September.** Webhook version migration: still one schema
+  version, so no real upgrade; every guard rail held, including on
+  `update_webhook_endpoint`'s `api_version`. Step 9 now finds failed events
+  in `list_webhook_events` — the ids `replay_webhook_event` takes — rather than
+  the delivery log, which records nothing for an event never attempted, and
+  reads the replay's `status`. New merchant to
   first live charge: stage 1 held, with the shipping branch now measured; an
   over-long SKU is `value_too_large`; step 7 reads `list_webhook_events` before
   the delivery log. Launching a
@@ -178,6 +184,10 @@ have told a human something untrue about money.
   delivery log does not mean nothing matched**: a URL that is not publicly
   reachable is accepted at registration, records every matching event, and logs
   nothing — so the events list is read first, and it is what proves the names.
+  **A failed replay is not an error**: `replay_webhook_event` returns
+  `status: "failed"` in an ordinary response, so the skill reads it. The
+  account's API version line was wrong — `ping` reads `api_version: null`
+  (unpinned), not `2026-02-11`.
 - `epd-coupons` 1.2.0 — **a bare code is not a validity check on a scoped
   coupon**: it returns `product_not_eligible`. Adds that reason and
   `plan_not_eligible`; `archived` on `list_coupons` is a string; locked terms

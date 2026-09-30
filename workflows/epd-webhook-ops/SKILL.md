@@ -136,8 +136,11 @@ enabled_events: []     ->  value_too_small, "expected array to have >=1 items"
 ### Changing an endpoint
 
 `update_webhook_endpoint` changes the URL, the subscribed events or the
-description. It also accepts `api_version`; make a version change through the
-preview, compare and upgrade sequence below instead.
+description. It also accepts `api_version`, as does `create_webhook_endpoint`;
+both refuse a version that does not exist (`invalid_webhook_version`, measured
+30 September 2026), but make a version change through the preview, compare and
+upgrade sequence below instead — only the upgrade and downgrade tools state a
+direction.
 
 **`disabled: true` does nothing.** The schema describes it as "disable delivery
 without deleting". Measured on 28 September 2026, with and without an
@@ -180,9 +183,10 @@ proves one.
 
 ## Schema versions
 
-Webhook versions are **a separate line from the API version**. This account runs
-API `2026-02-11` and webhook schema `2026-02-10`. Do not assume one implies the
-other.
+Webhook versions are **a separate line from the API version**. On this account
+`ping` reads `api_version: null` (not pinned) and `latest_api_version:
+"2026-02-11"`, while endpoints run webhook schema `2026-02-10`. Do not assume
+one implies the other.
 
 `list_webhook_versions` returns each version with `status` (`current`,
 deprecated, sunset), `is_latest`, `sunset_date`, and a structured `changelog`
@@ -267,6 +271,15 @@ So: confirm the URL in this exchange before firing, and never retry either on a
 timeout. Replaying an event a consumer already processed can double-apply
 whatever it does — and the receiver's own idempotency is the merchant's code,
 which you cannot see from here.
+
+`replay_webhook_event` takes the event `id` from `list_webhook_events` — an id
+that is not on the endpoint is `resource_not_found` — and **a failed replay is
+not an error response.** It returns the attempt: `status`, `http_status_code`,
+`response_time_ms`, `error_message`, and the `api_version` it was sent at.
+Measured on 30 September 2026: a replay to a host that is not publicly reachable
+returned normally with `status: "failed"`, and the event stayed `dead_letter`
+at zero attempts with nothing logged. Read `status` before telling anyone an
+event was redelivered.
 
 ## What this skill will not do
 

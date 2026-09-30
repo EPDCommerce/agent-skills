@@ -23,12 +23,12 @@ it, check whether a code will work, and retire it. Only one is T3 —
 |---|---|---|
 | Codes | one shared code, minted at create time | many unique codes, minted separately |
 | The code is | the normalized name — trimmed and uppercased | random, or supplied by you |
-| Name rule | must match `/^[A-Z0-9-]{4,50}$/` | free text |
-| `generate_coupon_codes` | rejected | the point |
+| Name rule | 4–50 letters, digits and hyphens; any case — a lowercase name is accepted, measured | free text |
+| `generate_coupon_codes` | rejected, `resource_in_use` | the point |
 | `max_redemptions_per_code` | rejected — use `max_redemptions` | applies |
 
-`SUMMER-SALE` is a promo. `"Summer Sale"` is rejected as a promo name and is
-only valid as a generated coupon's display name. The choice is not fixable
+`SUMMER-SALE` is a promo. `"Summer Sale"` is rejected as a promo name — for the
+space, not the case — and is only valid as a generated coupon's display name. The choice is not fixable
 afterwards, so the skill requires it confirmed before creating.
 
 ### Scope defaults to everything, and the schema does not say so
@@ -80,6 +80,7 @@ and changes nothing. Failure gives a machine-readable reason:
 | `coupon_inactive` | `active: false` — usually self-inflicted, see below |
 | `product_not_eligible` | scoped to products, and the call named none of them — or named no product at all |
 | `plan_not_eligible` | the plan passed is outside `plan_scope` |
+| `customer_limit_reached` | that customer is at `max_redemptions_per_customer` — only tested when `customer_id` is passed. A refund does not give the redemption back; measured |
 
 Expired and not-yet-active look identical to a customer and need opposite
 responses, which is why the skill reports the reason rather than "the code
@@ -232,7 +233,8 @@ well.
 need you to give me one rather than picking "this week" myself.
 
 **The terms are locked.** 412 redemptions means `percentage`, `amount` and
-`duration` are immutable — attempts are refused with `field_locked`. So this runs again at **25%** or
+`duration` are immutable — and so are its scope and its name — attempts are
+refused with `field_locked`. So this runs again at **25%** or
 it runs as a different coupon with a different code. If 25% is not the number
 you wanted, tell me now, because that decision is a new coupon.
 

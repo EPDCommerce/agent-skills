@@ -82,8 +82,11 @@ do not produce an address ID you have not been given.
 
 Pass `coupon_code` on `create_order`; lookup is case-insensitive. **A bad code
 fails the whole order** — nothing is created and no money moves, which is the
-safe behaviour but means a typo looks like an ordering failure. Validate first
-with `validate_coupon`, which is T0 and creates nothing.
+safe behaviour but means a typo looks like an ordering failure. So does a real
+code that does not cover the items: `product_not_eligible`, and the order is not
+placed at full price. A card that declines releases the redemption, so the
+customer can use the code on another card. Validate first with
+`validate_coupon`, which is T0 and creates nothing.
 
 Watch `max_redemptions_per_customer`: it defaults to **1** on a promo coupon and
 that default is not stated at creation time. A promotion intended as "use it

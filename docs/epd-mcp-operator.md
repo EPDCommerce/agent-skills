@@ -104,6 +104,7 @@ be selected on that word alone.
 | **Decide policy at runtime.** | Standing authorizations for unattended work are written into `SAFETY.md` in advance. An agent that can grant itself an exception has no policy. |
 | **Cover the REST surface.** | `api.epd.com/v1` belongs to `epd-best-practices`. The single exception is `secure.epd.com`, which appears here because the headless card flow passes through it. |
 | **Hunt for an order by its number.** | `get_order` takes a UUID and rejects anything else with `invalid_order_id`. The short `order_number` a customer reads off a receipt has **no lookup among the 67 tools** — `list_orders` filters by customer, status and date, and nothing takes a number. So the handles that work are the UUID or the customer; paging thousands of orders hoping to recognise a string spends the rate limit for a maybe, and is the wrong answer even when it happens to work. |
+| **Pass an argument the tool does not define.** | It is not refused — it is dropped, and the call runs without it. Measured on 29 September 2026: `list_orders` given `order_number` or `q` returned every customer's newest orders with no error, the first row someone else's. A filter you invented returns the unfiltered list, and it looks exactly like a filtered one. The REST API is the opposite and answers `400`. |
 
 ### The permissions reality, stated plainly
 
@@ -191,7 +192,9 @@ input:
 **That is not an order ID.** `get_order` takes a UUID. `A1B2C3D4` is the short
 `order_number` — the form the dashboard and the customer's receipt show — and
 **nothing on this surface looks one up.** `list_orders` filters by customer,
-status and date; no tool among the 67 takes an order number.
+status and date; no tool among the 67 takes an order number. Passing it to
+`list_orders` anyway would not fail — the argument is dropped, and I would get
+back other customers' orders looking like an answer.
 
 So I need a different handle. Give me her email, or the order's UUID from the
 dashboard, and I will go straight to it. What I am not going to do is page

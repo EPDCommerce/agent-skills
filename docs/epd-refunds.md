@@ -27,19 +27,35 @@ one.
 | A subscription to close out **and** refund | `refund_and_cancel` | Two-phase composite. Cancel runs first. |
 
 The first two are nearly equivalent — `refund_transaction` looks up the
-transaction, validates it is type `sale` (you cannot refund a refund), resolves
-the linked `order_id`, and calls the same code. Use whichever matches the ID in
-hand rather than fetching one to get to the other.
+transaction, validates it is type `sale` (you cannot refund a refund: measured,
+`invalid_state`, "only "sale" transactions can be refunded"), resolves the
+linked `order_id`, and calls the same code. Use whichever matches the ID in hand
+rather than fetching one to get to the other.
 
 `amount` is optional on both and is in **minor units**. Omit it for a full
 refund. Partial refunds are allowed up to the original amount minus prior
 partial refunds; the server tracks the running total, so the operator does not
-have to.
+have to. Measured on 29 September 2026, the first partial refunds on this
+sandbox: 50 of 150 left the order `partially_refunded`; asking for 150 more was
+refused — "Refund amount (150 cents) exceeds maximum refundable amount (100
+cents)." — and `100.5` was refused as `invalid_type`; the remaining 100 left it
+`refunded`.
 
 ### `refund_and_cancel` is not atomic, and that is deliberate
 
-Cancellation runs first, so billing stops even if the refund half fails. If it
-does fail, the response is:
+**It refunds the customer's most recent succeeded order — not necessarily the
+subscription's.** Measured on 29 September 2026: with a one-off order placed
+after the subscription's first charge, the composite refunded the one-off and
+left the subscription's charge alone. A customer asking to "cancel and refund
+the last payment" means the subscription's; the skill reads the customer's
+newest order, and if it is not that subscription's charge, it cancels and
+refunds separately instead.
+
+On success the response reads `status: "canceled_and_refunded"`, with
+`refund_status: "succeeded"`, `refunded_order_id`, `refunded_amount_cents` and
+the refunded order — measured. Cancellation runs first, so billing stops even if
+the refund half fails. If it does fail, the tool's description gives this shape,
+which could not be produced on demand:
 
 ```json
 {
@@ -67,7 +83,8 @@ Two things the skill insists on around this composite:
   already-cancelled subscription while the customer is still owed money.
 
 An already-canceled subscription is refused with `invalid_state` and nothing is
-refunded — measured in sandbox on 18 September 2026. A subscription in dunning
+refunded — measured in sandbox on 18 September 2026, and again on 29 September,
+when the same key also returned the original response unchanged. A subscription in dunning
 is still `active`; there is no separate past-due status to check for.
 
 ## When it fires
@@ -99,6 +116,7 @@ for someone who wanted a snippet.
 |---|---|
 | **Refund before diagnosing a failure.** | A hard decline may mean nothing was captured and no refund is owed. Refunding an order that never took money is a support conversation about a refund that does not exist. |
 | **Use `refund_and_cancel` for a non-subscription refund.** | It will either reject or do something nobody asked for — ending a subscription is not a side effect anyone should discover afterwards. |
+| **Use `refund_and_cancel` when the newest order is not the subscription's.** | It refunds the customer's most recent succeeded order, measured to be a later one-off rather than the subscription's charge. Cancel and refund separately instead. |
 | **Issue a partial refund larger than what remains.** | The server rejects it, but the reason to state the arithmetic in the confirmation is that `amount: 29.99` and `amount: 2999` are both plausible typing, and only one of them is $29.99. |
 | **Refund an order just because a filtered list returned it.** | An unrecognised value in a list filter is dropped silently rather than rejected. Check the `status` of what comes back before acting on it. |
 | **Refund a standalone transaction with no `order_id`.** | The refund flow goes through the order. Rare, but it happens for legacy or directly-created transactions; escalate to the dashboard or EPD support rather than finding another route. |
@@ -190,6 +208,7 @@ input:
   "data": [
     { "id": "9f8c2e11-4d6a-4b2f-8e10-7c5a3d0b9e42",
       "status": "succeeded", "total": 2999, "currency": "usd",
+      "subscription_id": "2c963f66-afa6-3fa8-5f64-57174562b3fc",
       "created_at": "2026-09-01T09:14:22Z" }
   ]
 }
@@ -200,7 +219,11 @@ order is still refundable, and I checked the `status` on the row that came
 back — a list filter can drop a value it does not recognise without erroring,
 so the filter is not proof of what it returned.
 
-That order is clean: $29.99, no prior refunds.
+That order is clean: $29.99, no prior refunds — and its `subscription_id` is
+the Pro subscription's. That check matters more than it looks: the composite
+refunds the customer's newest succeeded order whatever it belongs to, so had she
+bought something one-off since, it would have refunded that instead. If it had
+been anything else, I would cancel and refund separately.
 
 > I'm about to call **`refund_and_cancel`** on Alice Liddell's **$29.99/month
 > Pro** subscription (`2c963f66-afa6-3fa8-5f64-57174562b3fc`) in **LIVE** mode.
@@ -270,7 +293,8 @@ Want me to put that plan up now, or wait for the gateway?
   "cancel and refund" is not specific enough to approve.
 - **The amount was read before the confirmation**, because the composite does
   not take one and a confirmation you cannot fill from prior responses is not
-  ready to ask.
+  ready to ask — and the order was checked to be **this subscription's**,
+  because the composite refunds the customer's newest order, whatever it is.
 - **The list filter was verified**, not trusted.
 - **A partial failure was read rather than reported as a success.** The tool
   returned `success: false` inside an otherwise ordinary response.

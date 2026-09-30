@@ -48,8 +48,9 @@ Three tools of its own, and `list_orders`, a read it shares with
 and chargeback transactions are counted **nowhere** — nor is a refund still
 `pending`, although its order already reads `refunded`.
 
-Measured on the sandbox for July 2026: the account holds **546** transactions in
-that window and `transaction_count` reports **425**. The 121 difference:
+Measured on the sandbox for July 2026 — and re-measured unchanged, every figure
+in this guide, on 29 September: the account holds **546** transactions in that
+window and `transaction_count` reports **425**. The 121 difference:
 
 | | Count | Why it is not in `gross_cents` |
 |---|---|---|
@@ -129,10 +130,10 @@ silently returning zero. A range with no activity returns zeros with
 The tool paginates up to **10,000 transactions per side** (sales and refunds).
 Beyond that it sets `truncated: true` and the totals are incomplete.
 
-> Not reproducible in this sandbox: the widest range available returns 4,556
-> transactions with `truncated: false`, so the flag has been read from the
-> schema and the documented limit rather than observed. The handling is required
-> regardless.
+> Not reproducible in this sandbox: the widest range available — 2020 to 2027,
+> on 29 September 2026 — counts 4,961 succeeded sales and 231 refunds with
+> `truncated: false`, so the flag has been read from the schema and the
+> documented limit rather than observed. The handling is required regardless.
 
 ## When it fires
 

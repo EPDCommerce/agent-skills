@@ -32,7 +32,8 @@ why"* is actionable. *"`do_not_honor`"* is not.
 | **Ambiguous** | `do_not_honor`, `incorrect_cvv`, `processor_declined` | Needs a human. | At most one more attempt, later — except `incorrect_cvv`, which needs the card re-entered. |
 
 Those nine codes are the complete observed set across the sandbox account's
-**678** failed transactions, last measured 11 September 2026. The skill treats
+**678** failed transactions on 11 September 2026, and still the complete set
+across **760** on 29 September. The skill treats
 it as an observed set rather than a closed one: an unfamiliar code is reported
 as unrecognised, with the class it most resembles and the reasoning, and no
 retry decision is asserted from it.
@@ -40,8 +41,10 @@ retry decision is asserted from it.
 ### Four things it does that a bare code lookup does not
 
 **1. Branches on `status` before `failure_code`.** `failure_code` is null unless
-`status` is `"failed"`. The sandbox holds 148 chargebacks, 145 voided and 151
-pending transactions, none carrying a code. A chargeback is the one most often
+`status` is `"failed"` — on the transaction. The sandbox held 158 chargebacks,
+154 voided and 154 pending sales, and 19 pending refunds, on 29 September 2026,
+none carrying a code. The order is different: a cycle order in dunning can read
+`succeeded` and still carry the `failure_code` of its failed sales. A chargeback is the one most often
 misread: the money arrived and was then clawed back, so "retry it" is
 meaningless and the customer has already disputed. Different status, different
 problem, different team.
@@ -77,10 +80,11 @@ the transaction does not:
   `insufficient_funds` to `expired_card` tells a different story than three
   identical failures.
 
-**3. Names the right retry tool without calling it.** `retry_order` reconciles
-the subscription cycle so the dunning cron will not charge again;
-`retry_failed_charge` reconstructs the order from the transaction and can leave
-the scheduled retry armed. For a subscription cycle, `retry_order` is the safer
+**3. Names the right retry tool without calling it.** By its description,
+`retry_order` reconciles the subscription cycle so the dunning cron will not
+charge again; `retry_failed_charge` reconstructs the order from the transaction
+and makes no such claim, so it can leave the scheduled retry armed. Neither
+reconciliation has been observed — a renewal cannot be made to fail on demand. For a subscription cycle, `retry_order` is the safer
 tool, and that difference is the difference between one charge and two.
 
 **4. Distinguishes a pattern from an incident.** A configuration problem wearing
@@ -131,7 +135,8 @@ configuration problem on the merchant's side, an issuer decline is the
 customer's bank — and **on this account the data is not there to make it.**
 
 `processor_response` is present on every failed transaction. Measured across all
-678 in sandbox:
+678 in sandbox on 11 September 2026 — and the same across all 760 on 29
+September, with 28 rows carrying AVS and CVV results instead of 5:
 
 | Field | Populated |
 |---|---|
@@ -142,8 +147,9 @@ customer's bank — and **on this account the data is not there to make it.**
 | `response_code` | 0 / 678 |
 | `response_text` | 0 / 678 |
 
-`risk_trigger_code` and `risk_trigger_description` are null on all 678. The five
-with AVS and CVV results are the test-card declines, and both read `N`.
+`risk_trigger_code` and `risk_trigger_description` are null on every one. The
+rows with AVS and CVV results are all test-card declines (`processor_declined`),
+and every one reads `N` for both.
 
 So triage bottoms out at `failure_code` here. In live mode these fields are
 expected to carry the gateway's own response, and `avs_result` / `cvv_result`
@@ -245,8 +251,8 @@ input:
   "amount": 3999,
   "failure_code": "insufficient_funds",
   "failure_reason": "insufficient funds",
-  "card_brand": "visa",
-  "card_last_four": "1111",
+  "payment_method": { "type": "card", "card_brand": "visa",
+                      "card_last_four": "1111", "bin": "411111" },
   "order_id": "9f8c2e11-4d6a-4b2f-8e10-7c5a3d0b9e42"
 }
 ```
@@ -256,8 +262,8 @@ wrong. Alice is right that there is nothing wrong with her card — but "the car
 is fine" and "the charge will work now" are different claims, and the second one
 is what a retry is betting on.
 
-The transaction alone does not tell me whether a retry is already scheduled, so
-I need the order.
+The transaction alone does not tell me whether this is one charge or a renewal,
+so I need the order.
 
 ```
 tool: get_order
@@ -268,21 +274,27 @@ input:
 
 ```json
 {
-  "status": "failed",
+  "status": "succeeded",
   "total": 3999,
   "attempt_count": 2,
-  "next_retry_at": "2026-09-25T10:00:00.000Z",
+  "next_retry_at": null,
   "failure_code": "insufficient_funds",
   "subscription_id": "2c963f66-afa6-3fa8-5f64-57174562b3fc",
-  "subscription_cycle": 7
+  "subscription_cycle": 7,
+  "transactions": [
+    { "type": "sale", "status": "failed", "amount": 3999, "failure_code": "insufficient_funds" },
+    { "type": "sale", "status": "failed", "amount": 3999, "failure_code": "insufficient_funds" }
+  ]
 }
 ```
 
-**First, the order's own `status` is `failed` too.** That is worth checking
-rather than assuming: an order that failed once and succeeded on a retry reads
-`succeeded` with the failed transaction still sitting underneath it, and
-reporting that as a lost payment would be wrong in the customer's favour and
-wrong for you. Here it really did fail.
+**The order reads `succeeded`, and it has not been paid.** Both of its sales
+failed and it carries a failure code. Both cycle orders in dunning on the
+sandbox look exactly like this. "Charged" rests on a succeeded `sale`, and there
+is none here — which is why this skill never settles a payment from the order's
+status alone, in either direction. The other direction is real too: an order
+that failed once and succeeded on a retry reads `succeeded` with the failed row
+still underneath it.
 
 Then three things change the answer.
 
@@ -290,10 +302,29 @@ Then three things change the answer.
 this is cycle 7. That makes it a dunning failure, which is
 [`epd-subscriptions`](./epd-subscriptions.md)'s job, not a standalone retry.
 
-**A retry is already scheduled** for 25 September at 10:00 UTC. If I retried now
-and it succeeded, the scheduled attempt would still be armed unless the cycle
-gets reconciled — which is exactly the difference between `retry_order` and
-`retry_failed_charge`, and the reason the first is the right tool here.
+**Whether a retry is scheduled is on the subscription, not here.** The order's
+`next_retry_at` is `null` — on this account it is `null` on every order,
+scheduled or not — so it proves nothing. The subscription says:
+
+```
+tool: get_subscription
+input:
+  id: 2c963f66-afa6-3fa8-5f64-57174562b3fc
+```
+
+```json
+{
+  "id": "2c963f66-afa6-3fa8-5f64-57174562b3fc",
+  "status": "active",
+  "attempt_count": 2,
+  "next_retry_at": "2026-09-25T10:00:00.000Z"
+}
+```
+
+**A retry is already scheduled** for 25 September at 10:00 UTC. If anyone
+retried now and it succeeded, the scheduled attempt could still fire unless the
+cycle gets reconciled — which, by the tools' descriptions, `retry_order` does
+and `retry_failed_charge` does not.
 
 **This is the second attempt, not the first.** `attempt_count: 2` on
 `insufficient_funds` is still soft, but it is drifting: two failures for funds
@@ -304,10 +335,10 @@ which is two days of additional headroom on the account it is drawing from, and
 retrying `insufficient_funds` sixty seconds later fails for the same reason and
 burns an attempt.
 
-If you want it attempted sooner anyway, that goes through
-[`epd-subscriptions`](./epd-subscriptions.md) using `retry_order`, which
-reconciles the cycle so the scheduled attempt does not also fire. It is a T3
-call and it will quote you the $39.99 and her card's last four before running.
+If you want it attempted sooner anyway, that is
+[`epd-subscriptions`](./epd-subscriptions.md)' decision, not mine. It is a T3
+call, it will read the cycle first, and it will quote you the $39.99 and her
+card's last four before running.
 
 On the two chargebacks from March: those are not declines. That money arrived
 and was then clawed back, and a customer with prior chargebacks plus a
@@ -323,14 +354,18 @@ payments one. I have not looked into them — say the word and I will.
 - **A name was turned into an ID first.** "Alice Liddell" is not a handle, and
   the rows the diagnosis rests on are the ones that came back from a query —
   not ones summarised from memory.
-- **The order's status was checked, not inferred from the transaction's.** A
-  failed transaction can belong to a succeeded order; confirming it is what
-  separates "her payment is lost" from "it went through yesterday".
-- **The order was read**, and it changed the answer twice over — from one-off to
-  subscription, and from "retry" to "a retry is already scheduled".
+- **The order's status was checked against its sales, and the sales won.** The
+  order read `succeeded` with every sale failed. Status alone is wrong in both
+  directions: a failed transaction can also belong to an order that really was
+  paid on a retry.
+- **The order and then the subscription were read**, and they changed the answer
+  twice over — from one-off to subscription, and from "retry" to "a retry is
+  already scheduled". The schedule came from the subscription, because no order
+  carries it.
 - **The class was named with its reason.** "Soft — the card is fine, the moment
   was wrong" is what makes the recommendation legible to the support lead.
-- **Card data stopped at brand and last four.**
+- **Card data stopped at brand and last four** — the `bin` the transaction also
+  carries, the card's first six digits, was not repeated.
 - **The chargebacks were flagged and not diagnosed**, because they are a
   different problem and this skill says so rather than guessing.
 

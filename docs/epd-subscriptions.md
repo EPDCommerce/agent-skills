@@ -22,7 +22,10 @@ because it is where a helpful agent charges someone twice.
 [`epd-onboard-customer`](./epd-onboard-customer.md)'s `create_customer_and_subscribe`.
 
 **Changes one in flight** (`update_subscription`, T2). Payment method and
-shipping apply immediately, including to a queued retry. Billing terms —
+shipping apply immediately — including, by the tool's description, to a queued
+retry. That last part has not been observed on a renewal, and the one engine
+retry that could be watched charged the order's old card after the swap; the
+skill says to check which card a retry charged. Billing terms —
 `billing_cycle`, `billing_cycles`, `products` — apply from the **next** cycle.
 
 **Ends it** — `cancel_subscription` for a quiet cancel, or
@@ -150,8 +153,10 @@ After a dunning recovery — this is the checklist that matters most:
 
 ## A worked transcript
 
-Illustrative. Statuses, field names and the `retry_order` behaviour are as the
-skill documents them from sandbox; names, IDs and amounts are placeholders.
+Illustrative. Statuses and field names are as measured on the sandbox; names, IDs
+and amounts are placeholders. Two things here were not observed and come from
+the tools' own descriptions, because a renewal cannot be made to fail on demand:
+`retry_order` reconciling a cycle, and the schedule standing down after it.
 
 ---
 
@@ -207,7 +212,8 @@ input:
   "next_retry_at": "2026-09-24T02:00:00.000Z",
   "plan": { "name": "SMS Pack", "amount": 8900, "currency": "usd" },
   "payment_method": { "id": "8e107c5a-3d0b-4e42-9f8c-2e114d6a4b2f",
-                      "card": { "brand": "visa", "last4": "4242" } },
+                      "type": "card", "card_brand": "visa",
+                      "card_last_four": "4242", "bin": "424242" },
   "cycles": [
     { "cycle_number": 3, "status": "succeeded", "amount": 8900 },
     { "cycle_number": 4, "status": "failed", "amount": 8900,
@@ -237,7 +243,12 @@ input:
 
 The order's own `next_retry_at` is `null` — on this account no order carries
 the schedule. The retry for the 24th shows on the subscription above, and that is
-the date that matters. The other three were read the same way. Running all four codes through
+the date that matters. The order's `status` is not to be trusted alone either:
+both cycle orders in dunning on the sandbox read `succeeded` although every sale
+on them failed, while their cycle read `failed`. The cycle and the sale
+transactions decide it. The card on the subscription is flat — `card_brand` and
+`card_last_four`, plus `bin`, the first six digits, which is never repeated
+back. The other three were read the same way. Running all four codes through
 [`epd-transaction-triage`](./epd-transaction-triage.md):
 
 | Customer | Amount | Code | Class | `next_retry_at` |
@@ -278,9 +289,10 @@ anything, which would leave the scheduled attempt armed on top of mine.
 > I'm about to call **`retry_order`** on order
 > `1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d` — cycle 4 of **Carol Dodgson**'s SMS
 > Pack subscription — re-charging **$89.00 USD** to the **Visa ending 4242**
-> already on that order, in **LIVE** mode. It reconciles the cycle, so the
-> attempt scheduled for **24 Sep 02:00Z** will not also charge her. This moves
-> real money. Proceed?
+> already on that order, in **LIVE** mode. By its description it reconciles the
+> cycle, so the attempt scheduled for **24 Sep 02:00Z** should not also charge
+> her — I will read the subscription afterwards to confirm it stood down. This
+> moves real money. Proceed?
 
 **Billing manager:** Go.
 

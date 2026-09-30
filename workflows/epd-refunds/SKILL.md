@@ -51,7 +51,11 @@ input:
 - `amount` is in **cents**, not dollars. `1500` means $15.00.
 - Omit `amount` for a full refund of the order.
 - Partial refunds are allowed up to the original order amount minus any
-  prior partial refunds. Going over is rejected.
+  prior partial refunds. Going over is rejected. Measured on 29 September
+  2026: 50 of 150 left the order `partially_refunded`; 150 more returned
+  `validation_error`, "Refund amount (150 cents) exceeds maximum refundable
+  amount (100 cents)."; `100.5` returned `invalid_type`; the remaining 100 left
+  it `refunded`.
 - Idempotency is critical here — retrying without the same key risks a
   double refund.
 
@@ -104,8 +108,18 @@ Two-phase composite:
    that order first (`list_orders` below) so the confirmation can name the
    amount — the tool does not take one.
 
+**It is the customer's most recent order, not the subscription's.** Measured on
+29 September 2026: with a one-off order placed after the subscription's first
+charge, `refund_and_cancel` refunded the one-off and left the subscription's
+charge untouched. So read the customer's newest succeeded order and check its
+`subscription_id`. If it is not this subscription's charge, do not use the
+composite: cancel through `epd-subscriptions` and refund the right order with
+`refund_order`, each with its own confirmation.
+
 Cancellation runs first so billing stops even if the refund half hits an
-issue.
+issue. On success the response reads `status: "canceled_and_refunded"`, with
+`cancel_status` and `refund_status` both `"succeeded"`, `refunded_order_id`,
+`refunded_amount_cents`, and the refunded order under `refund` — measured.
 
 ### Partial-failure response shape
 
@@ -210,8 +224,9 @@ Refund-specific templates:
 
 > I'm about to call **`refund_and_cancel`** on subscription `<id>`. It
 > cancels Alice's $29.99/month Pro subscription immediately, then refunds her
-> most recent payment — **$29.99 USD** on order `<id>` — in **<mode>** mode.
-> She won't be billed again. This is irreversible. Proceed?
+> most recent payment — **$29.99 USD** on order `<id>`, which is this
+> subscription's charge — in **<mode>** mode. She won't be billed again. This
+> is irreversible. Proceed?
 
 After execution, surface the refund ID / order ID so the user can locate it
 in the dashboard.
@@ -228,7 +243,10 @@ the API has not made.
 Mechanics are in `epd-mcp-operator`'s idempotency section / `SAFETY.md` rule 3.
 One thing specific to this skill: `refund_and_cancel` caches the **whole
 chain's** result under one key — retrying a half-completed composite returns
-the partial-failure response, not a fresh execution.
+the partial-failure response, not a fresh execution. Measured on the success
+path on 29 September 2026: the same key returned the identical response, and a
+new key returned `invalid_state`, "Subscription is in "canceled" status and
+cannot be canceled.", refunding nothing.
 
 ## Common operator mistakes
 

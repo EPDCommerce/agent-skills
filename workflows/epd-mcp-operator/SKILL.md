@@ -81,7 +81,23 @@ the dashboard — `1F0OTRAM`, `sbx-0bvok6r5` — has **no lookup on this surface
 So when someone says "refund order A1B2C3D4", the handles that actually work are
 the order's UUID or the customer. Ask for one. Do not page `list_orders` hoping
 to recognise the string — on an account with thousands of orders that spends the
-rate limit for a maybe, and finding it that way is luck rather than method.
+rate limit for a maybe, and finding it that way is luck rather than method. And
+do not pass it as a filter: see the next section.
+
+### An argument the tool does not define is ignored, not refused
+
+The MCP tools do not reject arguments outside their schema — they drop them
+and run the call without them. Measured on 29 September 2026: `list_orders`
+given `order_number` or `q` returned the newest orders of **every** customer,
+with no error, the first row someone else's; given `coupon_code`, it returned
+orders with no coupon at all; `update_coupon` given `kind` succeeded and changed
+nothing.
+
+So a filter you invented returns the unfiltered list, and it looks exactly like
+a filtered one. Use only the parameters in the tool's schema, and check that the
+rows you get back match what you asked for before acting on any of them. The
+REST API is the opposite — it refuses an unknown query parameter with a `400` —
+so code ported between the surfaces behaves differently here.
 
 ### The word `charge` cannot route on its own
 

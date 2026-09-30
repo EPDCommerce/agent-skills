@@ -163,7 +163,7 @@ One remains open for `epd-mcp-operator`:
 | `create_coupon` | Coupons | idempotent | T2 write | optional | documented (epd-coupons) | `epd-coupons` | EXAMPLE |  |
 | `list_coupons` | Coupons | readOnly, idempotent | T0 read | — | documented (epd-coupons) | `epd-coupons` | REFERENCE |  |
 | `retrieve_coupon` | Coupons | readOnly, idempotent | T0 read | — | prose-only (epd-coupons) | `epd-coupons` | REFERENCE |  |
-| `update_coupon` | Coupons | idempotent | T2 write | optional | table-only (epd-coupons) | `epd-coupons` | EXAMPLE |  |
+| `update_coupon` | Coupons | idempotent | T2 write | optional | table-only (epd-coupons, epd-mcp-operator) | `epd-coupons` | EXAMPLE |  |
 | `archive_coupon` | Coupons | destructive, idempotent | T3 destructive | optional | table-only (epd-coupons) | `epd-coupons` | EXAMPLE | Archive vs delete distinction must be explicit — unarchive_coupon exists, so archive is reversible and should not be described as deletion. |
 | `unarchive_coupon` | Coupons | idempotent | T2 write | optional | table-only (epd-coupons) | `epd-coupons` | EXAMPLE |  |
 | `generate_coupon_codes` | Coupons | idempotent | T2 write | optional | table-only (epd-coupons) | `epd-coupons` | EXAMPLE |  |

@@ -3,7 +3,7 @@ name: epd-quickstart
 description: Use when a developer is integrating EPD Commerce for the first time and needs the minimal end-to-end path in code — getting a sandbox API key, creating a customer, attaching a payment method, creating a product, making the first test charge, and confirming a decline. Triggers when the user says "first time", "getting started", "set up EPD", "make my first charge", or asks for a quickstart / hello-world flow against EPD Commerce. Skip when the user is past first-charge and is asking general integration questions — load epd-best-practices for that. Skip when an MCP-connected agent is being asked to onboard a real customer on an account rather than to write code — load epd-mcp-operator, which routes to epd-onboard-customer.
 compatibility: Any backend with HTTP + JSON; curl examples shown but applicable to any language.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -146,7 +146,14 @@ curl -s https://api.epd.com/v1/orders \
 ```
 
 Expect HTTP `201` and `status: "succeeded"` in the response. The
-dashboard's Orders view will show this as a test charge.
+dashboard's Orders view will show this as a test charge. The `description`
+comes back `null` — the API accepts it and does not keep it (measured
+29 September 2026) — so it will not label the order anywhere.
+
+To check which cards a customer has — for instance before re-running step 4
+after a timeout — read the customer expanded:
+`GET /v1/customers/$CUSTOMER_ID?expand=payment_methods`. There is no `GET` on
+`/v1/customers/{id}/payment_methods`; that path is `POST` only.
 
 ## Step 7 — Confirm the decline path
 

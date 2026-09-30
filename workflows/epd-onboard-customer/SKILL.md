@@ -210,14 +210,30 @@ with `phone_already_exists`).
 ```
 tool: list_customers
 input:
-  email: alice@example.com      # exact match
+  email: alice@example.com      # exact match — case included
   limit: 10
 ```
 
-Other filters: `q` (full-text over name, email and company), `tags`,
-`created_after` / `created_before`, and `deleted: true` to include
-soft-deleted customers, which are otherwise left out. Page with
-`starting_after` set to the previous page's `cursors.next`.
+**Both the filter and the duplicate check are case-sensitive.** Measured on
+29 September 2026: `email` with different capitalisation found nothing, and
+`create_customer` with the upper-case form of an existing address **created a
+second customer**, storing the address as typed. So look up with `q` as well,
+which ignores case, before creating:
+
+```
+tool: list_customers
+input:
+  q: alice@example.com          # full-text, case-insensitive
+  limit: 10
+```
+
+A record whose email differs only in case is almost certainly the same person —
+confirm with the human rather than creating another.
+
+Other filters: `tags`, `created_after` / `created_before`, and `deleted: true`,
+which returns **only** soft-deleted customers — 8 on the sandbox, against 458
+without it, on 29 September 2026. Page with `starting_after` set to the previous
+page's `cursors.next`.
 
 ```
 tool: get_customer
@@ -316,7 +332,9 @@ input:
   afterwards — although the tool describes itself as a soft delete. Treat
   the delete as final either way.
 - Repeating the delete of a soft-deleted customer, even under a new key,
-  returns the same `{ "deleted": true }` payload.
+  returns the same `{ "deleted": true }` payload. Repeating it on one removed
+  outright returns `resource_not_found` — measured 29 September 2026. Either
+  way, a repeat means the first delete landed.
 
 T3: read the customer first and echo name, email and id before calling.
 
@@ -404,8 +422,10 @@ can find it in the dashboard.
    the MCP surface. For a headless flow, go through `secure.epd.com`
    instead — see "Getting a card on file".
 3. **Creating before looking.** A second `create_customer` for someone who
-   already exists fails on `email_already_exists` or `phone_already_exists`.
-   `list_customers` by `email` first, and update the record you find instead.
+   already exists fails on `email_already_exists` or `phone_already_exists` —
+   but only when the email matches exactly: a different case creates a
+   duplicate. `list_customers` by `email` and by `q` first, and update the
+   record you find instead.
 4. **Choosing the replacement card yourself.** When `delete_payment_method`
    needs a `replacement_payment_method`, that card becomes the customer's new
    default — the refusal message says so. It is the human's pick.

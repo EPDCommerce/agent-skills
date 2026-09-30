@@ -294,6 +294,12 @@ moves:
 coupon_code: "NOSUCH-CODE"  ->  code_not_found, "Coupon code does not exist."
 ```
 
+A real code that does not cover the items fails the same way —
+`product_not_eligible`, "Coupon is not eligible for any item in this order." —
+and is not placed at full price. A card that declines releases the redemption,
+so the customer can use the code again on another card. Both measured on
+29 September 2026.
+
 That is the safe behaviour, but it means a typo in a code looks like an ordering
 failure. Validate first with `validate_coupon` — it is T0, creates nothing, and
 tells you *why* a code will not work. See `epd-coupons`.

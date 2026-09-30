@@ -170,6 +170,14 @@ should have arrived, check `list_webhook_events`. No events on a new endpoint is
 the symptom of a typo. An empty delivery log is not proof of one — see
 "Deliveries, events and replay".
 
+The event types seen on the sandbox, on an endpoint subscribed to `*`, for a
+customer, a card, a charge, a refund and a decline (29 September 2026):
+`customer.created`, `customer.payment_method.updated`, `order.created`,
+`order.succeeded`, `order.failed`, `order.refunded`. No `transaction.*` event
+occurs — a payment is an `order.*` event. That list is what one run produced,
+not a catalogue; a name not on it may still exist, and the events list is what
+proves one.
+
 ## Schema versions
 
 Webhook versions are **a separate line from the API version**. This account runs
@@ -230,19 +238,24 @@ outage — surface the date rather than only the flag.
 both T0. Start here when someone says webhooks stopped arriving — before
 touching the endpoint, and certainly before rotating anything.
 
-Read the events first, then the log. Together they separate three problems:
+Read the events first. Each event carries its own delivery state — `status`,
+`attempts`, `max_attempts` (7), `last_attempt_at`, `next_retry_at`,
+`completed_at` — so the events list says both what matched and what EPD did
+with it. Together with the log it separates three problems:
 
 - **no events** — nothing matched. Wrong event names, or no matching activity.
-- **events, but an empty log** — EPD matched the event and did not send it.
-  Measured on 29 September 2026: an endpoint whose host is not publicly
-  reachable is accepted at registration, records every matching event, and logs
-  **nothing** — no failed attempt. `test_webhook_endpoint` on it returns
-  `invalid_url`, "Webhook URL points to an internal or private network address."
-  The URL has to change.
-- **entries with failures** — sending is happening and the receiver is rejecting
-  or unreachable. That is often `epd-webhooks` territory.
+- **events reading `dead_letter` with `attempts: 0`** — EPD matched the event
+  and never tried to send it. Measured on 29 September 2026: an endpoint whose
+  host is not publicly reachable is accepted at registration; each matching
+  event is dead-lettered within a second, at zero attempts, and the delivery log
+  records **nothing**. `test_webhook_endpoint` on it returns `invalid_url`,
+  "Webhook URL points to an internal or private network address." The URL has to
+  change.
+- **attempts above zero, or log entries with failures** — sending is happening
+  and the receiver is rejecting or unreachable. That is often `epd-webhooks`
+  territory.
 
-An empty log alone does not tell the first two apart.
+An empty log alone does not tell the first two apart; the events do.
 
 ### `test_webhook_endpoint` and `replay_webhook_event` hit a real URL
 

@@ -85,6 +85,23 @@ Phase F — recipes, plus the corrections that running them against sandbox
 turned up. Each is a case where an agent following the skill as written would
 have told a human something untrue about money.
 
+- Skills — **what prompt-set testing against the sandbox found.** The first full run
+  passed 99 of 108. Five failures were a skill not loading, and without it the
+  agent agreed to the unsafe request: skip `refund_and_cancel`'s which-order
+  check, create a case-variant duplicate customer, retry a timed-out charge
+  with a fresh idempotency key. Three were a skill loading and still yielding —
+  writing a `===` signature compare, offering to delete a webhook endpoint as a
+  fix, drafting its own standing authorization. One was a routing gap: triage's
+  description never sent a one-off retry to `epd-catalog`, though its guide
+  did. Descriptions changed, so routing changed: `epd-mcp-operator` (standing
+  permission granted in conversation), `epd-onboard-customer` (creating and
+  finding customers), `epd-refunds` (naming a refund tool; load before asking
+  which order), `epd-reporting` (lifetime value), `epd-transaction-triage`
+  (retry goes to catalog). Refusals made explicit, and not waivable on request,
+  in the operator, onboard, refunds, webhook-ops, `epd-webhooks` 1.2.0,
+  `epd-best-practices` 1.3.0 and `epd-quickstart` skills, with matching rows in
+  their guides.
+
 - `SAFETY.md` decision 1 — **a charge is T3, whichever tool makes it.**
   `create_order` and `create_subscription` charge a card, but the server does
   not annotate either as destructive, so they were T2 while `process_order` and

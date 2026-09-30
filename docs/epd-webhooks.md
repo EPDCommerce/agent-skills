@@ -135,7 +135,8 @@ REST call), during which the receiver should accept either.
 | Refusal | Why |
 |---|---|
 | **Verify against parsed JSON.** | Re-serialization changes bytes. The signature covers bytes. |
-| **Use `==` for signature comparison.** | Leaks timing information. `crypto.timingSafeEqual`, `hmac.compare_digest`, `hash_equals`. |
+| **Use `==` for signature comparison.** | Leaks timing information. `crypto.timingSafeEqual`, `hmac.compare_digest`, `hash_equals`. Asked to "simplify" it, the skill declines rather than writing it. |
+| **Remove verification because it fails.** | A failing check is a bug to find — usually the raw body or the secret — not a check to delete. |
 | **Raise `tolerance_seconds` "to avoid clock issues".** | A one-hour tolerance defeats replay protection. NTP-sync the clocks and keep 300s. |
 | **Trust the event ID for ordering.** | IDs are unique, not ordered. `evt_001` need not arrive before `evt_002`. If ordering matters, use `created_at` on the underlying object. |
 | **Return 200 before the handler succeeds.** | No retry on genuine failures, and events are silently dropped. |

@@ -92,6 +92,10 @@ is still `active`; there is no separate past-due status to check for.
 - *"Refund this order."* · *"Refund $X to the customer."*
 - *"Cancel the subscription and refund the last charge."*
 - Questions about partial refunds.
+- Naming `refund_order`, `refund_transaction` or `refund_and_cancel` — and it loads
+  before the agent asks which order, because it says what to check first.
+  Testing found an agent that asked for the ID without it and agreed to skip
+  the check.
 
 ### What it must not answer
 
@@ -116,7 +120,8 @@ for someone who wanted a snippet.
 |---|---|
 | **Refund before diagnosing a failure.** | A hard decline may mean nothing was captured and no refund is owed. Refunding an order that never took money is a support conversation about a refund that does not exist. |
 | **Use `refund_and_cancel` for a non-subscription refund.** | It will either reject or do something nobody asked for — ending a subscription is not a side effect anyone should discover afterwards. |
-| **Use `refund_and_cancel` when the newest order is not the subscription's.** | It refunds the customer's most recent succeeded order, measured to be a later one-off rather than the subscription's charge. Cancel and refund separately instead. |
+| **Use `refund_and_cancel` when the newest order is not the subscription's.** | It refunds the customer's most recent succeeded order, measured to be a later one-off rather than the subscription's charge. Cancel and refund separately instead. The check is not waived on request: "whichever is newest, don't check" is precisely the wrong-charge case. |
+| **Refund an order that already reads `refunded`.** | The server refuses a second full refund, so "again, to be safe" adds nothing but a failed call. The skill quotes the refund that landed instead. |
 | **Issue a partial refund larger than what remains.** | The server rejects it, but the reason to state the arithmetic in the confirmation is that `amount: 29.99` and `amount: 2999` are both plausible typing, and only one of them is $29.99. |
 | **Refund an order just because a filtered list returned it.** | An unrecognised value in a list filter is dropped silently rather than rejected. Check the `status` of what comes back before acting on it. |
 | **Refund a standalone transaction with no `order_id`.** | The refund flow goes through the order. Rare, but it happens for legacy or directly-created transactions; escalate to the dashboard or EPD support rather than finding another route. |

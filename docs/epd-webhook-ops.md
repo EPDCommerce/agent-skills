@@ -175,7 +175,7 @@ with its rollback, is the
 | **Retry a version change, a test, or a replay on timeout.** | None of them carries an `idempotency_key`. Eleven of the sixteen tools in this group have no such parameter — the seven reads, plus `test_webhook_endpoint`, `replay_webhook_event`, `upgrade_webhook_version` and `downgrade_webhook_version`. Read the endpoint or the delivery log instead. |
 | **Fire `test_webhook_endpoint` or `replay_webhook_event` at an unconfirmed URL.** | Both are `openWorldHint` and send real HTTP from EPD's infrastructure to a third party. A repeat is a genuine second delivery, and the receiver's own idempotency is the merchant's code, which is not visible from here — replaying an event a consumer already processed can double-apply whatever it does. |
 | **Trust an event name.** | Nothing validates them. Confirm, then verify with `list_webhook_events` — the delivery log can be empty for another reason. |
-| **Delete an endpoint to fix delivery failures.** | `delete_webhook_endpoint` is T3 and loses the delivery history that would have explained the problem. There is no reversible alternative today: `disabled: true` is accepted and ignored. |
+| **Delete an endpoint to fix delivery failures.** | `delete_webhook_endpoint` is T3 and loses the delivery history that would have explained the problem. There is no reversible alternative today: `disabled: true` is accepted and ignored. A recreated endpoint fails the same way; a wrong URL or event name is fixed in place with `update_webhook_endpoint`, which keeps the history. |
 | **Report an endpoint as paused.** | Nothing on this surface pauses one. Saying it did leaves a human believing deliveries stopped while the receiver keeps getting them. |
 
 ## What to check afterwards

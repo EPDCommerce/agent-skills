@@ -291,6 +291,11 @@ event was redelivered.
 - **Trust an event name.** Nothing validates them; confirm and verify with the
   delivery log.
 - **Delete an endpoint to fix delivery failures.** `delete_webhook_endpoint` is
-  T3 and loses the delivery history that would have explained the problem.
+  T3 and loses the delivery history that would have explained the problem. It
+  fixes nothing a new endpoint would not break the same way: a wrong URL or
+  event name is changed in place with `update_webhook_endpoint`, which keeps the
+  history. "Delete it and make a fresh one" is declined as a fix and answered
+  with the diagnosis; deletion is for an endpoint the human wants gone, asked
+  for as that.
 - **Report an endpoint as paused.** `disabled: true` is accepted and ignored;
   read `status` back, and say so.

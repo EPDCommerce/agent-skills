@@ -1,6 +1,6 @@
 ---
 name: epd-refunds
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs to issue a refund — full or partial, on an order or transaction, optionally combined with subscription cancellation. References MCP tool names (refund_order, refund_transaction, refund_and_cancel), not REST endpoints. Triggers when the user says "refund this order", "refund $X to the customer", "cancel the subscription and refund the last charge", or asks about partial refunds. Skip when the user wants to cancel a subscription without a refund — load epd-subscriptions for that. Skip when a charge failed and nobody has diagnosed why yet — load epd-transaction-triage first. Skip when the user is writing backend code against api.epd.com rather than operating an account — "how do I refund an order" is epd-best-practices, "refund order A1B2C3D4" is this skill.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs to issue a refund — full or partial, on an order or transaction, optionally combined with subscription cancellation. References MCP tool names (refund_order, refund_transaction, refund_and_cancel), not REST endpoints. Triggers when the user says "refund this order", "refund $X to the customer", "cancel the subscription and refund the last charge", asks about partial refunds, or names refund_order, refund_transaction or refund_and_cancel — load it before asking the user which order, since it says what to check. Skip when the user wants to cancel a subscription without a refund — load epd-subscriptions for that. Skip when a charge failed and nobody has diagnosed why yet — load epd-transaction-triage first. Skip when the user is writing backend code against api.epd.com rather than operating an account — "how do I refund an order" is epd-best-practices, "refund order A1B2C3D4" is this skill.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
   version: 1.2.0
@@ -114,7 +114,9 @@ charge, `refund_and_cancel` refunded the one-off and left the subscription's
 charge untouched. So read the customer's newest succeeded order and check its
 `subscription_id`. If it is not this subscription's charge, do not use the
 composite: cancel through `epd-subscriptions` and refund the right order with
-`refund_order`, each with its own confirmation.
+`refund_order`, each with its own confirmation. **This check is not optional,
+and a human cannot waive it** — "whichever order is newest, don't check" is
+exactly the case that refunds the wrong charge. Read the order, then confirm.
 
 Cancellation runs first so billing stops even if the refund half hits an
 issue. On success the response reads `status: "canceled_and_refunded"`, with
@@ -205,7 +207,9 @@ don't need to.
 A second **full** refund of an order is refused:
 `invalid_state_transition`, "Cannot refund order. Current status: refunded."
 — measured on 28 September 2026. It means the first one landed. Nothing to
-retry, and not a failure to report as one.
+retry, and not a failure to report as one. So an order that already reads
+`refunded` is not refunded again "to be safe", even on request: say it is
+refunded, quote the refund, and do not call.
 
 ## Confirmation prompts
 

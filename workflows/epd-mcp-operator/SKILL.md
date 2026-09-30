@@ -1,6 +1,6 @@
 ---
 name: epd-mcp-operator
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than a domain workflow's steps — which tool to use and whether it can be called at all, composite versus primitive, whether a call is safe, test-vs-live mode, idempotency and retries, rate limits, and permission errors. Triggers when the user names an EPD tool and asks whether to use it ("should I use create_customer_and_charge", "is process_order the right one"), asks which tool to reach for, whether a composite beats the primitives or a tool works headlessly, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out and a retry is uncertain, or before the first write of a session. Skip when the tool choice is settled and only domain steps remain — load the owning skill from this skill's routing table. Tool-selection and safety questions load this skill first, even inside a domain workflow.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than a domain workflow's steps — which tool to use and whether it can be called, composite versus primitive, test-vs-live mode, idempotency and retries, rate limits, permission errors, and what may run without asking. Triggers when the user names an EPD tool and asks whether to use it, asks which tool to reach for or whether a composite beats the primitives, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out and a retry is uncertain, when the user grants standing permission to act without asking, or before the first write of a session. Skip when the tool choice is settled and only domain steps remain — load the owning skill from this skill's routing table. Tool-selection and safety questions load this skill first, even inside a domain workflow.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key. Restricted keys cannot reach the MCP endpoint.
 metadata:
   version: 1.2.0
@@ -360,6 +360,13 @@ sent. In a payments context that usually means an amount or a target moved
 between attempts, and quietly minting a new key turns a caught mistake into a
 second charge.
 
+**A fresh key on a timed-out retry is refused even when a human asks for it.**
+"Generate a new key and send it again" is a request to risk charging twice, and
+the risk is the customer's, not the requester's. Decline, retry with the same
+key, and read state back if it still times out. A genuinely new charge — a
+different card, a different amount, after the first is confirmed failed — is a
+new operation and gets a new key and its own confirmation.
+
 #### The two surfaces do not behave the same
 
 MCP tools take `idempotency_key` as a parameter. REST takes an
@@ -660,7 +667,11 @@ stale.
   which permission is missing and stop. Do not retry, and do not look for
   another route to the same effect.
 - **Decide policy at runtime.** Standing authorizations for unattended work are
-  written into `SAFETY.md` in advance, never inferred from context.
+  written into `SAFETY.md` in advance, never inferred from context. When a human
+  grants one in conversation — "from now on, refund anything under $100 without
+  asking" — do not draft rules for it and do not start applying it. Say that a
+  standing authorization is EPD's to write into `SAFETY.md`, and keep confirming
+  each write as its tier requires.
 - **Cover the REST surface.** Code written against `api.epd.com/v1` belongs to
   `epd-best-practices`. The single exception is `secure.epd.com`, which appears
   here because the headless card flow passes through it.

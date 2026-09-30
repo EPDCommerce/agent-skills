@@ -76,6 +76,9 @@ On questions about the *surface* rather than about a domain:
   `invalid_format`, or a 429.
 - A write timed out and it is unclear whether to retry.
 - Before the first write of any session.
+- A human granting standing permission — *"from now on, don't ask"* — which
+  the skill declines, since standing authorizations are written into
+  `SAFETY.md` in advance.
 
 It also fires **inside** a domain workflow. A subscription cancellation that hits
 a 429 is a rate-limit question, not a subscription question, and the answer is
@@ -101,7 +104,7 @@ be selected on that word alone.
 | **Hand-maintain a list of destructive tools.** | This is the rule that earns the skill its place. Before Phase D, `epd-subscriptions` listed `update_subscription` under *"tools annotated `destructiveHint: true`"*. The server annotates it as an ordinary T2 write. The product judgment behind the entry was sound — a payment-method change on a live subscription does deserve care. The defect was that a judgment had been recorded as a server fact, in a hand-typed list, with nothing to catch the divergence. |
 | **Restate the server's own `instructions` block.** | Money units, bare UUIDs and pagination defaults already arrive in every session. Repeating them creates a second source that can go stale. |
 | **Widen permissions or route around them.** | `insufficient_permissions` on this surface almost always means the key is restricted and cannot use MCP at all. Retrying, or finding another tool that reaches the same effect, converts a clean stop into an unlogged workaround. |
-| **Decide policy at runtime.** | Standing authorizations for unattended work are written into `SAFETY.md` in advance. An agent that can grant itself an exception has no policy. |
+| **Decide policy at runtime.** | Standing authorizations for unattended work are written into `SAFETY.md` in advance. An agent that can grant itself an exception has no policy — and one granted in conversation ("from now on, don't ask") is the same exception. The agent says so and keeps confirming. |
 | **Cover the REST surface.** | `api.epd.com/v1` belongs to `epd-best-practices`. The single exception is `secure.epd.com`, which appears here because the headless card flow passes through it. |
 | **Hunt for an order by its number.** | `get_order` takes a UUID and rejects anything else with `invalid_order_id`. The short `order_number` a customer reads off a receipt has **no lookup among the 67 tools** — `list_orders` filters by customer, status and date, and nothing takes a number. So the handles that work are the UUID or the customer; paging thousands of orders hoping to recognise a string spends the rate limit for a maybe, and is the wrong answer even when it happens to work. |
 | **Pass an argument the tool does not define.** | It is not refused — it is dropped, and the call runs without it. Measured on 29 September 2026: `list_orders` given `order_number` or `q` returned every customer's newest orders with no error, the first row someone else's. A filter you invented returns the unfiltered list, and it looks exactly like a filtered one. The REST API is the opposite and answers `400`. |

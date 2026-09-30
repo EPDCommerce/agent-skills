@@ -32,7 +32,11 @@ load `epd-best-practices` for everything else.
    EPD_API_KEY=epd_test_sk_...
    ```
 
-3. Confirm `.env` is in `.gitignore`.
+3. Confirm `.env` is in `.gitignore`. Never commit the key — a sandbox key
+   included, and even when asked to "so the team has it". An `epd_test_sk_`
+   key has full read and write on the sandbox account and stays in git history
+   after it is deleted. Decline, and offer a `.env.example` with a placeholder
+   and one sandbox key per developer instead.
 
 ## Step 2 — Verify the key
 

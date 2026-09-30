@@ -139,7 +139,7 @@ Beyond that it sets `truncated: true` and the totals are incomplete.
 
 - *"How much revenue did we take over this period?"* · *"How much did we bill in
   July?"*
-- *"What has this customer paid us?"*
+- *"What has this customer paid us?"* · a customer's lifetime value.
 - Gross versus net, refund totals.
 - Reconciling or closing a month.
 - *"Why doesn't this total match the transaction list?"*

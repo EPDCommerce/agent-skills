@@ -226,6 +226,8 @@ not been run says so.
 - One logical change per PR. Skill content + tooling changes go in
   separate PRs.
 - Update `CHANGELOG.md` under `## [Unreleased]`.
+- Changing a skill's `description` or what it refuses changes routing. Check
+  against the sandbox that it still fires, and still refuses, where it should.
 - The CI gate runs on every PR; please verify it's green before requesting
   review.
 

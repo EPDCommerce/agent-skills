@@ -3,7 +3,7 @@ name: epd-best-practices
 description: Use when integrating EPD Commerce (EasyPayDirect) into a codebase via the v1 REST API. Triggers when imports use api.epd.com, when env vars EPD_API_KEY / EPD_WEBHOOK_SECRET appear, when file content matches a key prefix (epd_live_sk_, epd_test_sk_, epd_restricted_sk_live_, epd_restricted_sk_test_), or when the user mentions EPD Commerce / EasyPayDirect and asks how to charge a card / start a subscription / refund an order. Skip when the user is operating an EPD Commerce account via an MCP-connected agent — load epd-mcp-operator, which routes to the domain workflow skill. Skip when this is a first integration with nothing built yet — load epd-quickstart. Skip when the task is writing or debugging a webhook receiver — load epd-webhooks.
 compatibility: Requires an HTTP client + JSON parser in any backend language. Server-side only — secret keys must never reach a browser.
 metadata:
-  version: 1.2.0
+  version: 1.3.0
   api_version: "2026-02-11"
 ---
 
@@ -76,7 +76,9 @@ alternative for headless integrations, are in `references/security.md`.
 
 Rules:
 
-- Secret keys server-side only. Never commit, never log, never ship to a browser.
+- Secret keys server-side only. Never commit, never log, never ship to a browser
+  — test keys included, and not on request either: decline and put the key in
+  the environment or a secret store.
 - Rotate by issuing the new key, deploying it, then revoking the old one. Never
   the other way around.
 - Missing or malformed `Authorization` header returns **401** with error code
@@ -99,7 +101,10 @@ Rules — get these wrong and you double-charge customers:
    anything else is `400 invalid_idempotency_key`. UUID v4 is the recommended
    default.
 3. On network failure or 5xx, retry with the **same** key. That is what stops a
-   retry from charging twice — never mint a new key for a retry.
+   retry from charging twice — never mint a new key for a retry. Asked to write
+   retry logic that does ("generate a fresh key when it times out"), decline
+   and write the same-key version instead: a timeout does not mean the charge
+   failed.
 4. Reusing a key with a **different request body** returns **HTTP 409** with
    error code `idempotency_key_conflict`. Something changed between attempts —
    find out what before sending anything else.

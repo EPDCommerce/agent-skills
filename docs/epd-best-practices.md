@@ -137,6 +137,7 @@ the skill says to trust itself over the spec on that one point.
 | **Pick a tokenization strategy for you.** | EPD Elements (browser capture, publishable key), `secure.epd.com` (server-to-server, secret key) and the legacy Collect.js vault are all live options. Which fits is a product decision with PCI-scope consequences; the skill explains each and stops. |
 | **Generate webhook signature verification.** | That is [`epd-webhooks`](./epd-webhooks.md), which ships tested verifier scripts in three languages. Generating a fourth by hand is how a truthiness bug gets written. |
 | **Operate against a live account.** | Code generation and account operation are separate surfaces with separate safety models. |
+| **Retry a timed-out charge with a new idempotency key**, even on request. | A timeout does not mean the charge failed. The same key is what lets EPD answer the retry with the first result instead of charging again. |
 | **Pre-load the OpenAPI spec.** | 220 KB of context for a question a 3 KB targeted fetch answers. |
 | **Fetch the spec for what it already encodes.** | Auth, idempotency, the error envelope, pagination, filtering, money rules and the four deep-covered domains. The spec's backward-compat aliases conflict with the current guidance. |
 

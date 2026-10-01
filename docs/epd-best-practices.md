@@ -1,7 +1,7 @@
 ---
 skill: epd-best-practices
 surface: integration
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -57,8 +57,10 @@ logical operation. Semantic strings like `"order-123"` collide.
 The skill records a divergence worth knowing: the API reference promises that a
 repeat within 24 hours returns the original response, and in sandbox it did
 not — a same-key, same-body repeat got `request_in_progress` 1.5 seconds later
-on 18 September 2026, and still at +90 seconds in August. So code that waits for
-the replay waits forever.
+on 18 September 2026, and still at +90 seconds in August. On 29 September it was
+the same at once and at +3 seconds, while a changed body got
+`idempotency_key_conflict` and a five-character key `400 invalid_idempotency_key`.
+So code that waits for the replay waits forever.
 
 > The MCP surface *does* replay a repeated key correctly. That asymmetry is
 > documented in [`epd-mcp-operator`](./epd-mcp-operator.md) rather than here,
@@ -78,7 +80,10 @@ both in one request, no `?page=`. Default limit 10, max 100.
 Two behaviours that pull in opposite directions and are worth holding together:
 
 - **Unknown query *parameters* return 400.** The list endpoints use a strict
-  schema; you cannot sneak `page=2` past the validator.
+  schema; you cannot sneak `page=2` past the validator — measured again on
+  29 September 2026, along with `amount_gte` refused and `amount[gte]` honoured.
+  The MCP tools are the opposite, and drop an unknown argument silently; see
+  [`epd-mcp-operator`](./epd-mcp-operator.md).
 - **Unknown filter *values* do not.** A `status` the endpoint does not recognise
   is dropped silently. `GET /v1/subscriptions?status=past_due` returned all 130
   sandbox subscriptions on 18 September 2026 — active, canceled, paused and
@@ -132,6 +137,7 @@ the skill says to trust itself over the spec on that one point.
 | **Pick a tokenization strategy for you.** | EPD Elements (browser capture, publishable key), `secure.epd.com` (server-to-server, secret key) and the legacy Collect.js vault are all live options. Which fits is a product decision with PCI-scope consequences; the skill explains each and stops. |
 | **Generate webhook signature verification.** | That is [`epd-webhooks`](./epd-webhooks.md), which ships tested verifier scripts in three languages. Generating a fourth by hand is how a truthiness bug gets written. |
 | **Operate against a live account.** | Code generation and account operation are separate surfaces with separate safety models. |
+| **Retry a timed-out charge with a new idempotency key**, even on request. | A timeout does not mean the charge failed. The same key is what lets EPD answer the retry with the first result instead of charging again. |
 | **Pre-load the OpenAPI spec.** | 220 KB of context for a question a 3 KB targeted fetch answers. |
 | **Fetch the spec for what it already encodes.** | Auth, idempotency, the error envelope, pagination, filtering, money rules and the four deep-covered domains. The spec's backward-compat aliases conflict with the current guidance. |
 

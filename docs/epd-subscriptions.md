@@ -1,7 +1,7 @@
 ---
 skill: epd-subscriptions
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -22,26 +22,44 @@ because it is where a helpful agent charges someone twice.
 [`epd-onboard-customer`](./epd-onboard-customer.md)'s `create_customer_and_subscribe`.
 
 **Changes one in flight** (`update_subscription`, T2). Payment method and
-shipping apply immediately, including to a queued retry. Billing terms —
+shipping apply immediately — including, by the tool's description, to a queued
+retry. That last part has not been observed on a renewal, and the one engine
+retry that could be watched charged the order's old card after the swap; the
+skill says to check which card a retry charged. Billing terms —
 `billing_cycle`, `billing_cycles`, `products` — apply from the **next** cycle.
 
 **Ends it** — `cancel_subscription` for a quiet cancel, or
 `cancel_subscription_and_report` when someone wants the "so what did this
 subscription do?" rollup (`cycles_completed`, `total_billed_cents`, the original
-status). Both are T3 and both need the subscription `active` or `paused`.
+status). Both are T3 and both need the subscription `active` or `paused`;
+`cancel_subscription` also accepts a `failed` one.
 
 **Recovers a failed renewal** through the dunning loop — find it, classify the
 decline, then decide whether anything should happen before the scheduled
 attempt.
 
-### Four facts about statuses that change how you query
+### Five facts about statuses that change how you query
 
 Across all 130 sandbox subscriptions (18 September 2026), only four statuses
 occur: `active`, `paused`, `canceled`, `completed`.
 
+**A failed *first* charge is `failed`, and it is final.** `create_subscription`
+does not error when its first charge declines. Measured on 28 September 2026, it
+returns a subscription with `status: "failed"`, no cycles and no retry
+scheduled. The engine tries the same card once more by itself within about a
+minute — the charge attempt the first run saw after a card swap, and could not
+explain — and after that nothing charges it. It has never billed, and it will
+not. Wait out that minute before starting a replacement: on a real card the
+automatic attempt could succeed. Updating its card,
+`retry_order` and `retry_failed_charge` all failed to revive it; the last
+charged the customer on an order detached from the subscription. The skill's
+route is a new subscription on the new card, then a cancel of the failed one,
+in that order. The full chain is path D of the
+[failed payment recovery recipe](../recipes/failed-payment-recovery.md).
+
 **A failed renewal stays `active`.** The tool schemas name `past_due` as a
 filter value and the REST reference names `past_due` and `failed`. Neither
-occurred. A subscription in dunning carries `attempt_count` (failures so far)
+occurred on a renewal. A subscription in dunning carries `attempt_count` (failures so far)
 and `next_retry_at` (when the engine tries again), and **those two fields are
 how you detect dunning** — never the status.
 
@@ -92,6 +110,8 @@ Both skills now state the boundary in the same terms.
 | **Invent a `cancellation_reason`.** | It is matched case-insensitively against the account's catalog. An unknown value returns `invalid_value` and the subscription is **not** cancelled — so a guess does not merely add noise, it blocks the cancel. Free text goes in `cancellation_notes`, which is kept either way. |
 | **Update a cancelled subscription.** | The server returns `subscription_not_modifiable`. Create a new one on the same customer, or say the action is not possible. |
 | **Trust `status: past_due`.** | Returns everything. So does `list_past_due_subscriptions`. |
+| **Recover a failure twice.** | `retry_failed_charge` leaves the failed order reading `failed`, stores no link to the order that replaced it, and — measured — charged the customer again when called a second time on the same transaction under a new key. The skill checks for a later succeeded order first and records the mapping after. |
+| **Report a `failed` subscription as started.** | The call that created it returned no error. The customer believes they are subscribed, and after one automatic attempt on the same card within a minute, nothing will bill them. |
 | **Cite `update_subscription` as destructive.** | It is a T2 write and the server does not annotate it otherwise. Confirming it anyway before a payment-method swap on a live subscription is good practice — but the skill requires that to be stated as an operator judgment, not as a fact about the server. |
 
 ## What to check afterwards
@@ -107,23 +127,36 @@ After a cancel:
       no-op even without a key. In sandbox it returned `invalid_state`. Check
       status before calling.
 
+After starting a subscription:
+
+- [ ] **`status` was read on the response.** `failed` means the first charge
+      declined, and it is not an error.
+- [ ] **Cycle 1's order `total` matches the confirmation.** If not, and nothing
+      known explains it, the skill stops and escalates rather than starting
+      more on that plan.
+
 After a dunning recovery — this is the checklist that matters most:
 
 - [ ] **Read the subscription back with `expand: cycles`** and check the failed
       cycle's `status`.
-- [ ] **Check `next_retry_at` on the original cycle's order.** If it is still
-      set after a manual retry, a second attempt is scheduled and the human
-      needs to be told, not reassured.
+- [ ] **Check `next_retry_at` on the subscription.** If it is still set after a
+      manual retry, a second attempt is scheduled and the human needs to be
+      told, not reassured. The cycle order's field of the same name read `null`
+      on every order on the sandbox, scheduled or not, so it proves nothing.
 - [ ] **The cycle was reconciled**, which `retry_order` does and
       `retry_failed_charge` does not claim to.
+- [ ] **If `retry_failed_charge` ran, the failed-to-new order mapping is in the
+      report.** Nothing on either order records it.
 - [ ] **Every case reached an end state** — recovered, or cancelled by
       decision. Leaving one in the retry loop is the outcome that looks like
       success in a transcript and is not.
 
 ## A worked transcript
 
-Illustrative. Statuses, field names and the `retry_order` behaviour are as the
-skill documents them from sandbox; names, IDs and amounts are placeholders.
+Illustrative. Statuses and field names are as measured on the sandbox; names, IDs
+and amounts are placeholders. Two things here were not observed and come from
+the tools' own descriptions, because a renewal cannot be made to fail on demand:
+`retry_order` reconciling a cycle, and the schedule standing down after it.
 
 ---
 
@@ -175,9 +208,12 @@ input:
 {
   "id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
   "status": "active",
+  "attempt_count": 1,
+  "next_retry_at": "2026-09-24T02:00:00.000Z",
   "plan": { "name": "SMS Pack", "amount": 8900, "currency": "usd" },
   "payment_method": { "id": "8e107c5a-3d0b-4e42-9f8c-2e114d6a4b2f",
-                      "card": { "brand": "visa", "last4": "4242" } },
+                      "type": "card", "card_brand": "visa",
+                      "card_last_four": "4242", "bin": "424242" },
   "cycles": [
     { "cycle_number": 3, "status": "succeeded", "amount": 8900 },
     { "cycle_number": 4, "status": "failed", "amount": 8900,
@@ -199,13 +235,20 @@ input:
   "status": "failed", "total": 8900,
   "failure_code": "issuer_unavailable",
   "attempt_count": 1,
-  "next_retry_at": "2026-09-24T02:00:00.000Z",
+  "next_retry_at": null,
   "subscription_id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
   "subscription_cycle": 4
 }
 ```
 
-The other three were read the same way. Running all four codes through
+The order's own `next_retry_at` is `null` — on this account no order carries
+the schedule. The retry for the 24th shows on the subscription above, and that is
+the date that matters. The order's `status` is not to be trusted alone either:
+both cycle orders in dunning on the sandbox read `succeeded` although every sale
+on them failed, while their cycle read `failed`. The cycle and the sale
+transactions decide it. The card on the subscription is flat — `card_brand` and
+`card_last_four`, plus `bin`, the first six digits, which is never repeated
+back. The other three were read the same way. Running all four codes through
 [`epd-transaction-triage`](./epd-transaction-triage.md):
 
 | Customer | Amount | Code | Class | `next_retry_at` |
@@ -246,9 +289,10 @@ anything, which would leave the scheduled attempt armed on top of mine.
 > I'm about to call **`retry_order`** on order
 > `1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d` — cycle 4 of **Carol Dodgson**'s SMS
 > Pack subscription — re-charging **$89.00 USD** to the **Visa ending 4242**
-> already on that order, in **LIVE** mode. It reconciles the cycle, so the
-> attempt scheduled for **24 Sep 02:00Z** will not also charge her. This moves
-> real money. Proceed?
+> already on that order, in **LIVE** mode. By its description it reconciles the
+> cycle, so the attempt scheduled for **24 Sep 02:00Z** should not also charge
+> her — I will read the subscription afterwards to confirm it stood down. This
+> moves real money. Proceed?
 
 **Billing manager:** Go.
 
@@ -264,35 +308,39 @@ input:
   "total": 8900, "attempt_count": 2 }
 ```
 
-Succeeded. Confirming rather than assuming:
+Succeeded. Confirming rather than assuming — on the subscription, because that
+is where the schedule lives:
 
 ```
-tool: get_order
+tool: get_subscription
 input:
-  id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+  id: 57174562-b3fc-2c96-3f66-afa63fa85f64
+  expand: cycles
 ```
 
 ```json
 {
-  "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
-  "status": "succeeded", "total": 8900,
-  "failure_code": null,
-  "attempt_count": 2,
+  "id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
+  "status": "active",
+  "attempt_count": 0,
   "next_retry_at": null,
-  "subscription_id": "57174562-b3fc-2c96-3f66-afa63fa85f64",
-  "subscription_cycle": 4
+  "cycles": [
+    { "cycle_number": 3, "status": "succeeded", "amount": 8900 },
+    { "cycle_number": 4, "status": "succeeded", "amount": 8900,
+      "order_id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d" }
+  ]
 }
 ```
 
-`next_retry_at` is `null` and the cycle 4 order reads `succeeded`, so the
-attempt scheduled for the 24th is stood down. **Carol is recovered and will not
-be charged twice.**
+Cycle 4 reads `succeeded` and the subscription's `next_retry_at` is `null`, so
+the attempt scheduled for the 24th is stood down. **Carol is recovered and will
+not be charged twice.**
 
 That last read is the one worth not skipping. `retry_order` returning
 `succeeded` says the charge went through; it does not say the cycle reconciled.
-`next_retry_at` going `null` is the field that does, and it is the difference
-between telling you she is recovered and telling you she is about to be charged
-again.
+The subscription's `next_retry_at` going `null` is the field that does — not
+the order's, which was `null` all along — and it is the difference between
+telling you she is recovered and telling you she is about to be charged again.
 
 Three still open: Alice on schedule for the 25th, Bob and Dan needing new cards.
 Nothing is left sitting in the retry loop without a decision attached.
@@ -315,9 +363,10 @@ Nothing is left sitting in the retry loop without a decision attached.
 - **The confirmation named the tool.** The paragraph above it argues
   `retry_order` over `retry_failed_charge`; a confirmation that says neither
   leaves the human approving the argument rather than the call.
-- **The result was verified by reading the order back**, including
+- **The result was verified by reading the subscription back**, including its
   `next_retry_at`, rather than trusting the `succeeded` response — which reports
-  the charge, not the reconciliation.
+  the charge, not the reconciliation. The order's field of the same name would
+  have said `null` whether or not a retry was still armed.
 
 ## Where it hands off
 

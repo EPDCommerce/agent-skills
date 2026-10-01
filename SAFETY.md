@@ -39,7 +39,7 @@ skill without any other edit.
 
 | # | Decision | Currently | Where |
 |---|---|---|---|
-| 1 | **Tool-level overrides.** Any tool EPD wants treated more strictly than its server annotation warrants. | **None.** Tiers follow the annotations exactly. | [The four tiers](#the-four-tiers) |
+| 1 | **Tool-level overrides.** Any tool EPD wants treated more strictly than its server annotation warrants. | **Two, proposed in Phase F:** `create_order` and `create_subscription` are T3. Both charge a card, and the server annotates neither as destructive, so the annotations alone made them T2. Every other tool follows its annotations. | [The four tiers](#the-four-tiers) |
 | 2 | **Sandbox writes.** Whether T1 proceeds without asking. | Proceeds, then echoes every object ID. | [T1](#t1--writes-in-test-mode) |
 | 3 | **Batching at T2.** Whether ten products may be approved in one yes. | No batching. One confirmation, one object — or an explicit batch approval that names all ten. | [T2](#t2--live-writes-that-do-not-destroy) |
 | 4 | **Standing authorizations.** Which tools may run unattended, under what ceiling, in which mode. | **None granted.** Every T2 and T3 refuses without a human. | [Standing authorizations](#standing-authorizations) |
@@ -53,6 +53,13 @@ wants any of it to run, the exception belongs in the table under
 [Standing authorizations](#standing-authorizations) — written in advance, naming
 specific tools, never decided by an agent at runtime.
 
+One measured fact bears on it. `retry_failed_charge`, the dunning example above,
+does not refuse a failure it has already recovered: called a second time on the
+same failed transaction under a new key, it charged the customer again, and the
+original order still reads `failed` afterwards. An authorization for it would
+need a condition that the failure has not already been paid for — the check is
+step 3 of the [failed payment recovery recipe](recipes/failed-payment-recovery.md).
+
 Two things this file cannot do, which should shape how it is reviewed:
 
 - **It is not enforcement.** Nothing here is executed by the server. See
@@ -62,16 +69,18 @@ Two things this file cannot do, which should shape how it is reviewed:
 
 For what each rule looks like in practice — including the confirmation prompts
 agents actually print — see the per-skill guides in
-[`docs/`](docs/README.md). If a guide and this file ever disagree, this file
-wins and the guide is a bug.
+[`docs/`](docs/README.md), and the end-to-end chains in
+[`recipes/`](recipes/README.md). If a guide or a recipe and this file ever
+disagree, this file wins and the other is a bug.
 
 ---
 
 ## The four tiers
 
 Tiers are not assigned by hand. Every EPD MCP tool declares four annotation
-hints, and the tier follows from them. The per-tool table is generated from the
-live tool list in
+hints, and the tier follows from them — except where
+[decision 1](#how-to-redline-this-file) holds a tool to a stricter tier. The
+per-tool table is generated from the live tool list in
 [`workflows/epd-mcp-operator/references/tiers.md`](workflows/epd-mcp-operator/references/tiers.md)
 and regenerates with `npm run gen:tiers`, so it cannot drift from the server.
 
@@ -79,8 +88,17 @@ and regenerates with `npm run gen:tiers`, so it cannot drift from the server.
 |---|---|---|
 | **T0** | `readOnlyHint` | 29 |
 | **T1** | any write while in test mode | mode-dependent |
-| **T2** | writes that change live state without destroying it | 18 + 2 external |
-| **T3** | `destructiveHint` | 18 |
+| **T2** | writes that change live state without destroying it | 16 + 2 external |
+| **T3** | `destructiveHint`, and the two charges decision 1 adds | 18 + 2 |
+
+**The two charges.** `create_order` charges a card at once, and
+`create_subscription` charges the first cycle at once. The server annotates
+neither as destructive, so by annotation alone they would be T2 — while
+`process_order` and `create_customer_and_charge`, which charge the same card
+the same way, are T3. A charge moves money whichever tool makes it, so both are
+T3. The list is kept in `scripts/tier-overrides.json`, which the tier table and
+the recipe validator both read, and a test fails if this section and that file
+ever name different tools.
 
 Mode is established with `ping`, which returns `environment` and `is_sandbox`;
 responses also carry `x-epd-environment` and `x-epd-test-mode`. T1 exists
@@ -154,8 +172,8 @@ across ten objects when the user approved one.
 
 ### T3 — destructive
 
-Refunds, voids, cancellations, deletes, secret rotation, coupon archival, and
-account version upgrades.
+Charges, refunds, voids, cancellations, deletes, secret rotation, coupon
+archival, and account version upgrades.
 
 **Requires:** everything in T2, plus the agent must echo the exact amount,
 currency, and object ID, and state the key mode aloud, before waiting for
@@ -176,11 +194,11 @@ webhook secret breaks every consumer that has not been updated.
 
 #### T3 divides by retry risk, and the schema says how
 
-The 18 destructive tools split cleanly, and the split is not arbitrary:
+The 20 T3 tools split cleanly, and the split is not arbitrary:
 
 | | Count | What they are |
 |---|---|---|
-| `idempotency_key` **required** | 8 | money movement — refunds, charges, orders, retries |
+| `idempotency_key` **required** | 10 | money movement — refunds, charges, orders, retries |
 | `idempotency_key` **optional** | 10 | deletes, cancels, archives, rotations |
 
 Deleting twice leaves the same state; charging twice does not. Both tiers still
@@ -190,7 +208,7 @@ require full T3 confirmation. They differ **after a timeout with no response**:
   deduplicate. This is the only safe retry, and it is what the key is for.
 - **State removal** — do not retry. Read current state back first, then decide.
 
-Treating all 18 identically is the obvious mistake, and it is wrong in both
+Treating all 20 identically is the obvious mistake, and it is wrong in both
 directions: it makes safe refund retries look dangerous, and dangerous
 delete retries look safe.
 
@@ -345,10 +363,12 @@ card data cannot pass through this surface, and route them — to Elements if
 they have a frontend, to `secure.epd.com` if they do not. Do not offer to
 "handle it just this once".
 
-**Sandbox note.** The test cards (`4111 1111 1111 1111` and friends, any future
-expiry, CVV `999`) work only against `secure.epd.com` with a `epd_test_sk_` key.
-They are not `card_token` values and will fail the `cct_` pattern if passed as
-one.
+**Sandbox note.** The test cards (`4111 1111 1111 1111`, any future expiry; CVV
+`123` in every measured run) work only against `secure.epd.com` with an
+`epd_test_sk_` key. `4000 0000 0000 0002` is not a decline card there — it vaults
+and charges; a sandbox decline comes from the legacy `card_visa_declined`
+token. None of these are `card_token` values, and they fail the `cct_` pattern if
+passed as one.
 
 **Why:** `secure.epd.com` is a PCI-scoped proxy and the MCP surface deliberately
 is not. Every place a PAN touches becomes part of the merchant's PCI scope, so
@@ -360,6 +380,9 @@ just makes sure an agent does not spend its effort trying to work around them.
 ### 9. Surface `request_id` on every failure
 
 Failures return a `request_id`. Include it verbatim when reporting to a human.
+A success carries one only in the `x-request-id` HTTP header, which a tool
+result does not include — so to escalate something a successful call returned,
+quote the object IDs instead.
 
 **Why:** it is the first thing EPD support asks for, and it is not recoverable
 after the fact.
@@ -367,7 +390,10 @@ after the fact.
 ### 10. Tool failures are not RPC errors
 
 A failed tool call returns a normal result with `isError: true` and the error
-JSON in `content[0].text`. It is not a JSON-RPC error.
+JSON in `content[0].text`. It is not a JSON-RPC error. A refusal before any tool
+runs — a restricted key, or a rate limit — is a third shape: HTTP 403 or 429
+with a bare error body and no MCP envelope at all. `epd-mcp-operator` lists all
+three.
 
 **Why:** an agent that only checks for RPC errors reads a failed refund as a
 success and reports it to the customer as done.

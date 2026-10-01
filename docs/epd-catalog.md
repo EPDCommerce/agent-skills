@@ -1,7 +1,7 @@
 ---
 skill: epd-catalog
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -40,10 +40,12 @@ created elsewhere. Two things catch people: a `billing_cycle` of
 month, and the two drift apart over a year; and a plan wraps `products`, so a
 plan's price and its product's price are separate numbers that can disagree.
 
-**Orders** — `create_order` (T2) is the default. `process_order` (T3) takes
-nearly the same arguments, supports neither coupons nor shipping, and leaves a
-failed order row behind with no rollback. `create_order` does more at a lower
-tier; reach for `process_order` only when you specifically want its
+**Orders** — `create_order` is the default. `process_order` takes nearly the
+same arguments, supports neither coupons nor shipping, and leaves a failed order
+row behind with no rollback. Both charge a card, so both are T3 — `create_order`
+by [`SAFETY.md`](../SAFETY.md) decision 1, since the server does not annotate it
+destructive. `create_order` does more at the same tier; reach for
+`process_order` only when you specifically want its
 customer-validation step.
 
 `idempotency_key` is **required** on `create_order`, unlike most writes. It
@@ -80,8 +82,11 @@ do not produce an address ID you have not been given.
 
 Pass `coupon_code` on `create_order`; lookup is case-insensitive. **A bad code
 fails the whole order** — nothing is created and no money moves, which is the
-safe behaviour but means a typo looks like an ordering failure. Validate first
-with `validate_coupon`, which is T0 and creates nothing.
+safe behaviour but means a typo looks like an ordering failure. So does a real
+code that does not cover the items: `product_not_eligible`, and the order is not
+placed at full price. A card that declines releases the redemption, so the
+customer can use the code on another card. Validate first with
+`validate_coupon`, which is T0 and creates nothing.
 
 Watch `max_redemptions_per_customer`: it defaults to **1** on a promo coupon and
 that default is not stated at creation time. A promotion intended as "use it
@@ -119,7 +124,7 @@ It was resolved the other way, and `audit/matrix.mjs` was corrected to match.
 | **Remove a shipping address to make an order go through.** | The rejection is the system working. Find the item that requires shipping. |
 | **Retry `reorder_product_images` on a timeout.** | It has no `idempotency_key` parameter, so a retry is a fresh side effect. Read the product back with `get_product` instead. |
 | **Send a partial image order.** | Reordering replaces the whole sequence, so a partial list silently drops an image out of position. |
-| **Switch the card on `retry_order`.** | There is no such parameter. A different card means a new order — which is exactly why `retry_order` is useless against `expired_card`, `lost_stolen_card`, `transaction_not_allowed` and `incorrect_cvv`. |
+| **Switch the card on `retry_order`.** | There is no such parameter. A different card means a new order — which is exactly why `retry_order` is useless against `expired_card`, `lost_stolen_card`, `transaction_not_allowed` and `incorrect_cvv`. The new order carries `metadata.recovers_order` naming the failed one; nothing else connects them, and the failed order reads `failed` for good. |
 | **Decide why a charge failed.** | That is triage, which is read-only and safe to run first. |
 | **Create or change a plan.** | Read-only here. |
 | **Delete a product to fix a pricing mistake.** | `delete_product` is T3 and irreversible; `update_product` changes the price. There is no price history and no scheduled change — the new price applies to the next order, and existing orders keep what they were charged. |
@@ -144,7 +149,7 @@ After an order:
 
 After `retry_order` on a subscription cycle:
 
-- [ ] **The cycle reconciled** and the original order's `next_retry_at` is now
+- [ ] **The cycle reconciled** and the subscription's `next_retry_at` is now
       null. That reconciliation is the whole reason to prefer `retry_order`
       here.
 
@@ -275,7 +280,7 @@ input:
 ```
 
 ```json
-{ "valid": true, "coupon_id": "…", "coupon_name": "Summer Sale", "kind": "promo" }
+{ "valid": true, "coupon_id": "…", "coupon_name": "Summer Sale", "kind": "promo", "percentage": 15 }
 ```
 
 Valid for Alice at this amount. That check was free and it is the difference
@@ -284,9 +289,10 @@ between a clean order and a rejection that looks like an ordering bug.
 > I'm about to call **`create_order`** for **Alice Liddell**
 > (`7c5a3d0b-9e42-4b2f-8e10-9f8c2e114d6a`) in **LIVE** mode: **Onboarding Kit**
 > ($149.00) plus **Data Export Add-on** ($29.99), subtotal **$178.99**, coupon
-> `SUMMER-SALE` at 15% off, charged to her **Visa ending 1111** (her default
-> card), shipping to 12 Rabbit Hole Lane, Oxford OX1 2JD, GB. This charges the
-> card. Proceed?
+> `SUMMER-SALE` at 15% off — about **$152.15** USD; the server rounds the
+> discount, and I will read the exact total back — charged to her **Visa ending
+> 1111** (her default card), shipping to 12 Rabbit Hole Lane, Oxford OX1 2JD, GB.
+> This charges the card. Proceed?
 
 **Ops:** Go.
 

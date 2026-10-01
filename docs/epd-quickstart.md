@@ -1,7 +1,7 @@
 ---
 skill: epd-quickstart
 surface: integration
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -37,7 +37,7 @@ walkthrough, so there is no way to mint a `card_token`. The card goes to
 input.
 
 **It is also the one step you must not re-run on a timeout**, and the
-walkthrough does not say so. `secure.epd.com` does not replay: the same
+walkthrough itself does not say so. `secure.epd.com` does not replay: the same
 idempotency key with a byte-identical body came back `409
 idempotency_key_conflict` across three attempts, and a fresh key vaults the card
 a second time. So the reflex a curl walkthrough trains — Ctrl-C, press up,
@@ -94,6 +94,7 @@ customer is acting on someone's real account.
 
 | Refusal | Why |
 |---|---|
+| **Commit a key, even a sandbox one, even on request.** | An `epd_test_sk_` key reads and writes the whole sandbox account and survives in git history after it is removed. The skill offers a `.env.example` and a key per developer instead. |
 | **Present a sandbox success as production readiness.** | Sandbox has its own data, its own rate limits and deterministic test cards. What step 6 proves is that your auth, versioning and idempotency headers are wired correctly — not that a real card will clear. |
 | **Let the decline step be skipped.** | The decline path returns 201. A developer who never sees that shape writes the bug into the foundation. |
 | **Be copied verbatim into production code.** | The skill says this outright about its own examples, and it is the most useful line in it. See below. |
@@ -126,8 +127,10 @@ By the end of the walkthrough you should have proved all of:
       is the one you must not re-run blind.
 - [ ] **The customer was created with all four required fields**, `phone`
       included.
-- [ ] **`payment_method_id` was used bare**, with no `pm_` prefix, and
-      `list_payment_methods` shows **one** card rather than two.
+- [ ] **`payment_method_id` was used bare**, with no `pm_` prefix — a prefixed one
+      is a 400, `invalid_payment_method_id` — and
+      `GET /v1/customers/{id}?expand=payment_methods` shows **one** card rather
+      than two.
 - [ ] **The success path returned `status: "succeeded"`**, read from the body
       rather than inferred from the 201.
 - [ ] **The decline path returned 201 with `status: "failed"` and
@@ -206,12 +209,16 @@ idempotency_key_conflict` on a repeat even with an identical body, and a fresh
 key vaults the card twice. Check whether it landed first:
 
 ```bash
-curl -s "https://api.epd.com/v1/customers/$CUSTOMER_ID/payment_methods" \
+curl -s "https://api.epd.com/v1/customers/$CUSTOMER_ID?expand=payment_methods" \
   -H "Authorization: Bearer $EPD_API_KEY" \
   -H "EPD-Version: 2026-02-11"
 ```
 
-One row means it worked. Two means you already re-ran it.
+One card in `payment_methods` means it worked. Two means you already re-ran it.
+Note the shape of that call: there is no `GET` on
+`/v1/customers/{id}/payment_methods` — that path takes a `POST` only, and a
+`GET` returns 404 "Cannot GET" (measured 29 September 2026). The customer
+expanded is the read.
 
 Then a product, because you cannot price an order inline — order amounts come
 from product pricing. `sku` is 3–30 characters, lowercase letters, digits,
@@ -226,7 +233,10 @@ the same SKU returns `sku_already_exists`, which is not a bug.
 { "id": "…", "status": "succeeded", "total": 2999 }
 ```
 
-`status: "succeeded"`. That matters because of what comes next.
+`status: "succeeded"`. That matters because of what comes next. (If you sent the
+walkthrough's `description` on the order, it comes back `null` — the API accepts
+it and does not keep it, over REST and MCP alike, so it will not label the order
+in the dashboard.)
 
 **Now the decline path.** Create a *second* customer for this — in sandbox, a
 customer who has just had several declines was seen to decline even on a

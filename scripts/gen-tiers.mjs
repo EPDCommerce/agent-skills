@@ -25,6 +25,8 @@ import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT = path.join(ROOT, 'workflows', 'epd-mcp-operator', 'references', 'tiers.md');
+// SAFETY.md decision 1. check-docs.js reads the same file.
+const OVERRIDES = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'tier-overrides.json'), 'utf8')).tools;
 
 // Group boundaries follow the server's own tools/list return order, which is
 // contiguous by domain and matches the counts published in the MCP overview.
@@ -53,11 +55,13 @@ function loadSnapshot() {
 }
 
 /**
- * Tier is a pure function of the annotations. Order matters: readOnly wins over
- * everything, then destructive, then the external-call case, and any remaining
+ * Tier is a function of the annotations, except for the tools SAFETY.md
+ * decision 1 holds to a stricter tier. Order matters: an override wins, then
+ * readOnly, then destructive, then the external-call case, and any remaining
  * write is an ordinary confirm-first write.
  */
-function tierOf(a) {
+function tierOf(name, a) {
+  if (OVERRIDES[name]) return { id: OVERRIDES[name].tier, label: OVERRIDES[name].label };
   if (a.readOnlyHint) return { id: 'T0', label: 'T0 read' };
   if (a.destructiveHint) return { id: 'T3', label: 'T3 destructive' };
   if (a.openWorldHint) return { id: 'T2', label: 'T2 external' };
@@ -94,17 +98,18 @@ const rows = tools.map((t) => ({
   name: t.name,
   group: groupOf.get(t.name) ?? '—',
   hints: hintsOf(t.annotations),
-  tier: tierOf(t.annotations),
+  tier: tierOf(t.name, t.annotations),
   idem: idemOf(t),
   idempotent: t.annotations.idempotentHint === true,
 }));
 
 const count = (label) => rows.filter((r) => r.tier.label === label).length;
+const LABELS = [...new Set(['T0 read', 'T2 write', 'T2 external', 'T3 destructive', ...Object.values(OVERRIDES).map((o) => o.label)])];
 const writesNoIdem = rows.filter((r) => r.tier.id !== 'T0' && r.idem === 'none');
 
-// Destructive tools divide cleanly by whether a retry can double-spend. The
-// server encodes this: money movement makes the idempotency key required,
-// deletes and cancels leave it optional because they are naturally idempotent.
+// T3 tools divide cleanly by whether a retry can double-spend. The server
+// encodes this: money movement makes the idempotency key required, deletes and
+// cancels leave it optional because they are naturally idempotent.
 const destructive = rows.filter((r) => r.tier.id === 'T3');
 const dReq = destructive.filter((r) => r.idem === 'required');
 const dOpt = destructive.filter((r) => r.idem === 'optional');
@@ -119,7 +124,8 @@ p(`     Produced by scripts/gen-tiers.mjs from audit/${file}.`);
 p('     Regenerate after any API release:  node scripts/gen-tiers.mjs -->');
 p();
 p('Tiers are not assigned by hand. Every EPD MCP tool declares four annotation');
-p('hints, and the tier is a pure function of them:');
+p('hints, and the tier is a function of them — with the written exceptions');
+p('`SAFETY.md` makes under decision 1, listed below:');
 p();
 p('| Annotation | Tier | What the agent must do |');
 p('|---|---|---|');
@@ -127,10 +133,26 @@ p('| `readOnlyHint` | **T0** | Nothing. Read freely, no confirmation. |');
 p('| `destructiveHint` | **T3** | Print the plan, echo amount, currency, object id and key mode, wait for an explicit yes. |');
 p('| `openWorldHint` | **T2** | Calls an external URL. Confirm first; not idempotent. |');
 p('| none of the above | **T2** | An ordinary write. Print the plan and confirm. |');
+p('| named in `SAFETY.md` decision 1 | **as decided** | The tier the decision gives, whatever the hints say. |');
 p();
 p('`SAFETY.md` defines what each tier requires. This file only says which tool');
 p('sits in which tier, and shows the raw hints so the mapping can be checked');
 p('rather than taken on trust.');
+p();
+p('### Held to a stricter tier by `SAFETY.md`');
+p();
+p('These are policy, not server facts: the Annotations column below still shows');
+p('what the server declares. The list lives in `scripts/tier-overrides.json`, and');
+p('a test fails if `SAFETY.md` names different tools or the server starts');
+p('annotating one of them destructive.');
+p();
+p('| Tool | Server annotations | Tier | Why |');
+p('|---|---|---|---|');
+for (const [name, o] of Object.entries(OVERRIDES)) {
+  const t = tools.find((x) => x.name === name);
+  if (!t) throw new Error(`tier-overrides.json names ${name}, which is not in audit/${file}`);
+  p(`| \`${name}\` | ${hintsOf(t.annotations)} | ${o.label} | ${o.why} |`);
+}
 p();
 p('### `idempotentHint` does not set the tier');
 p();
@@ -152,16 +174,16 @@ p('## Counts');
 p();
 p('| Tier | Tools |');
 p('|---|---|');
-for (const label of ['T0 read', 'T2 write', 'T2 external', 'T3 destructive']) {
+for (const label of LABELS) {
   p(`| ${label} | ${count(label)} |`);
 }
 p(`| **Total** | **${rows.length}** |`);
 p();
 
-p('## Destructive tools, split by retry risk');
+p('## T3 tools, split by retry risk');
 p();
 p('Not every T3 is dangerous in the same way, and the schema says which is which.');
-p('Of the destructive tools, the ones that **require** an idempotency key are');
+p('Of the T3 tools, the ones that **require** an idempotency key are');
 p('exactly the ones that move money; the ones where it is **optional** are');
 p('deletes, cancels and archives, which are naturally idempotent — deleting twice');
 p('leaves the same state, charging twice does not.');
@@ -202,5 +224,5 @@ fs.writeFileSync(OUT, out.join('\n'));
 
 console.log(`wrote ${path.relative(ROOT, OUT)}`);
 console.log(`  source: audit/${file}${captured ? ` (captured ${captured})` : ''}`);
-console.log(`  ${rows.length} tools — T0 ${count('T0 read')}, T2 write ${count('T2 write')}, T2 external ${count('T2 external')}, T3 ${count('T3 destructive')}`);
+console.log(`  ${rows.length} tools — ${LABELS.map((l) => `${l} ${count(l)}`).join(', ')}`);
 console.log(`  writes with no idempotency_key: ${writesNoIdem.length} (${writesNoIdem.map((r) => r.name).join(', ')})`);

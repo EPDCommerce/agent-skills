@@ -1,7 +1,7 @@
 ---
 skill: epd-reporting
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -18,13 +18,15 @@ is reachable from it.
 
 ## What it does
 
-Three tools.
+Three tools of its own, and `list_orders`, a read it shares with
+[`epd-transaction-triage`](./epd-transaction-triage.md).
 
 | Tool | Purpose |
 |---|---|
 | `get_revenue_summary` | Aggregate totals for a date range |
-| `get_customer_financial_summary` | One customer's profile, orders, transactions and lifetime value |
+| `get_customer_financial_summary` | One customer's profile, orders, transactions and lifetime value — but not their subscriptions, whatever its description says |
 | `list_transactions` | The underlying rows, for reconciliation and any breakdown the summary does not give |
+| `list_orders` | Chargeback outcomes, and refunds of a period's sales — both live on the order |
 
 ### What the totals exclude — the reason reconciliations disagree
 
@@ -41,12 +43,14 @@ Three tools.
 ```
 
 `gross_cents` and `transaction_count` count **succeeded sales only**.
-`refunded_cents` counts refunds, reported as a positive number. `net_cents` is
-exactly `gross_cents - refunded_cents`. Failed, pending, voided and chargeback
-transactions are counted **nowhere**.
+`refunded_cents` counts **succeeded** refunds, reported as a positive number.
+`net_cents` is exactly `gross_cents - refunded_cents`. Failed, pending, voided
+and chargeback transactions are counted **nowhere** — nor is a refund still
+`pending`, although its order already reads `refunded`.
 
-Measured on the sandbox for July 2026: the account holds **546** transactions in
-that window and `transaction_count` reports **425**. The 121 difference:
+Measured on the sandbox for July 2026 — and re-measured unchanged, every figure
+in this guide, on 29 September: the account holds **546** transactions in that
+window and `transaction_count` reports **425**. The 121 difference:
 
 | | Count | Why it is not in `gross_cents` |
 |---|---|---|
@@ -61,11 +65,30 @@ refunds, and they *are* reflected in `net_cents`. The other 104 never succeeded
 and appear in no total at all. "The difference is the failed ones" is the easy
 answer and it is wrong by 17.
 
-**Chargebacks are the sharp edge.** A chargeback is money that left the account
-and it appears in neither `gross_cents` nor `refunded_cents`, so `net_cents`
-overstates what the merchant actually kept. Anyone closing books on these
-figures needs to be told, and chargebacks pulled separately with
-`list_transactions`.
+**Chargebacks are already out of net — never subtract them.** A chargeback is
+not a row of its own: it changes the original sale's status from `succeeded` to
+`chargeback`, so the sale drops out of `gross_cents` and therefore out of
+`net_cents`. Measured on August 2026, the 429 succeeded sales alone sum exactly to
+`gross_cents`, and the 16 charged-back sales are separate rows. "Net minus
+chargebacks" takes the same money off twice.
+
+Version 1.0.0 of this guide said the opposite — that chargebacks sit in neither
+total, so net overstates what was kept — and offered net-minus-chargebacks as a
+figure to consider. Both were wrong; running the month-end recipe found it.
+
+What no total tells you is how each dispute ended. The transaction reads
+`chargeback` whether it is open, lost or won; only the **order** says:
+
+| Order `status` | Dispute | In `net_cents`? |
+|---|---|---|
+| `chargeback` | open | no — outcome unknown |
+| `chargeback_accepted` | lost | no — correctly |
+| `chargeback_dismissed` | **won** | no — so net **understates** what was kept |
+
+`list_orders` accepts all three as filters, though its schema names only the
+first. And because a chargeback changes a row dated in the month of the sale,
+one that lands after close takes the sale out of that closed month when it is
+re-run. A close is a snapshot.
 
 ### Reconciliation, verified
 
@@ -75,7 +98,7 @@ way the summary filters. Verified against July 2026:
 | `list_transactions` filter | Count | Sum (minor units) | Matches |
 |---|---|---|---|
 | `type=sale`, `status=succeeded` | 425 | 53,356,800 | `transaction_count`, `gross_cents` |
-| `type=refund` | 17 | −2,169,273 | `refund_count`, `refunded_cents` |
+| `type=refund`, `status=succeeded` | 17 | −2,169,273 | `refund_count`, `refunded_cents` |
 | `status=succeeded` (all types) | 442 | 51,187,527 | `net_cents` |
 | no filter | 546 | 70,382,976 | **nothing** |
 
@@ -84,6 +107,14 @@ by the summary as positive, so the sign flips between views; and the unfiltered
 total matches nothing at all, which is exactly the number someone reaches for
 first when a reconciliation looks wrong. When a total is disputed, check the
 filter before suspecting the numbers.
+
+### The month has a timezone
+
+Measured on August 2026: 1 August to 1 September in UTC was $489,658.41 across
+429 sales; at `-07:00` it was $486,908.44 across 428. The skill uses the
+merchant's reporting timezone, writes the offset into both ends, and states it
+beside the figure. The whole close, with every class the totals leave out, is
+the [month-end reconciliation recipe](../recipes/month-end-reconciliation.md).
 
 ### Date range rules
 
@@ -99,16 +130,16 @@ silently returning zero. A range with no activity returns zeros with
 The tool paginates up to **10,000 transactions per side** (sales and refunds).
 Beyond that it sets `truncated: true` and the totals are incomplete.
 
-> Not reproducible in this sandbox: the widest range available returns 4,556
-> transactions with `truncated: false`, so the flag has been read from the
-> schema and the documented limit rather than observed. The handling is required
-> regardless.
+> Not reproducible in this sandbox: the widest range available — 2020 to 2027,
+> on 29 September 2026 — counts 4,961 succeeded sales and 231 refunds with
+> `truncated: false`, so the flag has been read from the schema and the
+> documented limit rather than observed. The handling is required regardless.
 
 ## When it fires
 
 - *"How much revenue did we take over this period?"* · *"How much did we bill in
   July?"*
-- *"What has this customer paid us?"*
+- *"What has this customer paid us?"* · a customer's lifetime value.
 - Gross versus net, refund totals.
 - Reconciling or closing a month.
 - *"Why doesn't this total match the transaction list?"*
@@ -140,9 +171,10 @@ for write tools.
 | **Write anything.** | The constraint is structural, not stylistic: no write tool is reachable. A reporting agent that can also refund has the blast radius of a refunding agent, and on this surface there is no read-only key to fall back on. |
 | **Recompute a total a different way** and present it as EPD's figure. | `net_cents` is `gross_cents - refunded_cents`. A number that was derived rather than returned should be presented as a reconciliation, not as the API's answer. |
 | **Report a truncated total** as if complete. | A wrong number delivered with confidence is worse than a refusal. If the flag is set, narrow the range and sum the parts. |
-| **Present `net_cents` as money kept** without saying chargebacks are excluded. | It is the figure most likely to end up in a board pack. |
+| **Subtract chargebacks from `net_cents`.** | They are already out of it. A board pack carrying net-minus-chargebacks understates the month by every charged-back sale. |
+| **Present a closed month's figure as final.** | A pending sale that settles raises it; a chargeback that lands later lowers it. Both change rows dated in that month. |
 | **Convert currencies.** | Amounts come back in the transaction's own currency in minor units. Mixing currencies in one total is not something these tools do and not something to do by hand. |
-| **Print payment-method data on a revenue question.** | The only T0 obligation is not to copy more customer data into the reply than the question needed. `get_customer_financial_summary` returns a `payment_methods` array with brand and last four; a lifetime-value question does not need it. |
+| **Print payment-method data on a revenue question.** | The only T0 obligation is not to copy more customer data into the reply than the question needed. `get_customer_financial_summary` returns a `payment_methods` array with brand, last four and expiry, and its orders carry the card's first six digits (`bin`). A lifetime-value question needs none of it, and the `bin` is never repeated. |
 
 ## What to check afterwards
 
@@ -151,13 +183,20 @@ for write tools.
       first-to-first rather than first-to-31st.
 - [ ] **Amounts were divided by 100 exactly once.** `53356800` is $533,568.00 —
       the reporting error that gets noticed fastest.
-- [ ] **Chargebacks were mentioned** if anyone is closing books on the figure.
+- [ ] **Chargebacks were reported by outcome** — open, lost, won — from the
+      orders, and **not subtracted** from net.
+- [ ] **The timezone was stated** with the period, and used at both ends.
+- [ ] **Pending refunds were counted separately.** They are in no total while
+      their orders already read `refunded`.
 - [ ] **The key mode was stated.** A number from a sandbox account is not the
       month's revenue and looks identical to one that is.
 - [ ] If the figure is being signed off, **it was reconciled** against
       `list_transactions` with `type=sale, status=succeeded`.
 - [ ] `lifetime_value_cents` was not placed beside a period total.  It carries no
       period and is not comparable.
+- [ ] `lifetime_value_cents` was not described as what the customer paid. It is
+      built from order status, so it counts open disputes and orders whose
+      sales all failed.
 
 ## A worked transcript
 
@@ -220,22 +259,33 @@ dropped the last day.
 
 **Two things the board pack needs said out loud.**
 
-**Net is not money kept.** Chargebacks appear in neither total, so `net_cents`
-overstates what the account actually retained. Let me pull them:
+**Chargebacks are already out of those figures — do not take them off again.**
+A chargeback changes the original sale's status, so a charged-back sale is not
+in gross and therefore not in net. What the board should see is how the
+disputes ended, and that lives on the orders:
 
 ```
-tool: list_transactions
+tool: list_orders
 input:
-  status: chargeback
+  status: chargeback,chargeback_accepted,chargeback_dismissed
   created_after: "2026-07-01T00:00:00Z"
   created_before: "2026-08-01T00:00:00Z"
   limit: 100
 ```
 
-**17 chargebacks in July.** They are money that arrived and was clawed back, and
-they are in no line above. Whether they belong in the board figure is an
-accounting decision and yours to make — but net-minus-chargebacks is a different
-number from net, and the summary will never show you the difference.
+**17 disputed July sales, $36,955.36, none of it in the lines above:**
+
+| Outcome | Orders | Amount |
+|---|---|---|
+| Lost — `chargeback_accepted` | 12 | $26,723.61 |
+| Open — `chargeback` | 2 | $9,283.88 |
+| Won — `chargeback_dismissed` | 3 | $947.87 |
+
+The lost ones are correctly absent. The **won** ones are money the account kept
+that no total shows, so net understates July by $947.87 — and by up to $9,283.88
+more if the open ones go the merchant's way. How to present that is an
+accounting decision and yours to make. Subtracting the $36,955.36 from net is
+not one of the options: it is already out.
 
 **Failed and pending transactions are in nothing at all.** The account holds 546
 transactions in this window and the summary counts 425. The gap is 121, and it
@@ -277,7 +327,7 @@ from when this account's reconciliation was last measured:
 
 | Filter on `list_transactions` | Expect | Against |
 |---|---|---|
-| `type=refund` | 17 rows, −2,169,273 | `refund_count` / `refunded_cents`, sign flipped |
+| `type=refund`, `status=succeeded` | 17 rows, −2,169,273 | `refund_count` / `refunded_cents`, sign flipped |
 | `status=succeeded`, all types | 442 rows, 51,187,527 | `net_cents` |
 | **no filter** | 546 rows, 70,382,976 | **nothing** |
 
@@ -310,8 +360,9 @@ decide how long the job takes.
   calling it EPD's — the guide refuses that one two sections up.
 - **`truncated` was read and reported**, not skipped because the range looked
   small.
-- **Chargebacks were raised unprompted**, with the accounting decision left to
-  the human.
+- **Chargebacks were raised unprompted, by outcome, and not subtracted.** They
+  are already out of net; the useful fact is how many were won, which no total
+  shows. The accounting decision stayed with the human.
 - **The 121 gap was broken down rather than summarised**, because the natural
   summary is wrong by 17.
 - **The reconciliation was given as a filter table**, which is the form that

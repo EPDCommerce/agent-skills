@@ -15,17 +15,25 @@ const MANIFEST = JSON.parse(
 );
 
 const {
+  RECIPE_SECTIONS,
   REQUIRED_SECTIONS,
   extractLinks,
   extractToolCalls,
   findBrokenLinks,
+  loadOwners,
   loadToolSnapshot,
   MIN_TOOL_BLOCKS,
   headingAnchors,
   isExternal,
+  recipeProblems,
+  recipeSteps,
   slugify,
   stripFences,
+  tierOfTool,
+  TIER_OVERRIDES,
 } = require(CHECK_DOCS);
+
+const RECIPES_DIR = path.join(REPO_ROOT, 'recipes');
 
 test('check-docs.js passes against the live repo', () => {
   const result = spawnSync('node', [CHECK_DOCS], { encoding: 'utf8' });
@@ -173,7 +181,7 @@ test('every documented tool call names a real tool and real parameters', () => {
   const snapshot = loadToolSnapshot();
   assert.ok(snapshot, 'no tools-YYYY-MM-DD.json snapshot found');
 
-  const roots = ['docs', 'workflows', 'integration'];
+  const roots = ['docs', 'workflows', 'integration', 'recipes'];
   const files = [];
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -203,4 +211,180 @@ test('every documented tool call names a real tool and real parameters', () => {
     seen >= MIN_TOOL_BLOCKS,
     `only ${seen} tool blocks found — the extractor is matching nothing`,
   );
+});
+
+// ── Recipes ──────────────────────────────────────────────────────────────────
+
+const SNAPSHOT = loadToolSnapshot();
+const OWNERS = loadOwners(SNAPSHOT);
+const FENCE = '`'.repeat(3);
+
+/** A step, well formed unless a test says otherwise. */
+function step(n, { tool = 'ping', args = [], checkpoint = 'The mode is stated.', branch = true } = {}) {
+  const input = args.length ? ['input:', ...args.map((a) => `  ${a}`)] : ['input: {}'];
+  return [
+    `### ${n}. Step ${n}`,
+    '',
+    FENCE,
+    `tool: ${tool}`,
+    ...input,
+    FENCE,
+    '',
+    checkpoint === null ? 'No checkpoint here.' : `**Checkpoint.** ${checkpoint}`,
+    ...(branch ? ['', '**If it fails**', '', '| Condition | Do |', '|---|---|', '| Timeout | Read state back. |'] : []),
+  ].join('\n');
+}
+
+const REFUND = { tool: 'refund_order', args: ['order_id: <step 1: order.id>', 'idempotency_key: <new UUID v4>'] };
+
+/**
+ * A recipe that passes every rule, so each test can break exactly one.
+ * `verified` is unquoted on purpose: YAML reads it as a Date, and the
+ * validator has to accept that.
+ */
+function recipe({ fm = {}, steps = [step(1)], drop = null, links = '' } = {}) {
+  const front = {
+    recipe: 'synthetic',
+    recipe_version: '1.0.0',
+    skills: ['epd-mcp-operator'],
+    highest_tier: 'T0',
+    unattended: 'runs',
+    ...fm,
+  };
+  const yaml = [
+    '---',
+    ...Object.entries(front).map(([k, v]) =>
+      Array.isArray(v) ? `${k}:\n${v.map((x) => `  - ${x}`).join('\n')}` : `${k}: ${v}`,
+    ),
+    `api_version: "${MANIFEST.api_version}"`,
+    'verified: 2026-09-28',
+    '---',
+  ].join('\n');
+  const body = RECIPE_SECTIONS.filter((s) => s !== drop)
+    .map((s) => {
+      if (s === 'Steps') return `## Steps\n\n${steps.join('\n\n')}`;
+      if (s === 'Outcome') return `## Outcome\n\nSee [the operator](../docs/epd-mcp-operator.md).${links}`;
+      return `## ${s}\n\nText.`;
+    })
+    .join('\n\n');
+  return `${yaml}\n\n# Synthetic\n\n${body}\n`;
+}
+
+const problemsOf = (src, index = '[x](./synthetic.md)') =>
+  recipeProblems({ name: 'synthetic', src, manifest: MANIFEST, snapshot: SNAPSHOT, owners: OWNERS, index });
+
+const has = (problems, re) => assert.ok(problems.some((p) => re.test(p)), `expected ${re} in:\n${problems.join('\n')}`);
+
+test('every recipe on disk passes, and there are six', () => {
+  const files = fs.readdirSync(RECIPES_DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
+  assert.equal(files.length, 6, `expected the six SOW recipes, found: ${files.join(', ')}`);
+  const index = fs.readFileSync(path.join(RECIPES_DIR, 'README.md'), 'utf8');
+  for (const file of files) {
+    const src = fs.readFileSync(path.join(RECIPES_DIR, file), 'utf8');
+    const name = file.replace(/\.md$/, '');
+    assert.deepEqual(
+      recipeProblems({ name, src, manifest: MANIFEST, snapshot: SNAPSHOT, owners: OWNERS, index }),
+      [],
+      `recipes/${file}`,
+    );
+  }
+});
+
+test('ownership reads an owner for every tool out of COVERAGE.md', () => {
+  assert.ok(OWNERS, 'loadOwners returned null — the COVERAGE.md table did not parse');
+  assert.equal(OWNERS.size, SNAPSHOT.tools.length);
+  assert.equal(OWNERS.get('refund_order'), 'epd-refunds');
+  assert.equal(OWNERS.get('list_orders'), 'epd-transaction-triage');
+  assert.equal(OWNERS.get('retry_failed_charge'), 'epd-subscriptions');
+});
+
+test('the recipe tier rule agrees with the generated tiers.md for every tool', () => {
+  const tiers = fs.readFileSync(
+    path.join(REPO_ROOT, 'workflows', 'epd-mcp-operator', 'references', 'tiers.md'),
+    'utf8',
+  );
+  for (const def of SNAPSHOT.tools) {
+    const row = new RegExp(`^\\| \`${def.name}\` \\|[^|]*\\|[^|]*\\| (T\\d)`, 'm').exec(tiers);
+    assert.ok(row, `no row for ${def.name} in tiers.md`);
+    assert.equal(tierOfTool(def), row[1], def.name);
+  }
+});
+
+test('SAFETY.md decision 1 and tier-overrides.json name the same tools, and each override still does something', () => {
+  const safety = fs.readFileSync(path.join(REPO_ROOT, 'SAFETY.md'), 'utf8');
+  const row = /^\| 1 \| \*\*Tool-level overrides\.\*\*.*$/m.exec(safety);
+  assert.ok(row, 'decision 1 row not found in SAFETY.md');
+  const named = new Set([...row[0].split('|')[3].matchAll(/`([a-z_]+)`/g)].map((m) => m[1]));
+  assert.deepEqual([...named].sort(), Object.keys(TIER_OVERRIDES).sort(), 'SAFETY.md decision 1 and scripts/tier-overrides.json disagree');
+  const rank = { T0: 0, T2: 2, T3: 3 };
+  for (const [name, o] of Object.entries(TIER_OVERRIDES)) {
+    const def = SNAPSHOT.tools.find((t) => t.name === name);
+    assert.ok(def, `${name} is overridden but is not in the tools/list snapshot`);
+    const byAnnotation = tierOfTool({ ...def, name: undefined });
+    assert.ok(rank[o.tier] > rank[byAnnotation], `${name}: its annotations already give ${byAnnotation}; the override is stale — remove it from SAFETY.md and tier-overrides.json`);
+    assert.equal(tierOfTool(def), o.tier, name);
+  }
+});
+
+test('a well-formed recipe has no problems — the baseline the next tests break', () => {
+  assert.deepEqual(problemsOf(recipe()), []);
+  const refunding = recipe({
+    fm: { skills: ['epd-mcp-operator', 'epd-refunds'], highest_tier: 'T3', unattended: 'refuses' },
+    steps: [step(1), step(2, REFUND)],
+    links: ' And [refunds](../docs/epd-refunds.md).',
+  });
+  assert.deepEqual(problemsOf(refunding), []);
+});
+
+test('understating the highest tier is caught, and so is the unattended claim that follows from it', () => {
+  const problems = problemsOf(
+    recipe({
+      fm: { skills: ['epd-mcp-operator', 'epd-refunds'] },
+      steps: [step(1), step(2, REFUND)],
+      links: ' And [refunds](../docs/epd-refunds.md).',
+    }),
+  );
+  has(problems, /highest_tier "T0" but its tool calls reach T3/);
+  has(problems, /unattended "runs", but a chain reaching T3 refuses/);
+});
+
+test('a read-only recipe that says it refuses unattended is caught', () => {
+  has(problemsOf(recipe({ fm: { unattended: 'refuses' } })), /reaching T0 runs/);
+});
+
+test('calling a tool whose owning skill is not in the chain is caught', () => {
+  const src = recipe({ fm: { highest_tier: 'T3', unattended: 'refuses' }, steps: [step(1), step(2, REFUND)] });
+  has(problemsOf(src), /calls refund_order, which epd-refunds owns/);
+});
+
+test('a literal UUID in a tool call is caught', () => {
+  const src = recipe({ steps: [step(1, { tool: 'get_customer', args: ['id: 3fa85f64-5717-4562-b3fc-2c963f66afa6'] })] });
+  has(problemsOf(src), /literal UUID/);
+});
+
+test('an identifier taken from a later step, or a step that does not exist, is caught', () => {
+  has(problemsOf(recipe({ steps: [step(1, { checkpoint: 'Reads <step 2: x>.' }), step(2)] })), /from a later step/);
+  has(problemsOf(recipe({ steps: [step(1, { checkpoint: 'Reads <step 7: x>.' })] })), /from a step that does not exist/);
+});
+
+test('a step with no checkpoint, or a call with no failure branch, is caught', () => {
+  has(problemsOf(recipe({ steps: [step(1, { checkpoint: null })] })), /step 1 has no \*\*Checkpoint\*\*/);
+  has(problemsOf(recipe({ steps: [step(1, { branch: false })] })), /step 1 calls something but has no \*\*If it fails\*\*/);
+});
+
+test('a missing section, a missing index entry, and an unlinked skill are each caught', () => {
+  has(problemsOf(recipe({ drop: 'Where it can stop' })), /missing required section "## Where it can stop"/);
+  has(problemsOf(recipe(), '[other](./other.md)'), /not linked from recipes\/README.md/);
+  has(problemsOf(recipe({ fm: { skills: ['epd-mcp-operator', 'epd-reporting'] } })), /names skill "epd-reporting" but never links to it/);
+});
+
+test('steps are read in sequence, and headings inside a fence are not steps', () => {
+  const steps = recipeSteps(
+    `## Steps\n\n### 1. One\n\n${FENCE}md\n### 2. Not a step\n${FENCE}\n\n### 2. Two\n\n## After\n\n### 3. Not in Steps\n`,
+  );
+  assert.deepEqual(
+    steps.map((s) => `${s.num}. ${s.title}`),
+    ['1. One', '2. Two'],
+  );
+  has(problemsOf(recipe({ steps: [step(1), step(3)] })), /step "3\. Step 3" is out of sequence/);
 });

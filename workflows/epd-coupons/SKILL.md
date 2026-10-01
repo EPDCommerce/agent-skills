@@ -3,7 +3,7 @@ name: epd-coupons
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to create, inspect, validate, mint codes for, or retire a discount. Triggers when the user mentions a coupon, promo code, discount code or voucher, asks to launch or end a promotion, asks to generate a batch of codes, asks whether a code is still valid or why one was rejected, or asks to archive or bring back a coupon. Skip when the task is changing a product's list price rather than discounting it - load epd-catalog. Skip when the question is why a payment failed - load epd-transaction-triage.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -44,12 +44,18 @@ Set at creation and not changeable afterwards.
 | `generate_coupon_codes` | **rejected** | the point |
 | `max_redemptions_per_code` | rejected — use `max_redemptions` | applies |
 
-A promo name with spaces or lowercase is rejected outright:
+A promo name with spaces is rejected outright. Case is not the problem — a
+lowercase name is accepted, and the code matches in any case — measured on
+29 September 2026:
 
 ```
 name: "Summer Sale"  ->  validation_error
-"For kind=\"promo\", name must be 4-50 characters: letters, numbers or hyphens."
+"For kind=\"promo\", name must be 4-50 characters: letters, numbers, or hyphens
+(used as the redeemable code; case-insensitive)."
 ```
+
+Minting codes under a promo is refused with `resource_in_use`, not a
+validation error: its one code is its name.
 
 So `SUMMER-SALE` is the promo. `"Summer Sale"` is a generated coupon whose
 display name happens to have a space, and whose codes are separate strings.
@@ -208,14 +214,25 @@ Failure gives a machine-readable reason. Observed:
 | `coupon_expired` | past `expires_at` |
 | `coupon_not_yet_active` | before `starts_at` |
 | `coupon_inactive` | `active: false` — see below, this one is usually self-inflicted |
+| `product_not_eligible` | the coupon is scoped to products and the call named none of them — **including a call that named no product at all** |
+| `plan_not_eligible` | the plan passed is outside `plan_scope` |
 
 Report the reason rather than "the code didn't work". Expired and not-yet-active
 look identical to a customer and need opposite responses.
 
-Pass the context you actually have. Validating bare `code` only proves the code
-exists and is live; it does not prove *this* customer can use it on *this*
-order. If the user is about to promise a discount, validate with `customer_id`
-and `amount`.
+**Pass the context a real order would have.** A bare `code` is not a validity
+check on a scoped coupon. Measured on 28 September 2026: a promo with
+`product_scope: "specific"` answered a call carrying only `code` with
+`valid: false, reason: "product_not_eligible"` — the same answer it gave for an
+out-of-scope product. An agent checking a customer's code that way tells them a
+working code is invalid. Validate with `product_id` (or `plan_id`), `amount`
+and `customer_id`; only a coupon scoped to everything passes on `code` alone,
+and even then that proves the code is live, not that this customer can use it.
+
+To prove scope when launching one, validate twice: once with a product it should
+discount (`valid: true`) and once with one it should not
+(`product_not_eligible`). A coupon that says yes to everything passes the first
+test too.
 
 ## Archive is not delete, and unarchive is not undo
 
@@ -233,6 +250,17 @@ nothing unless you ask for them: `list_coupons` takes `archived`, alongside
 `active`, `kind` and `sort`. Without it, "no such coupon" looks like the answer
 when the coupon is sitting there archived. A restore request usually arrives as
 a name rather than an id, so this is the first call, not an afterthought.
+
+`archived` is a **string**: `"true"` for archived only, `"all"` for both,
+`"false"` for the default. The boolean `true` is rejected with `invalid_value`
+— measured — although `active`, beside it, is a boolean.
+
+```
+tool: list_coupons
+input:
+  archived: "true"
+  limit: 100
+```
 
 **The trap.** Archiving sets `active: false`. Unarchiving clears the archive flag
 but **leaves `active: false`**. Measured end to end:
@@ -256,12 +284,20 @@ how to tell which of the two calls has landed.
 ## Terms lock after the first redemption
 
 Edits go through `update_coupon`. `percentage`, `amount` and `duration` become
-immutable once the coupon has been redeemed once, and attempts return **422** —
-so check `total_redemptions` with `retrieve_coupon` first; above zero, the
-terms are already locked.
+immutable once the coupon has been redeemed once, and an attempt is refused with
+`field_locked` — "Field "percentage" is locked once the coupon has been
+redeemed." — so check `total_redemptions` with `retrieve_coupon` first; above
+zero, the terms are already locked.
 
-Scope and limit fields — `max_redemptions`, `max_redemptions_per_customer`,
-product and plan scope, `expires_at` — stay editable.
+**Scope locks too.** The tool's description says scope and limit fields stay
+editable. Measured on 29 September 2026, after one redemption `field_locked`
+also refused `product_ids`, `product_scope`, `plan_scope`,
+`first_time_customer_only`, `max_discount_amount` and `name`. What stays
+editable is the limits and the dates: `max_redemptions`,
+`max_redemptions_per_customer`, `minimum_amount`, `starts_at`, `expires_at`,
+plus `description` and `active`. A coupon announced with the wrong scope is
+fixed the same way as a wrong rate — a new coupon, then archive the old one —
+unless nobody has used it yet.
 
 The practical consequence: **the discount rate is a decision, not a draft.**
 Before creating, confirm the percentage or amount explicitly. "Set up 20% off"

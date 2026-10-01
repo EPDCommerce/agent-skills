@@ -3,7 +3,7 @@ name: epd-webhook-ops
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to run webhook endpoints on a live account - register one, rotate its signing secret, inspect why deliveries are failing, replay an event, or migrate schema versions. Triggers when the user says webhooks stopped arriving, asks to add or remove an endpoint, asks to rotate or roll a signing secret, asks to replay or resend an event, asks what changed between webhook versions, or asks to check delivery logs. Skip when the user is writing or debugging the receiving code - signature verification, raw body handling and HMAC belong to epd-webhooks. Skip when the question is why a payment failed - load epd-transaction-triage.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   api_version: "2026-02-11"
 ---
 
@@ -136,10 +136,21 @@ enabled_events: []     ->  value_too_small, "expected array to have >=1 items"
 ### Changing an endpoint
 
 `update_webhook_endpoint` changes the URL, the subscribed events or the
-description. Setting `disabled` stops deliveries but keeps the endpoint, so it
-is the reversible alternative to `delete_webhook_endpoint`, which is T3 and
-final. It also accepts `api_version`; make a version change through the
-preview, compare and upgrade sequence below instead.
+description. It also accepts `api_version`, as does `create_webhook_endpoint`;
+both refuse a version that does not exist (`invalid_webhook_version`, measured
+30 September 2026), but make a version change through the preview, compare and
+upgrade sequence below instead — only the upgrade and downgrade tools state a
+direction.
+
+**`disabled: true` does nothing.** The schema describes it as "disable delivery
+without deleting". Measured on 28 September 2026, with and without an
+idempotency key: the call returns success and the endpoint still reads
+`status: "enabled"` — while a `description` change sent through the same tool
+applies. So there is no reversible way to stop deliveries on this surface.
+`delete_webhook_endpoint` stops them, and is T3, final, and takes the delivery
+history with it. Do not tell a human an endpoint is paused; read `status` back
+after any update, and if they need deliveries stopped, say that deletion is the
+only lever and let them decide.
 
 ### Event names are not validated
 
@@ -151,16 +162,31 @@ There is no server-side check and no tool that lists valid event types, so a
 typo produces an endpoint that looks healthy in `list_webhook_endpoints` and is
 silently dead. `order.suceeded` will not error.
 
+`preview_webhook_payload` will not catch one either. It accepted
+`order.suceeded` and returned a generic sample payload, so a preview that works
+says nothing about whether the name is real. `list_webhook_events` does: it
+shows the event types that have actually been sent to the endpoint.
+
 So: after `create_webhook_endpoint` or `update_webhook_endpoint`, confirm the
-event names back to the human character by character, and check
-`list_webhook_delivery_logs` once real traffic should have arrived. An empty
-delivery log on a new endpoint is the symptom.
+event names back to the human character by character, and once real traffic
+should have arrived, check `list_webhook_events`. No events on a new endpoint is
+the symptom of a typo. An empty delivery log is not proof of one — see
+"Deliveries, events and replay".
+
+The event types seen on the sandbox, on an endpoint subscribed to `*`, for a
+customer, a card, a charge, a refund and a decline (29 September 2026):
+`customer.created`, `customer.payment_method.updated`, `order.created`,
+`order.succeeded`, `order.failed`, `order.refunded`. No `transaction.*` event
+occurs — a payment is an `order.*` event. That list is what one run produced,
+not a catalogue; a name not on it may still exist, and the events list is what
+proves one.
 
 ## Schema versions
 
-Webhook versions are **a separate line from the API version**. This account runs
-API `2026-02-11` and webhook schema `2026-02-10`. Do not assume one implies the
-other.
+Webhook versions are **a separate line from the API version**. On this account
+`ping` reads `api_version: null` (not pinned) and `latest_api_version:
+"2026-02-11"`, while endpoints run webhook schema `2026-02-10`. Do not assume
+one implies the other.
 
 `list_webhook_versions` returns each version with `status` (`current`,
 deprecated, sunset), `is_latest`, `sunset_date`, and a structured `changelog`
@@ -192,9 +218,19 @@ Guard rails the server enforces:
 
 ```
 version that does not exist  ->  invalid_webhook_version, naming the value
+upgrade to current/older     ->  invalid_version_upgrade,
+                                 "Target version … must be newer than current version …"
 downgrade to current/newer   ->  invalid_version_downgrade,
                                  "Target version must be older than current version."
 ```
+
+`compare_webhook_versions` from a version to itself returns `changes: []`, and
+from a version that does not exist, `invalid_webhook_version`.
+
+The rollback is `downgrade_webhook_version` — not a pause, which does not exist
+(see "Changing an endpoint"), and not a delete. Do not migrate while
+`has_pending_rotation` is true: two changes in flight make any failure
+ambiguous.
 
 The endpoint also carries `api_version_pinned_at`, `api_version_deprecated` and
 `api_version_sunset`. A deprecated version with a sunset date is a scheduled
@@ -206,11 +242,24 @@ outage — surface the date rather than only the flag.
 both T0. Start here when someone says webhooks stopped arriving — before
 touching the endpoint, and certainly before rotating anything.
 
-An empty delivery log distinguishes two very different problems:
+Read the events first. Each event carries its own delivery state — `status`,
+`attempts`, `max_attempts` (7), `last_attempt_at`, `next_retry_at`,
+`completed_at` — so the events list says both what matched and what EPD did
+with it. Together with the log it separates three problems:
 
-- **empty** — nothing was ever sent. Wrong event names, or no matching activity.
-- **entries with failures** — sending is happening and the receiver is rejecting
-  or unreachable. That is often `epd-webhooks` territory.
+- **no events** — nothing matched. Wrong event names, or no matching activity.
+- **events reading `dead_letter` with `attempts: 0`** — EPD matched the event
+  and never tried to send it. Measured on 29 September 2026: an endpoint whose
+  host is not publicly reachable is accepted at registration; each matching
+  event is dead-lettered within a second, at zero attempts, and the delivery log
+  records **nothing**. `test_webhook_endpoint` on it returns `invalid_url`,
+  "Webhook URL points to an internal or private network address." The URL has to
+  change.
+- **attempts above zero, or log entries with failures** — sending is happening
+  and the receiver is rejecting or unreachable. That is often `epd-webhooks`
+  territory.
+
+An empty log alone does not tell the first two apart; the events do.
 
 ### `test_webhook_endpoint` and `replay_webhook_event` hit a real URL
 
@@ -223,6 +272,15 @@ timeout. Replaying an event a consumer already processed can double-apply
 whatever it does — and the receiver's own idempotency is the merchant's code,
 which you cannot see from here.
 
+`replay_webhook_event` takes the event `id` from `list_webhook_events` — an id
+that is not on the endpoint is `resource_not_found` — and **a failed replay is
+not an error response.** It returns the attempt: `status`, `http_status_code`,
+`response_time_ms`, `error_message`, and the `api_version` it was sent at.
+Measured on 30 September 2026: a replay to a host that is not publicly reachable
+returned normally with `status: "failed"`, and the event stayed `dead_letter`
+at zero attempts with nothing logged. Read `status` before telling anyone an
+event was redelivered.
+
 ## What this skill will not do
 
 - **Write or debug receiver code.** Signatures, raw body, HMAC — `epd-webhooks`.
@@ -233,4 +291,11 @@ which you cannot see from here.
 - **Trust an event name.** Nothing validates them; confirm and verify with the
   delivery log.
 - **Delete an endpoint to fix delivery failures.** `delete_webhook_endpoint` is
-  T3 and loses the delivery history that would have explained the problem.
+  T3 and loses the delivery history that would have explained the problem. It
+  fixes nothing a new endpoint would not break the same way: a wrong URL or
+  event name is changed in place with `update_webhook_endpoint`, which keeps the
+  history. "Delete it and make a fresh one" is declined as a fix and answered
+  with the diagnosis; deletion is for an endpoint the human wants gone, asked
+  for as that.
+- **Report an endpoint as paused.** `disabled: true` is accepted and ignored;
+  read `status` back, and say so.

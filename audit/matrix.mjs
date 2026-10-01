@@ -190,6 +190,17 @@ p();
 p('## Coverage by safety tier');
 p();
 p('Tiers are derived from the server\'s own annotations, not assigned by hand.');
+{
+  // This audit records what the server declares. SAFETY.md decision 1 holds
+  // some tools to a stricter tier; say so, so the two tables are not read as
+  // disagreeing by accident.
+  const overrides = Object.keys(JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'tier-overrides.json'), 'utf8')).tools);
+  if (overrides.length) {
+    p(`\`SAFETY.md\` decision 1 later held ${overrides.map((n) => `\`${n}\``).join(' and ')} to T3,`);
+    p('because they move money; this table keeps the annotations as the server declares them. The operative');
+    p('per-tool tiers are in [`references/tiers.md`](../workflows/epd-mcp-operator/references/tiers.md).');
+  }
+}
 p();
 p('| Tier | Tools | Documented today | Absent today |');
 p('|---|---|---|---|');

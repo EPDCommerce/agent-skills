@@ -1,7 +1,7 @@
 ---
 skill: epd-coupons
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -23,12 +23,12 @@ it, check whether a code will work, and retire it. Only one is T3 —
 |---|---|---|
 | Codes | one shared code, minted at create time | many unique codes, minted separately |
 | The code is | the normalized name — trimmed and uppercased | random, or supplied by you |
-| Name rule | must match `/^[A-Z0-9-]{4,50}$/` | free text |
-| `generate_coupon_codes` | rejected | the point |
+| Name rule | 4–50 letters, digits and hyphens; any case — a lowercase name is accepted, measured | free text |
+| `generate_coupon_codes` | rejected, `resource_in_use` | the point |
 | `max_redemptions_per_code` | rejected — use `max_redemptions` | applies |
 
-`SUMMER-SALE` is a promo. `"Summer Sale"` is rejected as a promo name and is
-only valid as a generated coupon's display name. The choice is not fixable
+`SUMMER-SALE` is a promo. `"Summer Sale"` is rejected as a promo name — for the
+space, not the case — and is only valid as a generated coupon's display name. The choice is not fixable
 afterwards, so the skill requires it confirmed before creating.
 
 ### Scope defaults to everything, and the schema does not say so
@@ -78,10 +78,20 @@ and changes nothing. Failure gives a machine-readable reason:
 | `coupon_expired` | past `expires_at` |
 | `coupon_not_yet_active` | before `starts_at` |
 | `coupon_inactive` | `active: false` — usually self-inflicted, see below |
+| `product_not_eligible` | scoped to products, and the call named none of them — or named no product at all |
+| `plan_not_eligible` | the plan passed is outside `plan_scope` |
+| `customer_limit_reached` | that customer is at `max_redemptions_per_customer` — only tested when `customer_id` is passed. A refund does not give the redemption back; measured |
 
 Expired and not-yet-active look identical to a customer and need opposite
 responses, which is why the skill reports the reason rather than "the code
 didn't work".
+
+**A bare code is not a validity check.** On a coupon scoped to particular
+products, `validate_coupon` with only `code` answers `product_not_eligible` —
+measured on 28 September 2026 — exactly as it does for an out-of-scope product.
+The skill validates with the product, amount and customer a real order would
+carry, and proves a new coupon's scope by validating once inside it and once
+outside.
 
 ## When it fires
 
@@ -106,7 +116,7 @@ didn't work".
 | **Mint a large batch on a vague instruction.** | "Generate codes for the campaign" is not an amount. 500 per call is a cap, not a target, and there is **no bulk delete for minted codes** — no tool removes individual codes, and `archive_coupon` retires the whole coupon. An over-mint cannot be quietly cleaned up. |
 | **Report a coupon as restored after `unarchive_coupon` alone.** | See below. This is the trap in this skill. |
 | **Guess the kind.** | Promo and generated are not interchangeable and the choice is permanent. |
-| **Change discount terms after a redemption.** | `percentage`, `amount` and `duration` become immutable once redeemed once; attempts return **422**. Nor will it work around the refusal by creating a near-duplicate without saying so. |
+| **Change discount terms or scope after a redemption.** | `percentage`, `amount` and `duration` become immutable once redeemed once — and so, measured, do the product and plan scope, first-time-only, the discount cap and the name, although the tool's description says scope stays editable. Attempts are refused with `field_locked`. Nor will it work around the refusal by creating a near-duplicate without saying so. |
 | **Delete a coupon or a code.** | Neither tool exists. Archive is the retirement path. |
 | **Charge anything.** | Applying a coupon to an order is `epd-catalog`. |
 
@@ -119,9 +129,9 @@ result, and archiving twice succeeds — naturally idempotent, so a retry is saf
 **Finding one again needs the filter.** Because archived coupons leave the
 default listing, a request to restore one starts with a lookup that returns
 nothing unless you ask for them: `list_coupons` takes `archived`, alongside
-`active`, `kind` and `sort`. The skill notes that archived coupons disappear
-from the listing without naming the parameter that brings them back, so it is
-worth carrying — otherwise "no such coupon" looks like the answer.
+`active`, `kind` and `sort` — as the string `"true"`, since a boolean is
+rejected with `invalid_value`. The skill names the parameter and its form,
+because without it "no such coupon" looks like the answer.
 
 **The trap.** Archiving sets `active: false`. Unarchiving clears the archive
 flag but **leaves `active: false`**. Measured end to end:
@@ -181,7 +191,7 @@ assuming I know which one you mean.
 ```
 tool: list_coupons
 input:
-  archived: true
+  archived: "true"
   limit: 20
 ```
 
@@ -205,7 +215,9 @@ input:
   "archived_at": "2026-06-30T23:59:59Z",
   "expires_at": "2026-06-30T23:59:59Z",
   "total_redemptions": 412,
-  "max_redemptions_per_customer": 1
+  "max_redemptions_per_customer": 1,
+  "product_scope": "all",
+  "plan_scope": "all"
 }
 ```
 
@@ -221,7 +233,8 @@ well.
 need you to give me one rather than picking "this week" myself.
 
 **The terms are locked.** 412 redemptions means `percentage`, `amount` and
-`duration` are immutable — attempts return 422. So this runs again at **25%** or
+`duration` are immutable — and so are its scope and its name — attempts are
+refused with `field_locked`. So this runs again at **25%** or
 it runs as a different coupon with a different code. If 25% is not the number
 you wanted, tell me now, because that decision is a new coupon.
 
@@ -291,7 +304,10 @@ per customer.
 
 Be precise about what that last call proved, though. `code` is the only required
 argument, and on its own a `valid: true` proves the code resolves, is active and
-is inside its dates — which is exactly what the two writes were for. It does
+is inside its dates — which is exactly what the two writes were for. It only
+came back `true` because this coupon applies to everything; had it been scoped
+to particular products, a bare call would have answered `product_not_eligible`
+for a code that works. It does
 **not** prove that any particular customer can use it: the per-customer cap is
 only tested when `customer_id` is passed, and I do not have one, because nothing
 on this surface tells me who redeemed it in spring.

@@ -1,7 +1,7 @@
 ---
 skill: epd-onboard-customer
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -74,10 +74,14 @@ succeeded.
 
 All measured in sandbox on 18 September 2026.
 
-**Duplicates are refused, not merged.** `create_customer` returns
-`email_already_exists` or `phone_already_exists`. So `list_customers` filtered
-by email comes first, and the record you find gets updated rather than
-duplicated.
+**Duplicates are refused, not merged — when the email matches exactly.**
+`create_customer` returns `email_already_exists` or `phone_already_exists`. So
+`list_customers` filtered by email comes first, and the record you find gets
+updated rather than duplicated. But both the filter and the check are
+case-sensitive: measured on 29 September 2026, the upper-case form of an
+existing address found nothing and then **created a second customer**. So the
+lookup uses `q` too, which ignores case, and a record differing only in case is
+confirmed with the human rather than duplicated.
 
 **`get_customer` with `expand: subscriptions` returns nothing** — not even an
 empty list — for a customer with an active subscription. Use
@@ -97,7 +101,9 @@ them afterwards — despite the tool describing itself as a soft delete.
 
 ## When it fires
 
-- *"Onboard a customer."* · *"Sign up a new customer with a card."*
+- *"Onboard a customer."* · *"Create a customer."* · *"Sign up a new customer
+  with a card."*
+- Whether a customer already exists, or finding one by email or name.
 - *"Update the customer record."* · *"Remove their card."*
 - Chaining customer creation with a first charge or subscription.
 
@@ -122,7 +128,8 @@ duplicate-email check, having already looked like the efficient choice.
 | **Treat `card_token`, `billing_id` or `payment_method_id` as a card number.** | All three are opaque references. If one is missing, say so — do not fabricate one and do not ask for raw card data as a workaround. |
 | **Store or reuse a `card_token`.** | Single use, 15-minute expiry. A second attempt fails, and the correct response is to capture again, not retry. |
 | **Accept a `billing_id`.** | Not a property of any MCP tool. It is a legacy gateway vault reference; an operator offering one is describing a legacy REST integration. |
-| **Create before looking.** | A duplicate is refused after the attempt, not before. `list_customers` by email is one T0 call and it changes what you do next. |
+| **Create before looking.** | A duplicate is refused after the attempt, not before — and only when the email matches exactly, case included. `list_customers` by email and by `q` is two T0 calls, and they change what you do next. |
+| **Create a case variant on purpose.** | Asked for "two records" with the email in capitals, it declines: the duplicate check is case-sensitive, so the second record would be created — and would split one person's orders and cards across two customers. |
 | **Choose the replacement card itself.** | That card becomes the customer's new default. The refusal message says so, which makes it the human's decision. |
 | **Cancel subscriptions to get a delete through.** | `customer_has_active_subscriptions` is a stop sign, not a to-do. Ending someone's subscriptions is a decision, never a side effect of a delete. |
 | **Swallow `partial_rollback_failed`.** | That code means a chain step failed *and* the automatic rollback failed too. The orphaned `customer_id` is embedded in `error.message` and has to be surfaced, or it is lost. |
@@ -141,8 +148,11 @@ duplicate-email check, having already looked like the efficient choice.
       not two. This is the check that catches a retried `secure.epd.com` call.
 - [ ] After `delete_payment_method`: the response is `{ "id": …, "deleted": true }`,
       and the **replacement is now the default**.
-- [ ] After `delete_customer`: a repeat returns the same `deleted: true` payload.
-      Confirm which delete happened — soft, with history kept, or outright.
+- [ ] After `delete_customer`: confirm which delete happened — soft, with
+      history kept and found only by `list_customers` with `deleted: true`, or
+      outright. A repeat returns the same `deleted: true` payload on a soft
+      delete and `resource_not_found` on an outright one; either means the first
+      landed.
 
 ## A worked transcript
 
@@ -181,7 +191,18 @@ input:
   limit: 10
 ```
 
-No match, so this is a genuine signup.
+No exact match. That filter is case-sensitive, and so is the duplicate check on
+create — an `Alice@Example.com` already on file would not be found and would not
+stop a second record — so one more look, case-insensitive:
+
+```
+tool: list_customers
+input:
+  q: alice@example.com
+  limit: 10
+```
+
+Nothing there either, so this is a genuine signup.
 
 One thing I am missing before I can create her: **`phone` is required on
 `create_customer`**, in E.164 — `+14155551234`. You gave me a name, an email and
@@ -248,7 +269,8 @@ call here.
   routes, rather than after several steps of setup.
 - **The pasted PAN was never echoed.**
 - **A lookup preceded the create**, because duplicates are refused after the
-  fact.
+  fact — and it was run twice, exact and case-insensitive, because the refusal
+  only catches an exact match.
 - **A missing required field stopped the work.** `phone` is required and Ops had
   not supplied one. `SAFETY.md` rule 5 calls filling it with a plausible guess
   the single most common agent failure on structured input, and the cost of

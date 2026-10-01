@@ -3,7 +3,7 @@ name: epd-catalog
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to manage what is for sale or place a one-off order against it. Triggers when the user asks to create or update a product, change a price, manage product images, asks what plans exist or what a plan contains, asks to place or charge an order for a customer, asks to retry a failed charge on an existing order, or hits a shipping-address or line-item error while ordering. Skip when the task is recurring billing on a subscription - load epd-subscriptions. Skip when the task is discounting rather than pricing - load epd-coupons.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -20,12 +20,13 @@ tier requires is defined once in
 [SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md).
 Do not hand-maintain a tier list here.
 
-Four here are T3, for two different reasons, and the distinction matters before
+Five here are T3, for two different reasons, and the distinction matters before
 you reach for one: `delete_product` and `delete_product_image` are irreversible,
-while `process_order` and `retry_order` charge a card. `create_order` charges a
-card too; it sits in T2 only because the server does not annotate it
-destructive. The plan printed before confirming it still states the amount —
-that is the expected effect T2 asks for.
+while `create_order`, `process_order` and `retry_order` charge a card.
+`create_order` is not annotated destructive; it is T3 because
+[SAFETY.md](https://github.com/EPDCommerce/agent-skills/blob/main/SAFETY.md)
+decision 1 holds every charge there, and `tiers.md` labels it `T3 charges`. Its
+confirmation echoes the amount, currency, card and key mode like any other T3.
 
 `reorder_product_images` has **no `idempotency_key` parameter**, so it cannot be
 safely retried on a timeout. Read the product back with `get_product` instead.
@@ -148,6 +149,12 @@ either a new product, a coupon, or a conversation.
 `idempotency_key` is **required** here, unlike most writes. It is a money-moving
 call and the server insists.
 
+**A decline is a successful call.** Measured on 28 September 2026: a declined
+card returned `isError: false` and an order with `status: "failed"`,
+`failure_code`, `attempt_count: 1` and `next_retry_at: null`. Read `status`
+before telling anyone the order went through. The order row stays, reading
+`failed`; nothing retries a one-off order by itself.
+
 Line-item rules, all observed:
 
 | Attempt | Result |
@@ -157,8 +164,8 @@ Line-item rules, all observed:
 | `items: []` | `value_too_small` — "expected array to have >=1 items" |
 | unknown `product_id` | `resource_not_found`, naming the id |
 
-Both create an order and charge the card. `create_order` is T2 and supports
-coupons and shipping. `process_order` is T3, supports neither, and leaves a
+Both create an order and charge the card, and both are T3. `create_order`
+supports coupons and shipping. `process_order` supports neither, and leaves a
 failed order row behind with no rollback. Prefer `create_order` unless you
 specifically want the customer-validation step — see `epd-mcp-operator`'s
 composites section.
@@ -176,8 +183,35 @@ input:
 ```
 
 Both fields are **required**. There is no third parameter: no amount, and
-critically **no payment-method switch**. To charge a different card you create a
-new order; there is no way to retry onto one.
+critically **no payment-method switch**. `retry_order` cannot move onto a
+different card.
+
+To charge a different card for a failed one-off order, create a new order for
+the same items and name the failed order in its metadata:
+
+```
+tool: create_order
+input:
+  customer_id: <the failed order's customer_id>
+  payment_method_id: <the new card's id>
+  items:
+    - product_id: <the failed order's product_id>
+      quantity: <the failed order's quantity>
+  metadata:
+    recovers_order: <the failed order's id>
+  idempotency_key: <UUID v4>
+```
+
+Nothing else will connect the two. The failed order keeps reading `failed`, and
+`create_order` keeps `metadata` — measured, and returned on `list_orders` — so
+this is how the next person to read the account sees the failure was paid for.
+`description` is not a substitute: sent on `create_order`, it came back `null`.
+
+`retry_failed_charge`, owned by `epd-subscriptions`, also charges a different
+card by creating a new order. It stores no link, and it does not refuse a
+second call on a failure it has already recovered — measured, it charged again.
+Before any recovery, check the customer's later orders for one that already
+happened.
 
 That single constraint decides when the tool is useful. A decline caused by the
 card itself — expired, lost or stolen, transaction not allowed — fails again
@@ -259,6 +293,12 @@ moves:
 ```
 coupon_code: "NOSUCH-CODE"  ->  code_not_found, "Coupon code does not exist."
 ```
+
+A real code that does not cover the items fails the same way —
+`product_not_eligible`, "Coupon is not eligible for any item in this order." —
+and is not placed at full price. A card that declines releases the redemption,
+so the customer can use the code again on another card. Both measured on
+29 September 2026.
 
 That is the safe behaviour, but it means a typo in a code looks like an ordering
 failure. Validate first with `validate_coupon` — it is T0, creates nothing, and

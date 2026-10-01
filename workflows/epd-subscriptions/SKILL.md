@@ -3,7 +3,7 @@ name: epd-subscriptions
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to manage the subscription lifecycle on a merchant account — starting subscriptions on existing customers, changing payment method or billing cycle, canceling, and recovering a failed renewal through dunning. References MCP tool names (create_subscription, update_subscription, cancel_subscription, cancel_subscription_and_report, list_subscriptions, retry_order, retry_failed_charge), not REST endpoints. Triggers when the user says "cancel a subscription", "list past-due subs", "the renewal failed", "retry the failed charge", or asks to change a customer's plan / payment method on a subscription. Skip when the user is signing up a brand-new customer — load epd-onboard-customer for that. Skip when money must go back to the customer as well — load epd-refunds. Skip when a one-off charge failed and nobody has diagnosed why yet — load epd-transaction-triage first; any failure on a subscription renewal is dunning and stays here.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -35,12 +35,15 @@ statuses were:
 | `paused`    | Not billing. Exists, but the public surface has no way to enter or leave it. |
 | `canceled`  | Permanently ended. History preserved; no further billing.            |
 | `completed` | Reached its `billing_cycles` cap (finite-term subscription finished). |
+| `failed`    | Its **first** charge declined. No cycles and no retry scheduled: after one automatic attempt on the same card within about a minute, nothing charges it again — see "A subscription whose first charge failed". |
 
 The tool schemas also name `past_due` (as a `status` filter value), and the
-REST API reference names both `past_due` and `failed`. Neither occurred. A subscription whose renewal
-failed stays `active` and carries `attempt_count` (failures so far) and
-`next_retry_at` (when the dunning engine will try again). **Detect dunning by
-those two fields, never by status.**
+REST API reference names both `past_due` and `failed`. `past_due` never
+occurred. `failed` did not occur among the seeded 130, but it is what
+`create_subscription` produces when its first charge declines — measured on
+28 September 2026. A subscription whose **renewal** failed stays `active` and
+carries `attempt_count` (failures so far) and `next_retry_at` (when the dunning
+engine will try again). **Detect dunning by those two fields, never by status.**
 
 What each change needs, per the tools' own descriptions and checked in
 sandbox:
@@ -91,6 +94,20 @@ Notes:
 - `coupon_code` is also accepted, and a failed coupon means no subscription
   is created — see `epd-coupons` before using it.
 
+**Read the response; a decline is not an error.** When the first charge
+declines, `create_subscription` returns no error — it returns a subscription
+with `status: "failed"`, `cycles: []` and `next_retry_at: null`. Report it as a
+failed start, not a started subscription.
+
+**Then read back what was charged.** Take cycle 1's order from
+`get_subscription` with `expand: cycles` and compare its `total` with the amount
+the confirmation quoted. A plan's `amount` is not guaranteed to be the first
+charge — a one-time amount, pricing tiers and a coupon all change it. If the two
+differ and nothing you know explains the difference, stop: report both figures
+and the `request_id` to the human, and start no further subscriptions on that
+plan until it is explained. Do not refund on a guess about which figure is
+right.
+
 ## Changing a subscription
 
 Use `update_subscription` for in-flight changes:
@@ -110,8 +127,10 @@ input:
 Common patterns:
 
 - **Card update after a decline** — set `payment_method_id` to the newly
-  vaulted one. The server applies it at once, **including to the queued
-  retry**, so the dunning engine's next attempt already uses it. See
+  vaulted one. The tool's description says it applies at once, **including to
+  the queued retry**, so the dunning engine's next attempt should use it. The
+  one engine retry that could be watched went the other way — see "A
+  subscription whose first charge failed" — so check the card afterwards. See
   "Recovering a failed renewal" before also retrying by hand.
 - **Plan change** — there is no `plan_id` on update. `products` can replace
   the recurring product lines from the next cycle, but moving to a different
@@ -124,7 +143,8 @@ Common patterns:
 ## Cancelling
 
 Two cancel tools, pick the one matching intent. Both need the subscription to
-be `active` or `paused`.
+be `active` or `paused` — and `cancel_subscription` also accepts a `failed` one,
+measured.
 
 ### `cancel_subscription` — quiet cancel
 
@@ -177,7 +197,10 @@ yourself when the composite exists.
 
 When a scheduled charge fails, EPD's dunning engine retries it on its own
 schedule. The subscription stays `active`; `attempt_count` and
-`next_retry_at` change on the subscription and on the failed cycle's order.
+`next_retry_at` change on the subscription. The failed cycle's order has fields
+of the same names, but on the sandbox no order carries `next_retry_at` — not even
+the cycle orders of subscriptions that have a retry scheduled — so **the
+subscription is where the schedule is read.**
 The operator's job is to find these, classify the decline, and decide whether
 anything should happen **before** the scheduled attempt.
 
@@ -231,9 +254,12 @@ input:
   expand: transactions
 ```
 
-The order carries the decline (`failure_code`, `failure_reason`), the retry
-state (`attempt_count`, `next_retry_at`), `subscription_id` /
-`subscription_cycle`, and in `transactions` the failed `sale` transaction.
+The order carries the decline (`failure_code`, `failure_reason`), its
+`attempt_count`, `subscription_id` / `subscription_cycle`, and in
+`transactions` the failed `sale` transaction. The retry date is on the
+subscription from step 1, not here. Also read the order's `status` against its
+transactions: both cycle orders in dunning on the sandbox read `succeeded` with
+every sale failed — see `epd-transaction-triage`.
 
 ### 3. Classify before anything moves
 
@@ -271,8 +297,14 @@ gets charged twice.
    documented in `epd-onboard-customer`.
 2. `update_subscription` with the new `payment_method_id`. It applies at
    once, including to the queued retry.
-3. **Default: let the attempt at `next_retry_at` run.** It will use the new
-   card, and it is the engine's own cycle, so there is nothing to reconcile.
+3. **Default: let the attempt at `next_retry_at` run.** By the tool's
+   description it uses the new card, and it is the engine's own cycle, so
+   there is nothing to reconcile. That has not been observed on a renewal —
+   one cannot be made to fail on demand — and the one automatic retry that
+   could be watched, on a failed first charge, charged the order's old card
+   after the swap. So after `next_retry_at`, read the cycle order's
+   transactions and check `card_last_four` before telling anyone the new card
+   was charged.
 
 If the human wants the new card charged now rather than at `next_retry_at`,
 the only tool that retries on a different card is `retry_failed_charge`:
@@ -293,15 +325,61 @@ transaction must be a `sale` in `failed` status; anything else is refused.
 Unlike `retry_order`, its description says nothing about reconciling the
 subscription cycle — and after step 2 the scheduled attempt would charge the
 same new card. So say this before running it, and afterwards read the
-original cycle's order: if `next_retry_at` is still set, tell the human a
-second attempt is scheduled rather than assuming it will be skipped. When in
+subscription: if its `next_retry_at` is still set, tell the human a second
+attempt is scheduled rather than assuming it will be skipped. When in
 doubt, the scheduled attempt is the safer route.
+
+Three things measured on 28 September 2026 make it worse than its description
+suggests:
+
+- **It links nothing.** The original order stays `failed`, and the new order's
+  `metadata` is empty. The mapping exists only in the response —
+  `original_order_id` and `new_order.id`. Record it in your report at once; the
+  next person to read the failed order sees an unpaid failure.
+- **It does not refuse a second call.** Called again on the same failed
+  transaction under a new key, it charged the customer again. One call per
+  failure, and before any call, check the customer's later orders for a
+  recovery that already happened.
+- **Its new order may not belong to the subscription.** In the case measured —
+  a first charge that failed — the new order carried `subscription_id: null`,
+  took its amount from the line items rather than the failed order's total, and
+  left the subscription unchanged.
+
+### A subscription whose first charge failed
+
+`status: "failed"`, `cycles: []`, `next_retry_at: null`, and one failed order
+carrying the `subscription_id`. It has never billed. The engine makes **one
+more attempt by itself, on the declined card**, within about a minute —
+measured on 29 September 2026, 48 seconds after the decline with nothing else
+done — and `attempt_count` goes to 2. After that nothing retries it. One-off
+orders get no such attempt. The obvious repairs all failed in sandbox:
+
+| Tried | Result |
+|---|---|
+| `update_subscription` to a new card | The subscription's card changed; the failed order kept the old one. |
+| `retry_order` on the failed order | Re-charged the order's card — the old one — and failed. |
+| `retry_failed_charge` onto the new card | Charged the customer, on an order with `subscription_id: null`; the subscription stayed `failed`. Paid for, and never billing. |
+
+That automatic attempt is what the 28 September run saw 18 seconds after a card
+swap and could not explain; a run with no card swap got it too, so the swap did
+not cause it. It charges the **order's** card — the old one — even after
+`update_subscription` has moved the subscription to a new card. So wait until a
+minute has passed since the decline, then read the order's transactions again
+before the next step. With a real card that attempt could succeed. If it did,
+the first charge is paid, and a replacement subscription created now would
+charge the customer twice.
+
+What works is a **new subscription on the new card, then `cancel_subscription`
+on the failed one**, in that order and as two confirmations. The failed one
+cannot bill, so it costs nothing to leave for a moment, while cancelling first
+leaves the customer with no subscription if the new card also declines.
 
 ### 5. Confirm what changed
 
 Read the subscription again with `expand: cycles` and check the failed
-cycle's `status` and the order's `next_retry_at` before telling the human
-it is recovered. Drive every one to an end state — recovered, or canceled by
+cycle's `status` and the **subscription's** `next_retry_at` before telling the
+human it is recovered. The order's `next_retry_at` proves nothing either way:
+it read `null` on every order on the sandbox, scheduled or not. Drive every one to an end state — recovered, or canceled by
 decision — rather than leaving it in the retry loop.
 
 ## Confirmation prompts
@@ -309,7 +387,9 @@ decision — rather than leaving it in the retry loop.
 Tiers and which tools are destructive come from `references/tiers.md` — see
 the pointer above; do not hand-list them here. `cancel_subscription`,
 `cancel_subscription_and_report`, `retry_order` and `retry_failed_charge` are
-T3. Confirm each using the pattern in `epd-mcp-operator`'s "Running a
+T3. So is `create_subscription`: the server does not annotate it destructive,
+but it charges the first cycle at once, and `SAFETY.md` decision 1 holds every
+charge to T3. Confirm each using the pattern in `epd-mcp-operator`'s "Running a
 confirmation" section.
 
 `update_subscription` is **T2**, not destructive — the server does not
@@ -321,12 +401,15 @@ so if you apply it, rather than citing it as a tier fact.
 
 Templates:
 
-> "This will cancel the $29.99/month Pro subscription for Alice Liddell,
-> effective immediately. No further charges. Proceed?"
+> I'm about to call **`cancel_subscription`** on subscription `<id>` —
+> Alice Liddell's $29.99/month Pro plan — effective immediately, in
+> **<mode>** mode. No further charges, and nothing is refunded. This is
+> irreversible. Proceed?
 
-> "This will retry the $29.99 charge for Alice that failed on 2026-04-30,
-> on the card ending in 4242 that's already on the order. It reconciles
-> that billing cycle, so the scheduled retry won't also charge her. Proceed?"
+> I'm about to call **`retry_order`** on order `<id>` for **$29.99 USD** —
+> Alice's charge that failed on 2026-04-30 — on the card ending 4242 that is
+> already on the order, in **<mode>** mode. It reconciles that billing cycle,
+> so the scheduled retry won't also charge her. Proceed?
 
 ## Common operator mistakes
 
@@ -350,6 +433,11 @@ Templates:
    cycle, or let the schedule run — not a fresh order for the same amount.
 6. **Guessing a `cancellation_reason`.** An unknown one blocks the cancel.
    Use `cancellation_notes` for free text.
+7. **Recovering a failure twice.** `retry_failed_charge` leaves the failed
+   order reading `failed` and will charge again if asked. Check for a later
+   succeeded order before recovering anything, and record the mapping after.
+8. **Reporting a `failed` subscription as started.** `create_subscription`
+   does not error on a declined first charge. Read `status`.
 
 ## Where to go next
 

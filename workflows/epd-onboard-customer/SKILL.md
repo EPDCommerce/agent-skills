@@ -1,9 +1,9 @@
 ---
 name: epd-onboard-customer
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs a customer's identity or payment methods managed — create, look up, update or delete the customer record, or attach and remove a card. Also owns the two composites that bundle a first charge or a first subscription into the same call as signup — create_customer_and_charge and create_customer_and_subscribe — for a genuinely new customer. References MCP tool names, not REST endpoints. Triggers when the user says "onboard a customer", "sign up a new customer with a card", "update the customer record", "remove their card", or chains customer creation with a first charge or subscription. Skip when the dev is integrating from their own backend — load the integration skill epd-best-practices instead. Skip when charging or starting a subscription for a customer who already exists — load epd-catalog or epd-subscriptions.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs a customer's identity or payment methods managed — create, look up, update or delete the customer record, or attach and remove a card. Also owns the two composites that bundle a first charge or a first subscription into the same call as signup — create_customer_and_charge and create_customer_and_subscribe — for a genuinely new customer. References MCP tool names, not REST endpoints. Triggers when the user says "onboard a customer", "create a customer", "sign up a new customer with a card", asks whether a customer already exists or to find one by email or name, "update the customer record", "remove their card", or chains customer creation with a first charge or subscription. Skip when the dev is integrating from their own backend — load the integration skill epd-best-practices instead. Skip when charging or starting a subscription for a customer who already exists — load epd-catalog or epd-subscriptions.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -210,14 +210,34 @@ with `phone_already_exists`).
 ```
 tool: list_customers
 input:
-  email: alice@example.com      # exact match
+  email: alice@example.com      # exact match — case included
   limit: 10
 ```
 
-Other filters: `q` (full-text over name, email and company), `tags`,
-`created_after` / `created_before`, and `deleted: true` to include
-soft-deleted customers, which are otherwise left out. Page with
-`starting_after` set to the previous page's `cursors.next`.
+**Both the filter and the duplicate check are case-sensitive.** Measured on
+29 September 2026: `email` with different capitalisation found nothing, and
+`create_customer` with the upper-case form of an existing address **created a
+second customer**, storing the address as typed. So look up with `q` as well,
+which ignores case, before creating:
+
+```
+tool: list_customers
+input:
+  q: alice@example.com          # full-text, case-insensitive
+  limit: 10
+```
+
+A record whose email differs only in case is almost certainly the same person —
+confirm with the human rather than creating another. **Never create a case
+variant on purpose** to get past the duplicate check, even when asked for "two
+records": the second record splits one person's orders, cards and history, and
+the email filter will only ever find one of them. Update the existing customer
+instead, or stop.
+
+Other filters: `tags`, `created_after` / `created_before`, and `deleted: true`,
+which returns **only** soft-deleted customers — 8 on the sandbox, against 458
+without it, on 29 September 2026. Page with `starting_after` set to the previous
+page's `cursors.next`.
 
 ```
 tool: get_customer
@@ -316,7 +336,9 @@ input:
   afterwards — although the tool describes itself as a soft delete. Treat
   the delete as final either way.
 - Repeating the delete of a soft-deleted customer, even under a new key,
-  returns the same `{ "deleted": true }` payload.
+  returns the same `{ "deleted": true }` payload. Repeating it on one removed
+  outright returns `resource_not_found` — measured 29 September 2026. Either
+  way, a repeat means the first delete landed.
 
 T3: read the customer first and echo name, email and id before calling.
 
@@ -371,20 +393,25 @@ pattern in `epd-mcp-operator`'s "Running a confirmation" section: read what
 you have (the price, the card's last four), then echo it back before
 calling. Domain-specific templates:
 
-> "This will create customer Alice Liddell and charge $29.99 to the card
-> ending in 4242. Proceed?"
+> I'm about to call **`create_customer_and_charge`** to create customer
+> Alice Liddell (alice@example.com) and charge **$29.99 USD** to the card
+> ending 4242, in **<mode>** mode. It moves money. Proceed?
 
-> "This will create customer Alice Liddell and start a $29.99/month
-> subscription billed on the 1st. Proceed?"
+> I'm about to call **`create_customer_and_subscribe`** to create customer
+> Alice Liddell (alice@example.com) and start plan **<plan>** at
+> **$29.99 USD** a month, billed on the 1st, in **<mode>** mode. The first
+> charge is taken now. Proceed?
 
 `delete_payment_method` and `delete_customer` are T3 as well:
 
-> "This will remove Alice Liddell's Visa ending 4242 (her default card) and
-> make the Mastercard ending 5454 her default, in test mode. Proceed?"
+> I'm about to call **`delete_payment_method`** to remove Alice Liddell's
+> Visa ending 4242 (her default card) and make the Mastercard ending 5454 her
+> default, in **test** mode. This is irreversible. Proceed?
 
-> "This will delete customer Alice Liddell (alice@example.com,
-> `3fa85f64-…`) in test mode. Her order history is kept, but she will no
-> longer appear in customer lists. Proceed?"
+> I'm about to call **`delete_customer`** on Alice Liddell
+> (alice@example.com, `3fa85f64-…`) in **test** mode. Her order history is
+> kept, but she will no longer appear in customer lists. This is
+> irreversible. Proceed?
 
 After successful execution, surface the order/subscription ID so the user
 can find it in the dashboard.
@@ -399,8 +426,10 @@ can find it in the dashboard.
    the MCP surface. For a headless flow, go through `secure.epd.com`
    instead — see "Getting a card on file".
 3. **Creating before looking.** A second `create_customer` for someone who
-   already exists fails on `email_already_exists` or `phone_already_exists`.
-   `list_customers` by `email` first, and update the record you find instead.
+   already exists fails on `email_already_exists` or `phone_already_exists` —
+   but only when the email matches exactly: a different case creates a
+   duplicate. `list_customers` by `email` and by `q` first, and update the
+   record you find instead.
 4. **Choosing the replacement card yourself.** When `delete_payment_method`
    needs a `replacement_payment_method`, that card becomes the customer's new
    default — the refusal message says so. It is the human's pick.

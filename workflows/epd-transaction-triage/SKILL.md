@@ -1,9 +1,9 @@
 ---
 name: epd-transaction-triage
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs to work out why a charge failed and whether retrying it is safe. Triggers when the user says a payment failed, was declined or did not go through, asks what a decline code means, asks whether to retry a charge, pastes a failure code such as do_not_honor or insufficient_funds, or asks why a customer's card keeps getting rejected. Skip when the decision is already made and money must move - load epd-refunds to refund, or epd-subscriptions to work a past_due dunning cycle. Skip when the failure is on a subscription renewal rather than a one-off charge - that is the dunning loop, so load epd-subscriptions. Skip when the question is about totals over a period rather than one failure - load epd-reporting.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs to work out why a charge failed and whether retrying it is safe. Triggers when the user says a payment failed, was declined or did not go through, asks what a decline code means, asks whether to retry a charge, pastes a failure code such as do_not_honor or insufficient_funds, or asks why a customer's card keeps getting rejected. Skip when the decision is already made and money must move - load epd-refunds to refund, epd-catalog to retry a one-off order, or epd-subscriptions to work a past_due dunning cycle. Skip when the failure is on a subscription renewal rather than a one-off charge - that is the dunning loop, so load epd-subscriptions. Skip when the question is about totals over a period rather than one failure - load epd-reporting.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account. Read-only; performs no retry and moves no money.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -56,8 +56,9 @@ decline:
 
 That table is the **transaction's** status. The order carries its own, and the
 two can differ — see "What the order tells you" below. Branching on the
-transaction's status tells you what that attempt did; only the order's tells you
-whether the customer was charged.
+transaction's status tells you what that attempt did. Whether the customer was
+charged is answered by the order's transactions taken together: a `sale` with
+`status: "succeeded"`. Neither status on its own settles it.
 
 A chargeback is the one most often misread. The money arrived and was taken
 back, so "retry it" is meaningless and the customer has already disputed.
@@ -136,13 +137,13 @@ Say which class a code falls into and why, rather than only reporting the code.
 
 ## What the order tells you that the transaction does not
 
-Always read the order as well. `get_order` carries the retry state:
+Always read the order as well. `get_order` carries the attempt history:
 
 ```json
 {
   "status": "failed",
   "attempt_count": 1,
-  "next_retry_at": "2026-09-25T10:00:00.000Z",
+  "next_retry_at": null,
   "failure_code": "do_not_honor",
   "subscription_id": "…",
   "subscription_cycle": 3,
@@ -150,7 +151,7 @@ Always read the order as well. `get_order` carries the retry state:
 }
 ```
 
-Five things the transaction alone will not tell you:
+Six things the transaction alone will not tell you:
 
 - **`status` — and it need not match the transaction's.** An order that failed
   on one attempt and succeeded on a retry reads `succeeded`, while the failed
@@ -160,8 +161,30 @@ Five things the transaction alone will not tell you:
   day, and the customer is told the opposite of what their statement shows.
   This follows from `transactions[]` below: an order that can hold several
   attempts can hold attempts that disagree.
-- **`next_retry_at`** — a retry may already be scheduled. Retrying manually on
-  top of it risks charging twice. Check this before recommending any retry.
+  The order's status is not proof on its own either. Across all 6,017 orders on
+  the sandbox, two read `succeeded` with every sale transaction failed — the two
+  subscription cycle orders in dunning, measured on 28 September 2026. So
+  report "charged" only when a `sale` transaction succeeded, and when the
+  order's status and its transactions disagree, report both.
+- **Whether it was already recovered.** A failure recovered onto a new card —
+  by `retry_failed_charge`, or by a replacement order — produces a **new**
+  order and leaves this one `failed` for good. Nothing on the failed order says
+  so. Before calling a failure outstanding, list the customer's later orders
+  (`list_orders` with `customer_id` and `created_after`): a succeeded one with
+  `metadata.recovers_order` naming this order is a recovery, and one with the
+  same items and total may be. A failure reported as outstanding after it was
+  recovered is how a customer gets charged twice — `retry_failed_charge` does
+  not refuse a failure it has already recovered.
+- **`next_retry_at` — read it on the subscription, not only here.** A retry
+  may already be scheduled, and retrying manually on top of it risks charging
+  twice. The order has a field of that name, but across all 6,017 orders on
+  the sandbox it was `null` on every one — including the cycle orders of the
+  two subscriptions that **do** have a retry scheduled, where the date shows
+  only on the subscription (measured 28 September 2026). So for a
+  subscription cycle, `get_subscription` is where the schedule is read, and
+  "nothing scheduled" is never concluded from the order alone. On a one-off
+  order nothing retries by itself: all 593 failed one-off orders read `null`,
+  and "wait for the retry" is not an option there.
 - **`attempt_count`** — how many times this has already failed. A third
   `do_not_honor` on the same card is not ambiguous any more.
 - **`subscription_id` / `subscription_cycle`** — this is a dunning failure, not
@@ -233,8 +256,8 @@ guaranteed to fail. The customer needs to supply a new card first.
   goes through the routing table.
 - **Recommend retrying a hard decline.** `expired_card`, `lost_stolen_card` and
   `transaction_not_allowed` need a new payment method, not another attempt.
-- **Recommend a retry without checking `next_retry_at`.** A scheduled retry plus
-  a manual one is two charges.
+- **Recommend a retry without checking `next_retry_at`** — on the subscription,
+  for a cycle. A scheduled retry plus a manual one is two charges.
 - **Claim a gateway-versus-issuer distinction** the data does not support on
   this account.
 - **Echo card data.** `card_last_four` and `card_brand` only.

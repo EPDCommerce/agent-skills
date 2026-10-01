@@ -1,7 +1,7 @@
 ---
 skill: epd-webhooks
 surface: integration
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -95,9 +95,13 @@ return 200, process asynchronously. Persist-then-200 is safe; 200-then-process
 silently drops events on failure.
 
 **The field is `enabled_events`, not `events`** — the API rejects `events` with
-"Property events should not exist". Patterns work (`order.*`, or `*`). There are
-**no `transaction.*` events**: a payment arrives as `order.succeeded` or
-`order.failed`.
+"Property events should not exist" (measured again on 29 September 2026).
+Patterns work (`order.*`, or `*`). There are **no `transaction.*` events**: a
+payment arrives as `order.succeeded` or `order.failed`. On an endpoint
+subscribed to `*`, a signup, a card, a charge, a refund and a decline produced
+`customer.created`, `customer.payment_method.updated`, `order.created`,
+`order.succeeded`, `order.failed` and `order.refunded` — measured, not a
+catalogue. Each event records `max_attempts: 7`, the seven attempts below.
 
 **`signing_secret` is returned only on creation.** Not by a later read, list or
 update. If it is lost, rotation is the only path — and rotation gives both
@@ -131,7 +135,8 @@ REST call), during which the receiver should accept either.
 | Refusal | Why |
 |---|---|
 | **Verify against parsed JSON.** | Re-serialization changes bytes. The signature covers bytes. |
-| **Use `==` for signature comparison.** | Leaks timing information. `crypto.timingSafeEqual`, `hmac.compare_digest`, `hash_equals`. |
+| **Use `==` for signature comparison.** | Leaks timing information. `crypto.timingSafeEqual`, `hmac.compare_digest`, `hash_equals`. Asked to "simplify" it, the skill declines rather than writing it. |
+| **Remove verification because it fails.** | A failing check is a bug to find — usually the raw body or the secret — not a check to delete. |
 | **Raise `tolerance_seconds` "to avoid clock issues".** | A one-hour tolerance defeats replay protection. NTP-sync the clocks and keep 300s. |
 | **Trust the event ID for ordering.** | IDs are unique, not ordered. `evt_001` need not arrive before `evt_002`. If ordering matters, use `created_at` on the underlying object. |
 | **Return 200 before the handler succeeds.** | No retry on genuine failures, and events are silently dropped. |

@@ -1,7 +1,7 @@
 ---
 skill: epd-mcp-operator
 surface: workflow
-guide_version: 1.0.0
+guide_version: 1.1.0
 api_version: "2026-02-11"
 ---
 
@@ -32,9 +32,12 @@ The expensive failure this prevents is not an agent that checks the wrong
 environment. It is a human who assumes the session is sandbox because the
 conversation started as an experiment.
 
-**2. Finds the tier and runs the confirmation.** Tiers are a pure function of
-the annotations the server declares on each tool — `readOnlyHint` is T0,
-`destructiveHint` is T3, `openWorldHint` is T2-external, any other write is T2.
+**2. Finds the tier and runs the confirmation.** Tiers are a function of the
+annotations the server declares on each tool — `readOnlyHint` is T0,
+`destructiveHint` is T3, `openWorldHint` is T2-external, any other write is T2 —
+with one written exception: `create_order` and `create_subscription` charge a
+card without being annotated destructive, and
+[`SAFETY.md`](../SAFETY.md) decision 1 holds them to T3.
 The per-tool table is generated from the `tools/list` snapshot by
 `npm run gen:tiers`, so it cannot disagree with the server. The skill supplies
 the confirmation templates; [`SAFETY.md`](../SAFETY.md) supplies the rules about
@@ -73,6 +76,9 @@ On questions about the *surface* rather than about a domain:
   `invalid_format`, or a 429.
 - A write timed out and it is unclear whether to retry.
 - Before the first write of any session.
+- A human granting standing permission — *"from now on, don't ask"* — which
+  the skill declines, since standing authorizations are written into
+  `SAFETY.md` in advance.
 
 It also fires **inside** a domain workflow. A subscription cancellation that hits
 a 429 is a rate-limit question, not a subscription question, and the answer is
@@ -98,9 +104,10 @@ be selected on that word alone.
 | **Hand-maintain a list of destructive tools.** | This is the rule that earns the skill its place. Before Phase D, `epd-subscriptions` listed `update_subscription` under *"tools annotated `destructiveHint: true`"*. The server annotates it as an ordinary T2 write. The product judgment behind the entry was sound — a payment-method change on a live subscription does deserve care. The defect was that a judgment had been recorded as a server fact, in a hand-typed list, with nothing to catch the divergence. |
 | **Restate the server's own `instructions` block.** | Money units, bare UUIDs and pagination defaults already arrive in every session. Repeating them creates a second source that can go stale. |
 | **Widen permissions or route around them.** | `insufficient_permissions` on this surface almost always means the key is restricted and cannot use MCP at all. Retrying, or finding another tool that reaches the same effect, converts a clean stop into an unlogged workaround. |
-| **Decide policy at runtime.** | Standing authorizations for unattended work are written into `SAFETY.md` in advance. An agent that can grant itself an exception has no policy. |
+| **Decide policy at runtime.** | Standing authorizations for unattended work are written into `SAFETY.md` in advance. An agent that can grant itself an exception has no policy — and one granted in conversation ("from now on, don't ask") is the same exception. The agent says so and keeps confirming. |
 | **Cover the REST surface.** | `api.epd.com/v1` belongs to `epd-best-practices`. The single exception is `secure.epd.com`, which appears here because the headless card flow passes through it. |
 | **Hunt for an order by its number.** | `get_order` takes a UUID and rejects anything else with `invalid_order_id`. The short `order_number` a customer reads off a receipt has **no lookup among the 67 tools** — `list_orders` filters by customer, status and date, and nothing takes a number. So the handles that work are the UUID or the customer; paging thousands of orders hoping to recognise a string spends the rate limit for a maybe, and is the wrong answer even when it happens to work. |
+| **Pass an argument the tool does not define.** | It is not refused — it is dropped, and the call runs without it. Measured on 29 September 2026: `list_orders` given `order_number` or `q` returned every customer's newest orders with no error, the first row someone else's. A filter you invented returns the unfiltered list, and it looks exactly like a filtered one. The REST API is the opposite and answers `400`. |
 
 ### The permissions reality, stated plainly
 
@@ -128,6 +135,9 @@ After any session that went through this skill:
       no such parameter — and none of those five was retried.
 - [ ] **`isError` was checked**, not just the absence of an exception. A reported
       success with no object ID in it is the shape of this going wrong.
+- [ ] **On a charge, the object's `status` was read too.** A declined
+      `create_order`, `retry_order` or `create_subscription` returns
+      `isError: false` and an object reading `failed`.
 - [ ] **`request_id` was surfaced** on every failure reported to a human. It is
       the first thing EPD support asks for and it is not recoverable afterwards.
 - [ ] If the session was long, **it was paced against the hourly bucket.** 1000
@@ -185,7 +195,9 @@ input:
 **That is not an order ID.** `get_order` takes a UUID. `A1B2C3D4` is the short
 `order_number` — the form the dashboard and the customer's receipt show — and
 **nothing on this surface looks one up.** `list_orders` filters by customer,
-status and date; no tool among the 67 takes an order number.
+status and date; no tool among the 67 takes an order number. Passing it to
+`list_orders` anyway would not fail — the argument is dropped, and I would get
+back other customers' orders looking like an answer.
 
 So I need a different handle. Give me her email, or the order's UUID from the
 dashboard, and I will go straight to it. What I am not going to do is page

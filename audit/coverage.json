@@ -48,11 +48,11 @@
       "group": "Customers",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 11,
+      "total": 12,
       "code": 5,
       "head": 0,
       "table": 3,
-      "prose": 3,
+      "prose": 4,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-onboard-customer"
@@ -63,8 +63,8 @@
       "group": "Customers",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 5,
-      "code": 1,
+      "total": 6,
+      "code": 2,
       "head": 0,
       "table": 2,
       "prose": 2,
@@ -77,14 +77,15 @@
       "group": "Customers",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 5,
+      "total": 6,
       "code": 1,
       "head": 0,
       "table": 2,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "workflows/epd-catalog",
-        "workflows/epd-onboard-customer"
+        "workflows/epd-onboard-customer",
+        "workflows/epd-reporting"
       ]
     },
     {
@@ -106,11 +107,11 @@
       "group": "Customers",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 3,
+      "total": 4,
       "code": 1,
       "head": 0,
       "table": 1,
-      "prose": 1,
+      "prose": 2,
       "skills": [
         "workflows/epd-onboard-customer"
       ]
@@ -153,11 +154,11 @@
       "group": "Payment Methods",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 4,
+      "total": 5,
       "code": 1,
       "head": 0,
       "table": 1,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "workflows/epd-onboard-customer"
       ]
@@ -296,11 +297,11 @@
       "group": "Orders",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 21,
-      "code": 6,
+      "total": 27,
+      "code": 7,
       "head": 1,
       "table": 3,
-      "prose": 11,
+      "prose": 16,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-catalog",
@@ -313,14 +314,16 @@
       "group": "Orders",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 6,
-      "code": 1,
+      "total": 14,
+      "code": 2,
       "head": 0,
-      "table": 0,
-      "prose": 5,
+      "table": 1,
+      "prose": 11,
       "skills": [
+        "workflows/epd-catalog",
         "workflows/epd-mcp-operator",
         "workflows/epd-refunds",
+        "workflows/epd-reporting",
         "workflows/epd-transaction-triage"
       ]
     },
@@ -346,11 +349,11 @@
       "group": "Orders",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 16,
+      "total": 19,
       "code": 1,
       "head": 2,
       "table": 3,
-      "prose": 10,
+      "prose": 13,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -363,14 +366,15 @@
       "group": "Orders",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 20,
+      "total": 24,
       "code": 2,
       "head": 1,
-      "table": 2,
-      "prose": 15,
+      "table": 3,
+      "prose": 18,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-catalog",
+        "workflows/epd-mcp-operator",
         "workflows/epd-subscriptions",
         "workflows/epd-transaction-triage"
       ]
@@ -380,11 +384,11 @@
       "group": "Subscriptions",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 11,
+      "total": 17,
       "code": 6,
       "head": 0,
       "table": 1,
-      "prose": 4,
+      "prose": 10,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -397,14 +401,15 @@
       "group": "Subscriptions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 7,
+      "total": 9,
       "code": 2,
       "head": 0,
       "table": 1,
-      "prose": 4,
+      "prose": 6,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-onboard-customer",
+        "workflows/epd-reporting",
         "workflows/epd-subscriptions"
       ]
     },
@@ -413,13 +418,14 @@
       "group": "Subscriptions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 1,
+      "total": 3,
       "code": 1,
       "head": 0,
       "table": 0,
-      "prose": 0,
+      "prose": 2,
       "skills": [
-        "workflows/epd-subscriptions"
+        "workflows/epd-subscriptions",
+        "workflows/epd-transaction-triage"
       ]
     },
     {
@@ -427,11 +433,11 @@
       "group": "Subscriptions",
       "tier": "T2 write",
       "depth": "documented",
-      "total": 10,
+      "total": 12,
       "code": 1,
       "head": 0,
-      "table": 2,
-      "prose": 7,
+      "table": 3,
+      "prose": 8,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-subscriptions"
@@ -442,11 +448,11 @@
       "group": "Subscriptions",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 11,
+      "total": 14,
       "code": 1,
       "head": 1,
       "table": 3,
-      "prose": 6,
+      "prose": 9,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -458,11 +464,11 @@
       "group": "Transactions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 12,
+      "total": 13,
       "code": 1,
       "head": 1,
       "table": 4,
-      "prose": 6,
+      "prose": 7,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-refunds",
@@ -577,11 +583,11 @@
       "group": "Webhook Endpoints",
       "tier": "T2 external",
       "depth": "heading-only",
-      "total": 4,
+      "total": 5,
       "code": 0,
       "head": 1,
       "table": 0,
-      "prose": 3,
+      "prose": 4,
       "skills": [
         "integration/epd-webhooks",
         "workflows/epd-mcp-operator",
@@ -608,11 +614,11 @@
       "group": "Webhook Endpoints",
       "tier": "T2 write",
       "depth": "prose-only",
-      "total": 2,
+      "total": 3,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-webhook-ops"
@@ -639,11 +645,11 @@
       "group": "Webhook Endpoints",
       "tier": "T0 read",
       "depth": "prose-only",
-      "total": 2,
+      "total": 4,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 4,
       "skills": [
         "integration/epd-webhooks",
         "workflows/epd-webhook-ops"
@@ -654,11 +660,11 @@
       "group": "Webhook Endpoints",
       "tier": "T0 read",
       "depth": "prose-only",
-      "total": 5,
+      "total": 4,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 5,
+      "prose": 4,
       "skills": [
         "integration/epd-webhooks",
         "workflows/epd-mcp-operator",
@@ -685,11 +691,11 @@
       "group": "Webhook Versions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 3,
+      "total": 4,
       "code": 1,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "integration/epd-webhooks",
         "workflows/epd-webhook-ops"
@@ -700,11 +706,11 @@
       "group": "Webhook Versions",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 2,
+      "total": 3,
       "code": 1,
       "head": 0,
       "table": 0,
-      "prose": 1,
+      "prose": 2,
       "skills": [
         "integration/epd-webhooks",
         "workflows/epd-webhook-ops"
@@ -728,9 +734,9 @@
       "name": "list_coupons",
       "group": "Coupons",
       "tier": "T0 read",
-      "depth": "prose-only",
-      "total": 2,
-      "code": 0,
+      "depth": "documented",
+      "total": 3,
+      "code": 1,
       "head": 0,
       "table": 0,
       "prose": 2,
@@ -757,13 +763,14 @@
       "group": "Coupons",
       "tier": "T2 write",
       "depth": "table-only",
-      "total": 2,
+      "total": 3,
       "code": 0,
       "head": 0,
       "table": 1,
-      "prose": 1,
+      "prose": 2,
       "skills": [
-        "workflows/epd-coupons"
+        "workflows/epd-coupons",
+        "workflows/epd-mcp-operator"
       ]
     },
     {
@@ -842,11 +849,11 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 12,
+      "total": 13,
       "code": 2,
       "head": 1,
       "table": 5,
-      "prose": 4,
+      "prose": 5,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -907,11 +914,11 @@
       "group": "Composite",
       "tier": "T0 read",
       "depth": "documented",
-      "total": 7,
+      "total": 8,
       "code": 1,
       "head": 2,
       "table": 2,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "workflows/epd-mcp-operator",
         "workflows/epd-reporting"
@@ -968,11 +975,11 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 15,
+      "total": 16,
       "code": 2,
       "head": 1,
       "table": 7,
-      "prose": 5,
+      "prose": 6,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -984,11 +991,11 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 23,
+      "total": 25,
       "code": 2,
       "head": 1,
       "table": 5,
-      "prose": 15,
+      "prose": 17,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-mcp-operator",
@@ -1001,11 +1008,11 @@
       "group": "Composite",
       "tier": "T3 destructive",
       "depth": "documented",
-      "total": 12,
+      "total": 17,
       "code": 1,
       "head": 1,
-      "table": 3,
-      "prose": 7,
+      "table": 4,
+      "prose": 11,
       "skills": [
         "integration/epd-best-practices",
         "workflows/epd-catalog",
@@ -1019,7 +1026,7 @@
     {
       "skill": "workflows/epd-catalog",
       "file": "workflows/epd-catalog/SKILL.md",
-      "line": 47,
+      "line": 48,
       "tool": "create_product",
       "keys": [
         "name",
@@ -1033,7 +1040,7 @@
     {
       "skill": "workflows/epd-catalog",
       "file": "workflows/epd-catalog/SKILL.md",
-      "line": 133,
+      "line": 134,
       "tool": "create_order",
       "keys": [
         "customer_id",
@@ -1045,7 +1052,7 @@
     {
       "skill": "workflows/epd-catalog",
       "file": "workflows/epd-catalog/SKILL.md",
-      "line": 172,
+      "line": 179,
       "tool": "retry_order",
       "keys": [
         "order_id",
@@ -1053,9 +1060,22 @@
       ]
     },
     {
+      "skill": "workflows/epd-catalog",
+      "file": "workflows/epd-catalog/SKILL.md",
+      "line": 193,
+      "tool": "create_order",
+      "keys": [
+        "customer_id",
+        "payment_method_id",
+        "items",
+        "metadata",
+        "idempotency_key"
+      ]
+    },
+    {
       "skill": "workflows/epd-coupons",
       "file": "workflows/epd-coupons/SKILL.md",
-      "line": 66,
+      "line": 72,
       "tool": "create_coupon",
       "keys": [
         "name",
@@ -1072,7 +1092,7 @@
     {
       "skill": "workflows/epd-coupons",
       "file": "workflows/epd-coupons/SKILL.md",
-      "line": 185,
+      "line": 191,
       "tool": "validate_coupon",
       "keys": [
         "code",
@@ -1082,9 +1102,19 @@
       ]
     },
     {
+      "skill": "workflows/epd-coupons",
+      "file": "workflows/epd-coupons/SKILL.md",
+      "line": 259,
+      "tool": "list_coupons",
+      "keys": [
+        "archived",
+        "limit"
+      ]
+    },
+    {
       "skill": "workflows/epd-mcp-operator",
       "file": "workflows/epd-mcp-operator/SKILL.md",
-      "line": 108,
+      "line": 124,
       "tool": "ping",
       "keys": []
     },
@@ -1135,7 +1165,17 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 223,
+      "line": 224,
+      "tool": "list_customers",
+      "keys": [
+        "q",
+        "limit"
+      ]
+    },
+    {
+      "skill": "workflows/epd-onboard-customer",
+      "file": "workflows/epd-onboard-customer/SKILL.md",
+      "line": 239,
       "tool": "get_customer",
       "keys": [
         "id",
@@ -1145,7 +1185,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 236,
+      "line": 252,
       "tool": "list_subscriptions",
       "keys": [
         "customer_id",
@@ -1155,7 +1195,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 253,
+      "line": 269,
       "tool": "update_customer",
       "keys": [
         "id",
@@ -1167,7 +1207,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 273,
+      "line": 289,
       "tool": "list_payment_methods",
       "keys": [
         "customer_id"
@@ -1176,7 +1216,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 279,
+      "line": 295,
       "tool": "delete_payment_method",
       "keys": [
         "customer_id",
@@ -1188,7 +1228,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 302,
+      "line": 318,
       "tool": "delete_customer",
       "keys": [
         "id",
@@ -1209,7 +1249,7 @@
     {
       "skill": "workflows/epd-refunds",
       "file": "workflows/epd-refunds/SKILL.md",
-      "line": 61,
+      "line": 65,
       "tool": "refund_transaction",
       "keys": [
         "transaction_id",
@@ -1220,7 +1260,7 @@
     {
       "skill": "workflows/epd-refunds",
       "file": "workflows/epd-refunds/SKILL.md",
-      "line": 90,
+      "line": 94,
       "tool": "refund_and_cancel",
       "keys": [
         "subscription_id",
@@ -1230,7 +1270,7 @@
     {
       "skill": "workflows/epd-refunds",
       "file": "workflows/epd-refunds/SKILL.md",
-      "line": 162,
+      "line": 176,
       "tool": "list_orders",
       "keys": [
         "customer_id",
@@ -1242,7 +1282,7 @@
     {
       "skill": "workflows/epd-reporting",
       "file": "workflows/epd-reporting/SKILL.md",
-      "line": 50,
+      "line": 52,
       "tool": "get_revenue_summary",
       "keys": [
         "from",
@@ -1252,8 +1292,8 @@
     {
       "skill": "workflows/epd-reporting",
       "file": "workflows/epd-reporting/SKILL.md",
-      "line": 112,
-      "tool": "list_transactions",
+      "line": 133,
+      "tool": "list_orders",
       "keys": [
         "status",
         "created_after",
@@ -1264,7 +1304,20 @@
     {
       "skill": "workflows/epd-reporting",
       "file": "workflows/epd-reporting/SKILL.md",
-      "line": 186,
+      "line": 197,
+      "tool": "list_transactions",
+      "keys": [
+        "type",
+        "status",
+        "created_after",
+        "created_before",
+        "limit"
+      ]
+    },
+    {
+      "skill": "workflows/epd-reporting",
+      "file": "workflows/epd-reporting/SKILL.md",
+      "line": 249,
       "tool": "get_customer_financial_summary",
       "keys": [
         "customer_id"
@@ -1273,7 +1326,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 67,
+      "line": 70,
       "tool": "create_subscription",
       "keys": [
         "customer_id",
@@ -1289,7 +1342,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 99,
+      "line": 116,
       "tool": "update_subscription",
       "keys": [
         "id",
@@ -1302,7 +1355,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 132,
+      "line": 152,
       "tool": "cancel_subscription",
       "keys": [
         "id",
@@ -1314,7 +1367,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 155,
+      "line": 175,
       "tool": "cancel_subscription_and_report",
       "keys": [
         "subscription_id",
@@ -1324,7 +1377,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 187,
+      "line": 210,
       "tool": "list_subscriptions",
       "keys": [
         "status",
@@ -1335,7 +1388,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 200,
+      "line": 223,
       "tool": "list_past_due_subscriptions",
       "keys": [
         "limit",
@@ -1345,7 +1398,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 218,
+      "line": 241,
       "tool": "get_subscription",
       "keys": [
         "id",
@@ -1355,7 +1408,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 228,
+      "line": 251,
       "tool": "get_order",
       "keys": [
         "id",
@@ -1365,7 +1418,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 254,
+      "line": 280,
       "tool": "retry_order",
       "keys": [
         "order_id",
@@ -1375,7 +1428,7 @@
     {
       "skill": "workflows/epd-subscriptions",
       "file": "workflows/epd-subscriptions/SKILL.md",
-      "line": 281,
+      "line": 313,
       "tool": "retry_failed_charge",
       "keys": [
         "transaction_id",
@@ -1398,6 +1451,12 @@
   ],
   "argIssues": [],
   "ghosts": {
+    "cancel_status": [
+      "workflows/epd-refunds/SKILL.md"
+    ],
+    "refund_status": [
+      "workflows/epd-refunds/SKILL.md"
+    ],
     "refund_count": [
       "workflows/epd-reporting/SKILL.md"
     ]

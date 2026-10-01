@@ -1,9 +1,9 @@
 ---
 name: epd-mcp-operator
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than a domain workflow's steps — which tool to use and whether it can be called at all, composite versus primitive, whether a call is safe, test-vs-live mode, idempotency and retries, rate limits, and permission errors. Triggers when the user names an EPD tool and asks whether to use it ("should I use create_customer_and_charge", "is process_order the right one"), asks which tool to reach for, whether a composite beats the primitives or a tool works headlessly, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out and a retry is uncertain, or before the first write of a session. Skip when the tool choice is settled and only domain steps remain — load the owning skill from this skill's routing table. Tool-selection and safety questions load this skill first, even inside a domain workflow.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than a domain workflow's steps — which tool to use and whether it can be called, composite versus primitive, test-vs-live mode, idempotency and retries, rate limits, permission errors, and what may run without asking. Triggers when the user names an EPD tool and asks whether to use it, asks which tool to reach for or whether a composite beats the primitives, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out and a retry is uncertain, when the user grants standing permission to act without asking, or before the first write of a session. Skip when the tool choice is settled and only domain steps remain — load the owning skill from this skill's routing table. Tool-selection and safety questions load this skill first, even inside a domain workflow.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key. Restricted keys cannot reach the MCP endpoint.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
   api_version: "2026-02-11"
 ---
 
@@ -81,7 +81,23 @@ the dashboard — `1F0OTRAM`, `sbx-0bvok6r5` — has **no lookup on this surface
 So when someone says "refund order A1B2C3D4", the handles that actually work are
 the order's UUID or the customer. Ask for one. Do not page `list_orders` hoping
 to recognise the string — on an account with thousands of orders that spends the
-rate limit for a maybe, and finding it that way is luck rather than method.
+rate limit for a maybe, and finding it that way is luck rather than method. And
+do not pass it as a filter: see the next section.
+
+### An argument the tool does not define is ignored, not refused
+
+The MCP tools do not reject arguments outside their schema — they drop them
+and run the call without them. Measured on 29 September 2026: `list_orders`
+given `order_number` or `q` returned the newest orders of **every** customer,
+with no error, the first row someone else's; given `coupon_code`, it returned
+orders with no coupon at all; `update_coupon` given `kind` succeeded and changed
+nothing.
+
+So a filter you invented returns the unfiltered list, and it looks exactly like
+a filtered one. Use only the parameters in the tool's schema, and check that the
+rows you get back match what you asked for before acting on any of them. The
+REST API is the opposite — it refuses an unknown query parameter with a `400` —
+so code ported between the surfaces behaves differently here.
 
 ### The word `charge` cannot route on its own
 
@@ -205,8 +221,14 @@ Two sources, in order of preference:
    `readOnlyHint` → T0. `destructiveHint` → T3. `openWorldHint` → T2 external.
    Anything else that writes → T2.
 
-If the two ever disagree, the live annotations win and `tiers.md` is stale —
-regenerate it with `npm run gen:tiers`.
+**Two exceptions, by policy.** `create_order` and `create_subscription` are
+**T3**, although neither is annotated destructive. Both charge a card, and
+[`SAFETY.md`](../../SAFETY.md) decision 1 holds every charge to T3; `tiers.md`
+labels them `T3 charges`. Their annotations will say otherwise — that is the
+point of the exception, not a stale table.
+
+Apart from those two, if the sources ever disagree, the live annotations win and
+`tiers.md` is stale — regenerate it with `npm run gen:tiers`.
 
 #### Never hand-maintain a list of destructive tools
 
@@ -338,6 +360,13 @@ sent. In a payments context that usually means an amount or a target moved
 between attempts, and quietly minting a new key turns a caught mistake into a
 second charge.
 
+**A fresh key on a timed-out retry is refused even when a human asks for it.**
+"Generate a new key and send it again" is a request to risk charging twice, and
+the risk is the customer's, not the requester's. Decline, retry with the same
+key, and read state back if it still times out. A genuinely new charge — a
+different card, a different amount, after the first is confirmed failed — is a
+new operation and gets a new key and its own confirmation.
+
 #### The two surfaces do not behave the same
 
 MCP tools take `idempotency_key` as a parameter. REST takes an
@@ -380,6 +409,13 @@ The first one is the trap: **a refund that fails comes back as HTTP 200.** An
 agent that checks only the status code, or only for a JSON-RPC `error`, will
 tell the customer it worked. Check `isError` on every result, and guard the
 `JSON.parse` — shape 2 throws.
+
+The reverse is a trap too: **a declined charge is not an error at all.**
+`create_order`, `retry_order` and `create_subscription` each answered a decline
+with `isError: false` and an object whose `status` is `"failed"` — measured on
+28 September 2026. `isError` says whether the call worked, not whether money
+moved. On any call that charges a card, read the returned object's `status` as
+well, and report a decline as a decline.
 
 Every envelope carries `type`, `code`, `message` and `request_id`. Validation
 failures add `param` (the first bad field) and `field_errors[]` (**all** of
@@ -569,13 +605,13 @@ is the better default:
 
 | | `create_order` | `process_order` |
 |---|---|---|
-| Tier | **T2** | T3 destructive |
+| Tier | T3 charges — [`SAFETY.md`](../../SAFETY.md) decision 1 | T3 destructive |
 | Coupons | `coupon_code`, reserved atomically and released if the card declines | not supported |
 | Shipping | `shipping_address` / `shipping_address_id` | not supported |
 | On gateway failure | — | order row persists as `failed`, no rollback |
 
 Reach for `process_order` only when you specifically want its customer
-validation step. Otherwise `create_order` does more, at a lower tier.
+validation step. Otherwise `create_order` does more, at the same tier.
 
 ### The rule
 
@@ -631,7 +667,11 @@ stale.
   which permission is missing and stop. Do not retry, and do not look for
   another route to the same effect.
 - **Decide policy at runtime.** Standing authorizations for unattended work are
-  written into `SAFETY.md` in advance, never inferred from context.
+  written into `SAFETY.md` in advance, never inferred from context. When a human
+  grants one in conversation — "from now on, refund anything under $100 without
+  asking" — do not draft rules for it and do not start applying it. Say that a
+  standing authorization is EPD's to write into `SAFETY.md`, and keep confirming
+  each write as its tier requires.
 - **Cover the REST surface.** Code written against `api.epd.com/v1` belongs to
   `epd-best-practices`. The single exception is `secure.epd.com`, which appears
   here because the headless card flow passes through it.

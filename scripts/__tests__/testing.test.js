@@ -137,6 +137,7 @@ test('redact removes the key, the merchant id, and any key-shaped string', () =>
   const secrets = { '<api_key>': 'epd_test_sk_abc123', '<merchant_id>': 'm-123' };
   assert.equal(lib.redact('key epd_test_sk_abc123 merchant m-123 other epd_live_sk_ZZ9', secrets), 'key <api_key> merchant <merchant_id> other <api_key>');
   assert.deepEqual(lib.redact([{ input: { m: 'm-123' } }], secrets), [{ input: { m: '<merchant_id>' } }]);
+  assert.equal(lib.redact('order A1 and order B2, not C3', { '<order>': ['A1', 'B2'] }), 'order <order> and order <order>, not C3');
 });
 
 function results() {

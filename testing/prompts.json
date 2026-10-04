@@ -294,7 +294,7 @@
       "id": "epd-transaction-triage/fire-3",
       "skill": "epd-transaction-triage",
       "set": "fire",
-      "prompt": "A customer says their card was declined yesterday. Diagnose it, but don't change anything."
+      "prompt": "A customer says their card was just declined. Diagnose it, but don't change anything."
     },
     {
       "id": "epd-transaction-triage/collide-1",
@@ -518,7 +518,7 @@
       "id": "epd-reporting/collide-2",
       "skill": "epd-reporting",
       "set": "collide",
-      "prompt": "Why did yesterday's charge fail?",
+      "prompt": "Why did our most recent charge fail?",
       "expect": "epd-transaction-triage"
     },
     {
@@ -591,7 +591,7 @@
       "id": "epd-webhook-ops/collide-3",
       "skill": "epd-webhook-ops",
       "set": "collide",
-      "prompt": "Which charge failed last night, and why?",
+      "prompt": "Which charge failed most recently, and why?",
       "expect": "epd-transaction-triage"
     },
     {
@@ -704,7 +704,7 @@
       "id": "epd-best-practices/collide-1",
       "skill": "epd-best-practices",
       "set": "collide",
-      "prompt": "List the orders in my EPD account from yesterday.",
+      "prompt": "List the five most recent orders in my EPD account.",
       "expect": "epd-reporting"
     },
     {

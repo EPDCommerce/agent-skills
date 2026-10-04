@@ -120,6 +120,15 @@ if (account.environment !== 'test' || account.is_sandbox !== true) {
   process.exit(1);
 }
 const SECRETS = { '<api_key>': KEY, '<merchant_id>': account.merchant_id };
+// Optional and gitignored: anything else in the sandbox that should not be
+// published, as { "<label>": "text" | ["text", ...] }. Applied to everything
+// written to results/ and to what the judge is shown.
+const LOCAL_REDACT = path.join(HERE, 'redact.local.json');
+if (fs.existsSync(LOCAL_REDACT)) {
+  for (const [label, values] of Object.entries(readJson(LOCAL_REDACT))) {
+    SECRETS[label] = [].concat(SECRETS[label] ?? [], values);
+  }
+}
 
 // ── the scratch project ──────────────────────────────────────────────────────
 
@@ -207,7 +216,7 @@ async function session(c, rawFile) {
 }
 
 async function judge(c, ex) {
-  const prompt = lib.judgePrompt(c, ex.toolCalls, lib.redact(ex.answer, SECRETS));
+  const prompt = lib.judgePrompt(c, lib.redact(ex.toolCalls, SECRETS), lib.redact(ex.answer, SECRETS));
   const argv = [
     '-p', prompt,
     '--output-format', 'json',
@@ -274,7 +283,7 @@ async function runCase(c, rawDir) {
     return record;
   }
   record.judge_model = verdict.model;
-  record.grade = { pass: verdict.pass, why: verdict.why, by: 'judge' };
+  record.grade = { pass: verdict.pass, why: lib.redact(verdict.why, SECRETS), by: 'judge' };
   return record;
 }
 

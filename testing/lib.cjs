@@ -214,11 +214,11 @@ function parseJudge(text) {
   }
 }
 
-/** Replace every secret with its label. `secrets` maps label to value. */
+/** Replace every secret with its label. `secrets` maps a label to one value or several. */
 function redact(value, secrets) {
   let s = typeof value === 'string' ? value : JSON.stringify(value);
   for (const [label, secret] of Object.entries(secrets)) {
-    if (secret) s = s.split(secret).join(label);
+    for (const one of [].concat(secret)) if (one) s = s.split(one).join(label);
   }
   s = s.replace(/epd_(?:test|live)_[a-z]+_[A-Za-z0-9]+/g, '<api_key>');
   return typeof value === 'string' ? s : JSON.parse(s);

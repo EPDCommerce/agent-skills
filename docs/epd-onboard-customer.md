@@ -1,7 +1,7 @@
 ---
 skill: epd-onboard-customer
 surface: workflow
-guide_version: 1.1.0
+guide_version: 1.2.0
 api_version: "2026-02-11"
 ---
 
@@ -104,7 +104,11 @@ them afterwards — despite the tool describing itself as a soft delete.
 - *"Onboard a customer."* · *"Create a customer."* · *"Sign up a new customer
   with a card."*
 - Whether a customer already exists, or finding one by email or name.
-- *"Update the customer record."* · *"Remove their card."*
+- *"Update the customer record."* · *"Add this card to their account."* ·
+  *"Remove their card."*
+- A card number pasted into the conversation — so that the skill is loaded to
+  decline it, rather than an agent declining without it and repeating the number
+  back.
 - Chaining customer creation with a first charge or subscription.
 
 ### What it must not answer

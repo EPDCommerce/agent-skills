@@ -202,11 +202,21 @@ not been run says so.
 `npm run validate` checks:
 
 1. `index.json` validates against `schema.json`.
-2. Every file the manifest lists exists.
-3. Every `SKILL.md` frontmatter validates against
-   `skill-frontmatter.schema.json`.
-4. Frontmatter `name` matches the manifest entry's `name`.
-5. No `SKILL.md` on disk is missing from the manifest.
+2. The manifest's `name` and `version` match `package.json`'s, so a release
+   bumps both or neither.
+3. Every file the manifest lists exists and lives inside its own skill's
+   directory, and every file in a skill's directory is listed — an installer
+   that reads the manifest never copies a file it omits.
+4. Each skill lives at `integration/<name>/` or `workflows/<name>/`, matching
+   its manifest `kind`.
+5. Every `SKILL.md` frontmatter validates against
+   `skill-frontmatter.schema.json`, its `name` matches the manifest entry, and
+   its `metadata.api_version` matches the manifest's.
+6. No `SKILL.md` on disk is missing from the manifest.
+7. Every pinned API version in the repository — an `epd-version` header in an
+   example, or an `API_VERSION` constant in code — is the manifest's
+   `api_version`. Webhook payload schema versions are a separate thing and are
+   not checked.
 
 `npm run validate:docs` checks:
 

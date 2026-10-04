@@ -43,7 +43,13 @@ recipes/
 scripts/
   validate.js                      manifest + frontmatter validator
   check-docs.js                    guide, recipe, tool-call + link validator
+  gen-tiers.mjs                    generates the per-tool tier table
+  tier-overrides.json              SAFETY.md decision 1: tools held above their annotations
   __tests__/                       node:test specs
+
+audit/
+  tools-YYYY-MM-DD.json            committed tools/list snapshot every check reads
+  *.mjs                            audit generators; see "Generated files" below
 ```
 
 `SKILL.md` files are written for an agent to load at runtime. `docs/` and
@@ -63,7 +69,9 @@ loading one at runtime.
    references.
 4. **Write its guide** at `docs/<skill-name>.md` — see below. `npm run
    validate:docs` fails if a skill has no guide.
-5. **Run `npm run check`** before pushing.
+5. **Run `npm run gen`, then `npm run check`** before pushing. `gen`
+   regenerates the audit and tier files the new skill changes; see
+   [Generated files](#generated-files).
 
 ## Adding or changing a guide
 
@@ -220,6 +228,28 @@ not been run says so.
 
 `npm test` runs `node:test` specs in `scripts/__tests__/`.
 
+### Generated files
+
+Four files are generated from the skills and the committed `tools/list`
+snapshot, and are never edited by hand:
+
+| File | Generator |
+|---|---|
+| `workflows/epd-mcp-operator/references/tiers.md` | `scripts/gen-tiers.mjs` |
+| `audit/coverage.json` | `audit/coverage.mjs` |
+| `audit/COVERAGE.md` | `audit/matrix.mjs` (reads `coverage.json`, so runs after it) |
+| `audit/SKILL-MAP.md` | `audit/skill-map.mjs` |
+
+`npm run gen` runs all four in that order. Run it after changing any
+`SKILL.md`, the snapshot, or `scripts/tier-overrides.json`, and commit what it
+changes. CI runs it on every PR and fails if anything differs from what is
+committed, or if a generator finds a problem in the source: a `tool:` block
+passing an argument the server does not declare, or a skill description that
+no longer names a skill its planned routes hand off to.
+
+`audit/key-matrix.mjs` is not part of `npm run gen`. It calls the live API with
+real keys, so it is re-run by hand when key permissions are in question.
+
 ## Pull requests
 
 - Branch from `main`. Rebase, don't merge upstream.
@@ -229,7 +259,9 @@ not been run says so.
 - Changing a skill's `description` or what it refuses changes routing. Check
   against the sandbox that it still fires, and still refuses, where it should.
 - The CI gate runs on every PR; please verify it's green before requesting
-  review.
+  review. It runs `npm run check` on Node 20, 22 and 24, regenerates the
+  generated files and diffs them, self-tests the three webhook verifiers
+  (Node, Python, PHP), and rejects tab characters in Markdown.
 
 ## Reporting issues
 

@@ -216,3 +216,9 @@ fs.writeFileSync(
   JSON.stringify({ snapshot_captured_at: snapshot._snapshot?.captured_at ?? null, coverage, examples, argIssues, ghosts: Object.fromEntries([...ghosts].map(([k, v]) => [k, [...v]])) }, null, 2) + '\n',
 );
 console.log('\nwrote audit/coverage.json');
+
+// The ghost list above is a heuristic — it also catches field names such as
+// refund_status — so only an argument the server would refuse fails the run.
+// CI runs this to prove coverage.json reproduces; a failing exit is what stops
+// a bad `tool:` block from being regenerated into the committed file.
+if (argIssues.length) process.exitCode = 1;

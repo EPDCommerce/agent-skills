@@ -8,17 +8,24 @@ on:
 permissions:
   contents: read
 
+# A new push to a PR supersedes the run in progress; a run on main always
+# finishes, so every merge commit keeps its own result.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate:
     name: validate manifest + frontmatter
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         node: ['20', '22', '24']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -27,15 +34,41 @@ jobs:
       - run: npm run validate:docs
       - run: npm test
 
+  generated:
+    name: generated files reproduce
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      # The four generators use node built-ins only, so no npm ci. Each exits
+      # non-zero on a problem it can see in the source (an argument the server
+      # would refuse, a skill missing a planned route), and the diff below
+      # catches everything else: a SKILL.md edited without regenerating the
+      # tier table, the coverage audit or the skill map.
+      - name: Regenerate
+        run: npm run gen
+      - name: Fail if a committed file is out of date
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            git --no-pager diff --stat
+            echo "::error::A generated file is out of date. Run 'npm run gen' and commit what it changes."
+            exit 1
+          fi
+
   verifier-scripts:
     name: webhook verifier scripts
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: '22'
-      - uses: actions/setup-python@v5
+          node-version: '24'
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - uses: shivammathur/setup-php@v2
@@ -51,8 +84,9 @@ jobs:
   formatting:
     name: markdown sanity
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check for tab characters in markdown
         run: |
           if grep -rPn '\t' --include='*.md' .; then

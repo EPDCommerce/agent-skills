@@ -113,7 +113,7 @@ One remains open for `epd-mcp-operator`:
 
 | Tool | Group | Annotations (from server) | Tier | `idempotency_key` | Today | Proposed owner | Treatment | Notes |
 |---|---|---|---|---|---|---|---|---|
-| `ping` | Account | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator) | `epd-mcp-operator` | MENTION | Liveness check with no workflow around it. One line in epd-mcp-operator as the connection test; a dedicated section would be padding. |
+| `ping` | Account | readOnly, idempotent | T0 read | — | documented (epd-mcp-operator, epd-webhook-ops) | `epd-mcp-operator` | MENTION | Liveness check with no workflow around it. One line in epd-mcp-operator as the connection test; a dedicated section would be padding. |
 | `get_account` | Account | readOnly, idempotent | T0 read | — | prose-only (epd-mcp-operator) | `epd-mcp-operator` | REFERENCE |  |
 | `upgrade_account_api_version` | Account | destructive, idempotent | T3 destructive | optional | prose-only (epd-mcp-operator) | `epd-mcp-operator` | EXAMPLE | Destructive and account-wide. Sandbox account currently has api_version=null (floating on latest), so the Aug 31 release lands automatically. |
 | `create_customer` | Customers | idempotent | T2 write | optional | documented (epd-mcp-operator, epd-onboard-customer) | `epd-onboard-customer` | EXAMPLE | Step 1 of the browserless onboarding flow. Returns the customer_id that secure.epd.com requires. |

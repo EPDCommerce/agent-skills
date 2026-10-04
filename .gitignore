@@ -9,3 +9,6 @@ dist/
 .cache/
 __pycache__/
 *.pyc
+
+# testing/run.mjs raw stream-json transcripts; the redacted results are committed
+testing/raw/

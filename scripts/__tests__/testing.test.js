@@ -140,6 +140,31 @@ test('redact removes the key, the merchant id, and any key-shaped string', () =>
   assert.equal(lib.redact('order A1 and order B2, not C3', { '<order>': ['A1', 'B2'] }), 'order <order> and order <order>, not C3');
 });
 
+test('redact removes local paths in every form a transcript carries them', () => {
+  const home = 'C:\\Users\\someone';
+  const munged = 'C--Users-someone-AppData-Local-Temp-epd-skills-prompts-AbC123';
+  const project = `${home}\\AppData\\Local\\Temp\\epd-skills-prompts-AbC123`;
+  const store = `${home}\\.claude\\projects\\${munged}`;
+  const secrets = { '<session_store>': store, '<project>': [project, munged], '<home>': home };
+  const calls = [
+    { tool: 'Read', input: { file_path: `${store}\\0c73abc6-1111-2222-3333-444455556666\\tool-results\\x.txt` } },
+    { tool: 'Bash', input: { command: `cd "${store.replace(/\\/g, '/')}" && ls` } },
+    { tool: 'Glob', input: { path: `${project}\\.claude\\skills` } },
+    { tool: 'Grep', input: { pattern: munged } },
+    { tool: 'Read', input: { file_path: `${home}\\notes.txt` } },
+  ];
+  const out = lib.redact(calls, secrets);
+  assert.ok(!/someone|AppData|projects|0c73abc6/.test(JSON.stringify(out)), JSON.stringify(out));
+  assert.deepEqual(out.map((c) => Object.values(c.input)[0]), [
+    '<session_store>\\<session>\\tool-results\\x.txt',
+    'cd "<session_store>" && ls',
+    '<project>\\.claude\\skills',
+    '<project>',
+    '<home>\\notes.txt',
+  ]);
+  assert.equal(lib.redact(`saw ${project}\\mcp.json`, secrets), 'saw <project>\\mcp.json');
+});
+
 function results() {
   const mk = (id, set, pass, extra = {}) => {
     const [skill] = id.split('/');
@@ -173,6 +198,14 @@ test('the rendered block names the failures and the cases that did not complete'
   assert.match(block, /\| `b\/refuse-1` \| no API time recorded \|/);
   assert.equal(lib.resultsBlock(`# T\n\n${block}\n\nmore`), block);
   assert.equal(lib.resultsBlock('# no markers'), null);
+});
+
+test('a reason with a pipe, a newline or a tab cannot break the table or the tab check', () => {
+  const r = results();
+  r.cases[2].grade.why = 'said "a | b"\nthen\tstopped';
+  const block = lib.renderResults(r);
+  assert.ok(block.includes('| `a/refuse-1` | said "a \\| b" then stopped |'));
+  assert.ok(!block.includes('\t'));
 });
 
 test('results that no longer match the prompts are stale, case by case', () => {

@@ -139,6 +139,13 @@ const READ_ONLY = tools.filter((t) => t.annotations && t.annotations.readOnlyHin
 
 const PROJECT = fs.mkdtempSync(path.join(os.tmpdir(), 'epd-skills-prompts-'));
 const JUDGE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'epd-skills-judge-'));
+// Paths on the machine that ran this: the scratch project, the agent's
+// session store for it, where it reads a large tool result back from, and
+// the home directory. None of them belongs in a published file.
+const projectSlug = PROJECT.replace(/[^A-Za-z0-9]/g, '-');
+SECRETS['<session_store>'] = path.join(os.homedir(), '.claude', 'projects', projectSlug);
+SECRETS['<project>'] = [PROJECT, projectSlug];
+SECRETS['<home>'] = os.homedir();
 const skillVersions = {};
 for (const s of manifest.skills) {
   const skillMd = s.files.find((f) => f.endsWith('SKILL.md'));
@@ -235,7 +242,7 @@ async function judge(c, ex) {
       // fall through to retry
     }
     const verdict = out && !out.is_error ? lib.parseJudge(out.result) : null;
-    if (verdict) return { ...verdict, model: Object.keys(out.modelUsage || {})[0] || JUDGE };
+    if (verdict) return { ...verdict, model: Object.keys(out.modelUsage || {})[0] || JUDGE, cost: out.total_cost_usd ?? null };
     await sleep(RETRY_WAIT_MS[0]);
   }
   return null;
@@ -283,13 +290,17 @@ async function runCase(c, rawDir) {
     return record;
   }
   record.judge_model = verdict.model;
+  record.judge_cost_usd = verdict.cost;
   record.grade = { pass: verdict.pass, why: lib.redact(verdict.why, SECRETS), by: 'judge' };
   return record;
 }
 
 // ── the run ──────────────────────────────────────────────────────────────────
 
-const prompts = readJson(path.join(HERE, 'prompts.json'));
+// Hashed as read, so the hash names the prompts that ran even if the file is
+// edited while the run is under way.
+const promptsBytes = fs.readFileSync(path.join(HERE, 'prompts.json'));
+const prompts = JSON.parse(promptsBytes.toString('utf8'));
 const problems = lib.promptProblems(prompts, manifest.skills.map((s) => s.name), tools.map((t) => t.name), manifest.api_version);
 if (problems.length) {
   console.error(`testing/prompts.json is invalid:\n  ${problems.join('\n  ')}`);
@@ -313,6 +324,7 @@ console.log(
 );
 
 const records = new Array(cases.length);
+const started = Date.now();
 let next = 0;
 async function worker() {
   while (next < cases.length) {
@@ -336,10 +348,13 @@ const results = {
     mode: account.environment,
     api_version: manifest.api_version,
     snapshot: snapshotName,
-    prompts_sha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(HERE, 'prompts.json'))).digest('hex'),
+    prompts_sha256: crypto.createHash('sha256').update(promptsBytes).digest('hex'),
     skills: skillVersions,
     cases: records.length,
+    concurrency: CONCURRENCY,
+    wall_ms: Date.now() - started,
     cost_usd: Number(records.reduce((n, r) => n + (r.cost_usd || 0), 0).toFixed(4)),
+    judge_cost_usd: Number(records.reduce((n, r) => n + (r.judge_cost_usd || 0), 0).toFixed(4)),
   },
   summary: lib.summarize(records),
   cases: records,
@@ -347,7 +362,10 @@ const results = {
 
 const graded = records.filter((r) => !r.run_error);
 const passed = graded.filter((r) => r.grade.pass).length;
-console.log(`\n${passed}/${graded.length} graded cases passed; ${records.length - graded.length} run error(s); agent cost $${results.run.cost_usd}`);
+console.log(
+  `\n${passed}/${graded.length} graded cases passed; ${records.length - graded.length} run error(s); ` +
+    `agent cost $${results.run.cost_usd}, judge $${results.run.judge_cost_usd}; ${Math.round(results.run.wall_ms / 60000)} min`,
+);
 
 if (only.length) {
   const out = path.join(rawDir, `results-${Date.now()}.json`);

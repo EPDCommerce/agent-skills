@@ -214,13 +214,33 @@ function parseJudge(text) {
   }
 }
 
-/** Replace every secret with its label. `secrets` maps a label to one value or several. */
+/** A session directory under the redacted session store. */
+const SESSION_DIR = /(<session_store>)((?:\\\\|\\|\/)+)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
+
+/**
+ * Replace every secret with its label. `secrets` maps a label to one value or
+ * several. A path is matched with either separator, and every value also as it
+ * reads inside a JSON string, since an object is redacted in its JSON form.
+ * Longer values go first, so a path inside the home directory keeps its own
+ * label rather than becoming `<home>` and a remainder.
+ */
 function redact(value, secrets) {
   let s = typeof value === 'string' ? value : JSON.stringify(value);
+  const forms = [];
   for (const [label, secret] of Object.entries(secrets)) {
-    for (const one of [].concat(secret)) if (one) s = s.split(one).join(label);
+    for (const one of [].concat(secret)) {
+      if (!one) continue;
+      for (const form of new Set([one, one.replace(/\\/g, '/')])) {
+        forms.push([form, label]);
+        const escaped = JSON.stringify(form).slice(1, -1);
+        if (escaped !== form) forms.push([escaped, label]);
+      }
+    }
   }
+  forms.sort((a, b) => b[0].length - a[0].length);
+  for (const [form, label] of forms) s = s.split(form).join(label);
   s = s.replace(/epd_(?:test|live)_[a-z]+_[A-Za-z0-9]+/g, '<api_key>');
+  s = s.replace(SESSION_DIR, '$1$2<session>');
   return typeof value === 'string' ? s : JSON.parse(s);
 }
 
@@ -302,9 +322,12 @@ function renderResults(results) {
   return lines.join('\n');
 }
 
-/** Text safe to put in a Markdown table cell. */
+/**
+ * Text safe to put in a Markdown table cell. Tabs go too: the judge's reason is
+ * free text, and CI rejects a tab anywhere in a Markdown file.
+ */
 function cellText(s) {
-  return String(s).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  return String(s).replace(/\|/g, '\\|').replace(/\r?\n|\t/g, ' ');
 }
 
 /** The generated block in TESTING.md, or null if the markers are missing. */

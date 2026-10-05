@@ -1,6 +1,6 @@
 {
   "name": "epd-skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Open-source agent skills for EPD Commerce — REST API integration guides and operator-agent workflows.",
   "license": "MIT",
   "homepage": "https://docs.api.epd.com/",

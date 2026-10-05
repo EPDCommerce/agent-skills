@@ -31,6 +31,7 @@ const {
   stripFences,
   tierOfTool,
   TIER_OVERRIDES,
+  testingProblems,
 } = require(CHECK_DOCS);
 
 const RECIPES_DIR = path.join(REPO_ROOT, 'recipes');
@@ -387,4 +388,53 @@ test('steps are read in sequence, and headings inside a fence are not steps', ()
     ['1. One', '2. Two'],
   );
   has(problemsOf(recipe({ steps: [step(1), step(3)] })), /step "3\. Step 3" is out of sequence/);
+});
+
+// ── the prompt sets and their published results ─────────────────────────────
+
+const testingLib = require('../../testing/lib.cjs');
+const tdManifest = require(path.join(__dirname, '..', '..', '.well-known', 'skills', 'index.json'));
+const tdSnapshot = require(path.join(__dirname, '..', '..', 'audit', 'tools-2026-08-25.json'));
+const tdPrompts = require(path.join(__dirname, '..', '..', 'testing', 'prompts.json'));
+const TD_TOOLS = (tdSnapshot.tools || tdSnapshot.result.tools).map((t) => t.name);
+
+/** A results file that ran exactly the committed tdPrompts, and a TESTING.md made from it. */
+function published() {
+  const results = {
+    run: { date: '2026-10-04', model: 'm', judge: 'j', claude_code: '2.1.284', mode: 'test', api_version: tdManifest.api_version },
+    cases: tdPrompts.cases.map((c) => ({ ...c, run_error: null, grade: { pass: true, why: 'ok', routed: true } })),
+  };
+  return { results, testingMd: `# Testing\n\n${testingLib.renderResults(results)}\n` };
+}
+const check = (over = {}) => {
+  const { results, testingMd } = published();
+  return testingProblems({ manifest: tdManifest, toolNames: TD_TOOLS, prompts: tdPrompts, results, resultsName: '2026-10-04.json', testingMd, ...over });
+};
+
+test('published results that ran these tdPrompts, rendered into TESTING.md, pass', () => {
+  assert.deepEqual(check(), []);
+});
+
+test('a prompt reworded after the run makes the published results stale', () => {
+  const { results, testingMd } = published();
+  results.cases[0] = { ...results.cases[0], prompt: 'an older wording of the prompt' };
+  const p = testingProblems({ manifest: tdManifest, toolNames: TD_TOOLS, prompts: tdPrompts, results, resultsName: 'r.json', testingMd: `# T\n\n${testingLib.renderResults(results)}` });
+  assert.deepEqual(p, [`testing/results/r.json: ${tdPrompts.cases[0].id} was reworded after the run — re-run node testing/run.mjs`]);
+});
+
+test('a hand-edited results table is caught', () => {
+  const { testingMd } = published();
+  const p = check({ testingMd: testingMd.replace(/graded cases pass/, 'graded cases passed') });
+  assert.equal(p.length, 1);
+  assert.match(p[0], /results block does not match testing\/results\/2026-10-04\.json/);
+});
+
+test('results from live mode, another api_version, or no results at all are refused', () => {
+  const { results, testingMd } = published();
+  const live = { ...results, run: { ...results.run, mode: 'live', api_version: '2025-01-01' } };
+  const p = check({ results: live, testingMd });
+  assert.ok(p.some((m) => /mode "live"/.test(m)));
+  assert.ok(p.some((m) => /ran against api_version "2025-01-01"/.test(m)));
+  assert.match(check({ results: null })[0], /holds no YYYY-MM-DD\.json results file/);
+  assert.match(check({ testingMd: '# Testing\n' })[0], /results markers are missing/);
 });

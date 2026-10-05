@@ -18,7 +18,10 @@ people who have to decide whether to trust what the agent did.
 
 A guide covers one skill. For a job that runs through several — a first live
 charge, a failed payment, a month-end close — see the
-[recipes](../recipes/README.md).
+[recipes](../recipes/README.md). Whether each skill really loads on the prompts
+its guide's "When it fires" names, stays out of its neighbours' and refuses
+what it must, measured by running an agent against the sandbox, is in
+[`TESTING.md`](../TESTING.md).
 
 ## Read in this order
 

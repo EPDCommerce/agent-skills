@@ -327,6 +327,10 @@ risk tolerance, and that is the merchant's call — it is meant to be edited.
   Each has a checkpoint after every step and a failure branch for every call, and
   each was run against the sandbox.
 - **[`SAFETY.md`](./SAFETY.md)** — agent conduct against a merchant account.
+- **[`TESTING.md`](./TESTING.md)** — three prompt sets per skill: prompts that
+  should load it, prompts that should load a neighbour instead, and prompts it
+  must refuse. Each runs as a real agent session against the sandbox; the
+  latest results, case by case, are in the file.
 - **[`audit/`](./audit/COVERAGE.md)** — the tool-by-tool coverage matrix, the
   skill map and routing, and the measured key-permission matrix.
 - **Full EPD Commerce API reference:** <https://docs.api.epd.com/>
@@ -345,9 +349,11 @@ Each skill ships two versions in its frontmatter `metadata` block:
   (currently `2026-02-11`).
 
 The manifest at [`.well-known/skills/index.json`](./.well-known/skills/index.json)
-carries a top-level `api_version` that all skills should agree on; `npm run
-validate` warns on drift, and `npm run validate:docs` fails if a guide disagrees
-with the manifest.
+carries a top-level `api_version` that everything else must agree with. `npm run
+validate` fails if a skill's frontmatter disagrees, or if any `epd-version`
+header or `API_VERSION` constant in an example pins a different version; `npm
+run validate:docs` fails if a guide, a recipe or the prompt sets disagree. The
+manifest's own `version` is the release, and must match `package.json`'s.
 
 ## Contributing
 
@@ -362,9 +368,14 @@ npm run check          # validate manifest + guides, run tests
 
 | Command | Checks |
 |---|---|
-| `npm run validate` | Manifest against its schema, every listed file exists, every `SKILL.md`'s frontmatter validates and its `name` matches, no skill missing from the manifest. |
-| `npm run validate:docs` | Every skill has exactly one guide, guide frontmatter agrees with the manifest, every guide carries all six template sections, every recipe's tier, unattended and skill claims match the tools it calls, every documented tool call matches the `tools/list` snapshot, and every relative Markdown link in the repo resolves. |
-| `npm test` | `node:test` specs, including the webhook verifier's rejection reasons and a guard against the `epd-webhooks` examples regressing to a truthiness check. |
+| `npm run validate` | Manifest against its schema and in step with `package.json`, every file in a skill's directory listed and every listed file present, every `SKILL.md`'s frontmatter valid with a matching `name` and `api_version`, no skill missing from the manifest, and every pinned API version in the repo the manifest's. |
+| `npm run validate:docs` | Every skill has exactly one guide, guide frontmatter agrees with the manifest, every guide carries all six template sections, every recipe's tier, unattended and skill claims match the tools it calls, every documented tool call matches the `tools/list` snapshot, the published test results ran exactly the committed prompts and `TESTING.md` shows them unedited, and every relative Markdown link in the repo resolves. |
+| `npm test` | `node:test` specs, including the webhook verifier's rejection reasons, a guard against the `epd-webhooks` examples regressing to a truthiness check, and the prompt-set harness's grading rules. |
+
+`npm run gen` regenerates the tier table and the audit files; CI fails if what
+it writes differs from what is committed. The prompt sets themselves need a
+sandbox key and a model, so they run by hand with `node testing/run.mjs` — see
+[`TESTING.md`](./TESTING.md).
 
 ## Security
 

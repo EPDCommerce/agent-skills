@@ -50,6 +50,12 @@ scripts/
 audit/
   tools-YYYY-MM-DD.json            committed tools/list snapshot every check reads
   *.mjs                            audit generators; see "Generated files" below
+
+testing/
+  prompts.json                     three prompt sets per skill (see TESTING.md)
+  run.mjs                          runs them as agent sessions against sandbox
+  lib.cjs                          grading and rendering, shared with check-docs
+  results/YYYY-MM-DD.json          each full run, redacted; the newest is published
 ```
 
 `SKILL.md` files are written for an agent to load at runtime. `docs/` and
@@ -69,7 +75,12 @@ loading one at runtime.
    references.
 4. **Write its guide** at `docs/<skill-name>.md` — see below. `npm run
    validate:docs` fails if a skill has no guide.
-5. **Run `npm run gen`, then `npm run check`** before pushing. `gen`
+5. **Write its prompt sets** in `testing/prompts.json`: at least three
+   `fire`, three `collide` and three `refuse` cases. A new skill also changes
+   what its neighbours should stay out of, so check their `collide` cases.
+   Then do a full run and `--render`; `npm run validate:docs` fails until the
+   published results cover every case. See [`TESTING.md`](./TESTING.md).
+6. **Run `npm run gen`, then `npm run check`** before pushing. `gen`
    regenerates the audit and tier files the new skill changes; see
    [Generated files](#generated-files).
 
@@ -216,7 +227,9 @@ not been run says so.
 7. Every pinned API version in the repository — an `epd-version` header in an
    example, or an `API_VERSION` constant in code — is the manifest's
    `api_version`. Webhook payload schema versions are a separate thing and are
-   not checked.
+   not checked, and neither is what an agent said in a prompt-set run
+   (`testing/results/`): that is a record, and its run's `api_version` is
+   checked by `validate:docs` instead.
 
 `npm run validate:docs` checks:
 
@@ -235,6 +248,11 @@ not been run says so.
    skill it lists, per `audit/COVERAGE.md`; every step has a checkpoint and
    every calling step a failure branch; and no call carries a literal UUID or
    a value from a later step.
+8. `testing/prompts.json` has at least three `fire`, `collide` and `refuse`
+   prompts for every skill, each well formed; the newest
+   `testing/results/YYYY-MM-DD.json` ran exactly those prompts, word for word,
+   in test mode against the manifest's `api_version`; and `TESTING.md`'s results
+   block is that file rendered, not edited.
 
 `npm test` runs `node:test` specs in `scripts/__tests__/`.
 
@@ -266,8 +284,12 @@ real keys, so it is re-run by hand when key permissions are in question.
 - One logical change per PR. Skill content + tooling changes go in
   separate PRs.
 - Update `CHANGELOG.md` under `## [Unreleased]`.
-- Changing a skill's `description` or what it refuses changes routing. Check
-  against the sandbox that it still fires, and still refuses, where it should.
+- Changing a skill's `description` or what it refuses changes routing. Re-run
+  its prompt sets against the sandbox with `node testing/run.mjs --only
+  <skill>` while you work, and a full run before the PR, then `node
+  testing/run.mjs --render`. Adding or rewording a prompt needs a full run too —
+  `npm run validate:docs` fails while the published results describe different
+  prompts. See [`TESTING.md`](./TESTING.md).
 - The CI gate runs on every PR; please verify it's green before requesting
   review. It runs `npm run check` on Node 20, 22 and 24, regenerates the
   generated files and diffs them, self-tests the three webhook verifiers

@@ -43,8 +43,11 @@ const SKIP_FILES = new Set(['package-lock.json']);
 /**
  * Not scanned for pinned versions: this file's own comments quote the forms
  * it matches, and the tests build fixtures that pin wrong versions on purpose.
+ * testing/results/ and the gitignored testing/raw/ hold what an agent said in
+ * a prompt-set run, which is a record, not an example; the version that run
+ * used is in its `run.api_version`, which check-docs compares.
  */
-const SKIP_VERSION_SCAN = ['scripts/validate.js', 'scripts/__tests__/'];
+const SKIP_VERSION_SCAN = ['scripts/validate.js', 'scripts/__tests__/', 'testing/results/', 'testing/raw/'];
 
 /**
  * `epd-version: 2026-02-11`, `"epd-version": "2026-02-11"`,

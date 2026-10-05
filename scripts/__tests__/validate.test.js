@@ -178,6 +178,16 @@ test('a webhook payload schema version is not an API version, and is left alone'
   assert.deepEqual(run(root).errors, []);
 });
 
+test('what an agent said in a prompt-set run is a record, not a pinned version', () => {
+  const { root, write } = fixture();
+  const said = JSON.stringify({ answer: 'Send `EPD-Version: 2025-06-01` until you upgrade.' });
+  write('testing/results/2026-10-05.json', said);
+  write('testing/raw/2026-10-05/a__fire-1.jsonl', said);
+  assert.deepEqual(run(root).errors, []);
+  write('testing/prompts.json', said);
+  assertOnly(run(root), /testing\/prompts\.json:1: pins API version 2025-06-01/);
+});
+
 test('finding no pinned versions at all fails rather than passing silently', () => {
   const { root } = fixture();
   const r = validateRepo(root, { minPinned: 5 });

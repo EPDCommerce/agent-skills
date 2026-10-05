@@ -213,11 +213,11 @@
       "group": "Products",
       "tier": "T2 write",
       "depth": "prose-only",
-      "total": 2,
+      "total": 3,
       "code": 0,
       "head": 0,
       "table": 0,
-      "prose": 2,
+      "prose": 3,
       "skills": [
         "workflows/epd-catalog"
       ]
@@ -1176,7 +1176,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 248,
+      "line": 251,
       "tool": "get_customer",
       "keys": [
         "id",
@@ -1186,7 +1186,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 261,
+      "line": 264,
       "tool": "list_subscriptions",
       "keys": [
         "customer_id",
@@ -1196,7 +1196,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 278,
+      "line": 281,
       "tool": "update_customer",
       "keys": [
         "id",
@@ -1208,7 +1208,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 298,
+      "line": 301,
       "tool": "list_payment_methods",
       "keys": [
         "customer_id"
@@ -1217,7 +1217,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 304,
+      "line": 307,
       "tool": "delete_payment_method",
       "keys": [
         "customer_id",
@@ -1229,7 +1229,7 @@
     {
       "skill": "workflows/epd-onboard-customer",
       "file": "workflows/epd-onboard-customer/SKILL.md",
-      "line": 327,
+      "line": 330,
       "tool": "delete_customer",
       "keys": [
         "id",

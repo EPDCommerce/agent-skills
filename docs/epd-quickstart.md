@@ -1,7 +1,7 @@
 ---
 skill: epd-quickstart
 surface: integration
-guide_version: 1.1.0
+guide_version: 1.1.1
 api_version: "2026-02-11"
 ---
 
@@ -95,6 +95,7 @@ customer is acting on someone's real account.
 | Refusal | Why |
 |---|---|
 | **Commit a key, even a sandbox one, even on request.** | An `epd_test_sk_` key reads and writes the whole sandbox account and survives in git history after it is removed. The skill offers a `.env.example` and a key per developer instead. |
+| **Run the walkthrough against a live key, even on request.** | Its throwaway customer and product, test cards and decline token do not belong on a live account, and step 6 would be a real charge. A live key is checked read-only with `GET /v1/account`; a first live charge comes from production code. |
 | **Present a sandbox success as production readiness.** | Sandbox has its own data, its own rate limits and deterministic test cards. What step 6 proves is that your auth, versioning and idempotency headers are wired correctly — not that a real card will clear. |
 | **Let the decline step be skipped.** | The decline path returns 201. A developer who never sees that shape writes the bug into the foundation. |
 | **Be copied verbatim into production code.** | The skill says this outright about its own examples, and it is the most useful line in it. See below. |

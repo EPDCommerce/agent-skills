@@ -3,7 +3,7 @@ name: epd-quickstart
 description: Use when a developer is integrating EPD Commerce for the first time and needs the minimal end-to-end path in code — getting a sandbox API key, creating a customer, attaching a payment method, creating a product, making the first test charge, and confirming a decline. Triggers when the user says "first time", "getting started", "set up EPD", "make my first charge", or asks for a quickstart / hello-world flow against EPD Commerce. Skip when the user is past first-charge and is asking general integration questions — load epd-best-practices for that. Skip when an MCP-connected agent is being asked to onboard a real customer on an account rather than to write code — load epd-mcp-operator, which routes to epd-onboard-customer.
 compatibility: Any backend with HTTP + JSON; curl examples shown but applicable to any language.
 metadata:
-  version: 1.2.0
+  version: 1.2.1
   api_version: "2026-02-11"
 ---
 
@@ -50,6 +50,14 @@ Expect `200 OK` with the account JSON, including `"is_sandbox": true`. A 401
 means the key didn't paste correctly — repeat step 1: `missing_api_key` (no
 header), `invalid_api_key_format` (not an `epd_…_sk_` key at all) or
 `invalid_api_key` (right shape, wrong value).
+
+If it reads `"is_sandbox": false`, stop: that is a live key. This quickstart
+runs on a test key only. Its throwaway customer and product, test cards and
+decline token do not belong on a live account, and step 6 would be a real
+charge. Asked to run it against live anyway — to save time, or with the user's
+confirmation — decline, and do not offer it as an option. A live key is checked
+with this read-only call alone; a first live charge is made by production code
+(see `epd-best-practices`), not by this walkthrough.
 
 ## Step 3 — Create a test customer
 

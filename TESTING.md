@@ -94,9 +94,9 @@ node testing/run.mjs --only epd-refunds     # one skill, or one case id, while w
 
 A full run takes about ten minutes at four sessions at a time. The three full
 runs on 5 October 2026 cost $8.60 to $11.93 in agent sessions and under $0.30
-in judging; each results file records its own wall time and both costs. `--only` runs print their results and keep them under
-`testing/raw/`, never in `testing/results/`, so a partial run cannot be
-published as a full one. `--concurrency`, `--model` and `--judge` override the
+in judging; each results file records its own wall time and both costs.
+`--only` runs print their results and keep them under `testing/raw/`, never in
+`testing/results/`, so a partial run cannot be published as a full one. `--concurrency`, `--model` and `--judge` override the
 defaults.
 
 ## What is committed, and what CI checks

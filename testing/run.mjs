@@ -75,7 +75,8 @@ function render() {
   const md = fs.readFileSync(TESTING_MD, 'utf8').replace(/\r\n/g, '\n');
   const current = lib.resultsBlock(md);
   if (!current) throw new Error('TESTING.md has no results markers');
-  fs.writeFileSync(TESTING_MD, md.replace(current, block));
+  // A function, so a `$&` or `$'` in a prompt or a judge's reason is written as it reads.
+  fs.writeFileSync(TESTING_MD, md.replace(current, () => block));
   console.log(`TESTING.md results block rewritten from testing/results/${latest}`);
 }
 

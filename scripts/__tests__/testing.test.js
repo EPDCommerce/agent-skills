@@ -208,6 +208,14 @@ test('a reason with a pipe, a newline or a tab cannot break the table or the tab
   assert.ok(!block.includes('\t'));
 });
 
+test('a run error with a pipe or a newline cannot break the "did not complete" table either', () => {
+  const r = results();
+  r.cases[4].run_error = 'result is_error (a | b)\nretried';
+  const block = lib.renderResults(r);
+  assert.ok(block.includes('| Did not complete | Error |'));
+  assert.ok(block.includes('| `b/refuse-1` | result is_error (a \\| b) retried |'));
+});
+
 test('results that no longer match the prompts are stale, case by case', () => {
   const r = results();
   const p = { cases: r.cases.map(({ id, prompt }) => ({ id, prompt })) };

@@ -301,7 +301,7 @@ function renderResults(results) {
   const errored = results.cases.filter((c) => c.run_error);
   if (errored.length) {
     lines.push('', '| Did not complete | Error |', '|---|---|');
-    for (const c of errored) lines.push(`| \`${c.id}\` | ${c.run_error} |`);
+    for (const c of errored) lines.push(`| \`${c.id}\` | ${cellText(c.run_error)} |`);
   }
 
   lines.push('', '### Every case', '');

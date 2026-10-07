@@ -1,9 +1,9 @@
 ---
 name: epd-best-practices
-description: Use when integrating EPD Commerce (EasyPayDirect) into a codebase via the v1 REST API. Triggers when imports use api.epd.com, when env vars EPD_API_KEY / EPD_WEBHOOK_SECRET appear, when file content matches a key prefix (epd_live_sk_, epd_test_sk_, epd_restricted_sk_live_, epd_restricted_sk_test_), or when the user mentions EPD Commerce / EasyPayDirect and asks how to charge a card / start a subscription / refund an order. Skip when the user is operating an EPD Commerce account via an MCP-connected agent — load epd-mcp-operator, which routes to the domain workflow skill. Skip when this is a first integration with nothing built yet — load epd-quickstart. Skip when the task is writing or debugging a webhook receiver — load epd-webhooks.
+description: Use when integrating EPD Commerce (EasyPayDirect) into a codebase via the v1 REST API. Triggers when imports use api.epd.com, when env vars EPD_API_KEY / EPD_WEBHOOK_SECRET appear, when file content matches a key prefix (epd_live_sk_, epd_test_sk_, epd_restricted_sk_live_, epd_restricted_sk_test_), or when the user mentions EPD Commerce / EasyPayDirect and asks how to charge a card / start a subscription / refund an order, or how a retry should treat its idempotency key. Skip when the user is operating an EPD Commerce account via an MCP-connected agent — load epd-mcp-operator, which routes to the domain workflow skill. Skip when this is a first integration with nothing built yet — load epd-quickstart. Skip when the task is writing or debugging a webhook receiver — load epd-webhooks.
 compatibility: Requires an HTTP client + JSON parser in any backend language. Server-side only — secret keys must never reach a browser.
 metadata:
-  version: 1.3.0
+  version: 1.3.1
   api_version: "2026-02-11"
 ---
 

@@ -1,7 +1,7 @@
 ---
 skill: epd-best-practices
 surface: integration
-guide_version: 1.1.0
+guide_version: 1.1.1
 api_version: "2026-02-11"
 ---
 
@@ -120,6 +120,8 @@ the skill says to trust itself over the spec on that one point.
   `epd_restricted_sk_live_`, `epd_restricted_sk_test_`.
 - The user names EPD Commerce or EasyPayDirect and asks how to charge a card,
   start a subscription, or refund an order.
+- How a retry should treat its idempotency key — including being told to mint a
+  fresh one on a timeout, which the skill declines.
 
 ### What it must not answer
 

@@ -1,7 +1,7 @@
 ---
 skill: epd-onboard-customer
 surface: workflow
-guide_version: 1.1.0
+guide_version: 1.2.1
 api_version: "2026-02-11"
 ---
 
@@ -104,7 +104,11 @@ them afterwards — despite the tool describing itself as a soft delete.
 - *"Onboard a customer."* · *"Create a customer."* · *"Sign up a new customer
   with a card."*
 - Whether a customer already exists, or finding one by email or name.
-- *"Update the customer record."* · *"Remove their card."*
+- *"Update the customer record."* · *"Add this card to their account."* ·
+  *"Remove their card."*
+- A card number pasted into the conversation — so that the skill is loaded to
+  decline it, rather than an agent declining without it and repeating the number
+  back.
 - Chaining customer creation with a first charge or subscription.
 
 ### What it must not answer
@@ -129,7 +133,7 @@ duplicate-email check, having already looked like the efficient choice.
 | **Store or reuse a `card_token`.** | Single use, 15-minute expiry. A second attempt fails, and the correct response is to capture again, not retry. |
 | **Accept a `billing_id`.** | Not a property of any MCP tool. It is a legacy gateway vault reference; an operator offering one is describing a legacy REST integration. |
 | **Create before looking.** | A duplicate is refused after the attempt, not before — and only when the email matches exactly, case included. `list_customers` by email and by `q` is two T0 calls, and they change what you do next. |
-| **Create a case variant on purpose.** | Asked for "two records" with the email in capitals, it declines: the duplicate check is case-sensitive, so the second record would be created — and would split one person's orders and cards across two customers. |
+| **Create a case variant on purpose.** | Asked for "two records" with the email in capitals, it declines: the duplicate check is case-sensitive, so the second record would be created — and would split one person's orders and cards across two customers. A reason or a confirmation does not change that, so it is not offered as an option; two records that are genuinely needed take two distinct addresses. |
 | **Choose the replacement card itself.** | That card becomes the customer's new default. The refusal message says so, which makes it the human's decision. |
 | **Cancel subscriptions to get a delete through.** | `customer_has_active_subscriptions` is a stop sign, not a to-do. Ending someone's subscriptions is a decision, never a side effect of a delete. |
 | **Swallow `partial_rollback_failed`.** | That code means a chain step failed *and* the automatic rollback failed too. The orphaned `customer_id` is embedded in `error.message` and has to be surfaced, or it is lost. |

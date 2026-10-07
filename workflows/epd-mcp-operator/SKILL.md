@@ -1,9 +1,9 @@
 ---
 name: epd-mcp-operator
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than a domain workflow's steps — which tool to use and whether it can be called, composite versus primitive, test-vs-live mode, idempotency and retries, rate limits, permission errors, and what may run without asking. Triggers when the user names an EPD tool and asks whether to use it, asks which tool to reach for or whether a composite beats the primitives, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out and a retry is uncertain, when the user grants standing permission to act without asking, or before the first write of a session. Skip when the tool choice is settled and only domain steps remain — load the owning skill from this skill's routing table. Tool-selection and safety questions load this skill first, even inside a domain workflow.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs cross-cutting guidance rather than a domain workflow's steps — which tool to use and whether it can be called, composite versus primitive, test-vs-live mode, idempotency and retries, rate limits, permission errors, and what may run without asking. Triggers when the user names an EPD tool and asks whether to use it, asks which tool to reach for or whether a composite beats the primitives, asks "am I in test or live" or "is this safe to run", when a call returns insufficient_permissions, idempotency_key_conflict, invalid_format or 429, when a write times out, or a retry with a fresh idempotency key is proposed, when the user grants standing permission to act without asking, or before the first write of a session. Skip when the tool choice is settled and only domain steps remain — load the owning skill from this skill's routing table. Tool-selection and safety questions load this skill first, even inside a domain workflow.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key. Restricted keys cannot reach the MCP endpoint.
 metadata:
-  version: 1.2.0
+  version: 1.2.1
   api_version: "2026-02-11"
 ---
 

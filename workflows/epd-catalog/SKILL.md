@@ -3,7 +3,7 @@ name: epd-catalog
 description: Use when an operator-agent connected to the EPD Commerce MCP server needs to manage what is for sale or place a one-off order against it. Triggers when the user asks to create or update a product, change a price, manage product images, asks what plans exist or what a plan contains, asks to place or charge an order for a customer, asks to retry a failed charge on an existing order, or hits a shipping-address or line-item error while ordering. Skip when the task is recurring billing on a subscription - load epd-subscriptions. Skip when the task is discounting rather than pricing - load epd-coupons.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account with a full-access key.
 metadata:
-  version: 1.2.0
+  version: 1.2.1
   api_version: "2026-02-11"
 ---
 
@@ -344,4 +344,9 @@ code worked once and now does not, this is the first thing to check.
 - **Start a subscription.** That is `epd-subscriptions`, even when the plan was
   looked up here.
 - **Delete a product to fix a pricing mistake.** `delete_product` is T3 and
-  irreversible; `update_product` changes the price.
+  irreversible; `update_product` changes the price. Asked again, or told to go
+  ahead anyway, the answer is the same, so do not offer it as an option:
+  `update_product` reaches the same end state without the irreversible step,
+  and a recreated product has a new id that nothing pointing at the old one
+  follows. Retiring a product the merchant no longer sells is a different
+  request, its own T3 delete, not a repair.

@@ -4,7 +4,7 @@
   "title": "EPD Skills Manifest",
   "description": "Schema for the .well-known/skills/index.json manifest published by an EPD Skills repository. Project-local convention; not part of any public skills standard.",
   "type": "object",
-  "required": ["name", "version", "skills"],
+  "required": ["name", "version", "api_version", "skills"],
   "additionalProperties": false,
   "properties": {
     "name": {
@@ -47,7 +47,7 @@
   "$defs": {
     "skill": {
       "type": "object",
-      "required": ["name", "description", "files"],
+      "required": ["name", "kind", "description", "files"],
       "additionalProperties": false,
       "properties": {
         "name": {

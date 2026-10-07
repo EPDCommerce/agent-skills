@@ -24,6 +24,10 @@
  *      Every step has a checkpoint, every step that calls something says what
  *      to do when the call fails, and no identifier in a call is either a
  *      literal UUID or taken from a step that has not happened yet.
+ *   8. testing/prompts.json holds three prompt sets for every skill, and the
+ *      newest testing/results/ file ran exactly those prompts, in test mode,
+ *      against this api_version. TESTING.md's results table is that file
+ *      rendered by testing/run.mjs --render, not edited by hand.
  *
  * Exits 0 on success, 1 on any failure.
  */
@@ -33,6 +37,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const matter = require('gray-matter');
+const testing = require('../testing/lib.cjs');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const DOCS_DIR = path.join(REPO_ROOT, 'docs');
@@ -551,6 +556,68 @@ function checkRecipes(manifest, snapshot) {
   return files.length;
 }
 
+/**
+ * Everything wrong with the prompt sets and the results TESTING.md publishes,
+ * as messages. Pure apart from its inputs, like recipeProblems. The results
+ * cannot be re-run in CI — that needs a sandbox key and a model — so what is
+ * checked is that they are honest about what they ran: the newest results file
+ * covers exactly the prompts on disk, word for word, against this api_version,
+ * in test mode; and TESTING.md's table is that file rendered, not typed.
+ */
+function testingProblems({ manifest, toolNames, prompts, results, resultsName, testingMd }) {
+  const problems = [];
+  const skills = manifest.skills.map((s) => s.name);
+  for (const p of testing.promptProblems(prompts, skills, toolNames, manifest.api_version)) {
+    problems.push(`testing/prompts.json: ${p}`);
+  }
+  if (!results) {
+    problems.push('testing/results/ holds no YYYY-MM-DD.json results file — run node testing/run.mjs');
+    return problems;
+  }
+  const where = `testing/results/${resultsName}`;
+  for (const p of testing.staleCases(prompts, results)) problems.push(`${where}: ${p} — re-run node testing/run.mjs`);
+  if (results.run.api_version !== manifest.api_version) {
+    problems.push(`${where}: ran against api_version "${results.run.api_version}", manifest is "${manifest.api_version}"`);
+  }
+  if (results.run.mode !== 'test') problems.push(`${where}: mode "${results.run.mode}" — the prompt sets run against sandbox only`);
+
+  if (testingMd === null) {
+    problems.push('TESTING.md not found');
+  } else {
+    const block = testing.resultsBlock(testingMd);
+    if (!block) problems.push('TESTING.md: the results markers are missing');
+    else if (block !== testing.renderResults(results)) {
+      problems.push(`TESTING.md: the results block does not match ${where} — run node testing/run.mjs --render`);
+    }
+  }
+  return problems;
+}
+
+function checkTesting(manifest, snapshot) {
+  const dir = path.join(REPO_ROOT, 'testing');
+  const promptsPath = path.join(dir, 'prompts.json');
+  if (!fs.existsSync(promptsPath)) {
+    fail('testing/prompts.json not found');
+    return 0;
+  }
+  if (!snapshot) return 0; // checkToolCalls has already reported it
+  const prompts = readJson(promptsPath);
+  const resultsDir = path.join(dir, 'results');
+  const resultsName = testing.latestResults(fs.existsSync(resultsDir) ? fs.readdirSync(resultsDir) : []);
+  const testingPath = path.join(REPO_ROOT, 'TESTING.md');
+  for (const p of testingProblems({
+    manifest,
+    toolNames: snapshot.tools.map((t) => t.name),
+    prompts,
+    results: resultsName ? readJson(path.join(resultsDir, resultsName)) : null,
+    resultsName,
+    testingMd: fs.existsSync(testingPath) ? fs.readFileSync(testingPath, 'utf8') : null,
+  })) {
+    fail(p);
+  }
+  return prompts.cases ? prompts.cases.length : 0;
+}
+
 function main() {
   if (!fs.existsSync(DOCS_DIR)) {
     fail('docs/ not found');
@@ -565,14 +632,16 @@ function main() {
   const snapshot = loadToolSnapshot();
   const toolCalls = checkToolCalls(snapshot, markdown);
   const recipes = checkRecipes(manifest, snapshot);
+  const prompts = checkTesting(manifest, snapshot);
 
-  return finish(manifest.skills.length, markdown.length, toolCalls, recipes);
+  return finish(manifest.skills.length, markdown.length, toolCalls, recipes, prompts);
 }
 
-function finish(guideCount, mdCount = 0, toolCalls = 0, recipeCount = 0) {
+function finish(guideCount, mdCount = 0, toolCalls = 0, recipeCount = 0, promptCount = 0) {
   if (errors.length === 0) {
     process.stdout.write(
       `ok — ${guideCount} guide(s) validated, ${recipeCount} recipe(s) validated, ` +
+        `${promptCount} test prompt(s) checked against their results, ` +
         `${mdCount} markdown file(s) link-checked, ${toolCalls} tool call(s) checked against the snapshot\n`,
     );
     process.exit(0);
@@ -598,6 +667,7 @@ module.exports = {
   loadToolSnapshot,
   recipeProblems,
   recipeSteps,
+  testingProblems,
   slugify,
   stripFences,
   tierOfTool,

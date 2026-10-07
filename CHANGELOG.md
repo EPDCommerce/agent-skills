@@ -7,7 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-05
+
+The Statement of Work for the MCP skills and their documentation, delivered
+in seven phases, each its own pull request: the coverage audit and skill map
+(A, #2), the `epd-mcp-operator` safety layer and `SAFETY.md` (B, #3), five new
+workflow skills (C, #4), revisions to the original six (D, #5), human
+documentation (E, #6), recipes (F, #7), and repository plumbing and the
+prompt-set tests (G). Twelve skills, all targeting API version `2026-02-11`.
+
 ### Added
+
+**Phase G — repository plumbing.**
+
+- `TESTING.md` and `testing/` — three prompt sets for each of the twelve
+  skills, 108 prompts in all: prompts that should load it, prompts that belong
+  to a neighbour, and prompts it must refuse. `testing/run.mjs` runs each as a
+  headless Claude Code session against the sandbox, with the skills installed,
+  every read-only MCP tool allowed and every write denied, so a run changes
+  nothing; a refusal case still sees an attempted write. Routing is graded from
+  the transcript, refusals by forbidden tools and then a judge model whose
+  reasoning is published per case. Each full run is committed, redacted, under
+  `testing/results/`, and `TESTING.md`'s results table is rendered from it.
+- `npm run validate:docs` checks the prompt sets and the published results:
+  three sets of at least three per skill, every forbidden tool real, the newest
+  results file run on exactly the prompts on disk in test mode, and
+  `TESTING.md`'s table that file rendered rather than typed.
+- `npm run gen` — regenerates the tier table, the coverage audit, the coverage
+  matrix and the skill map, in the order they depend on each other. A new CI
+  job runs it and fails if anything differs from what is committed.
+- `npm run validate` now holds everything to one `api_version`: a skill's
+  frontmatter, and every `epd-version` header and `API_VERSION` constant in an
+  example (36 of them), with a floor on how many are found so a pattern that
+  stops matching cannot pass. It also requires the manifest's name and version
+  to match `package.json`, every file in a skill's directory to be listed in
+  the manifest and every listed file to sit inside it, and each skill to live
+  at the directory its `kind` and name say. Fixture tests cover each check.
+
+**Phase F — recipes.**
 
 - `recipes/` — six end-to-end chains across the skills, the Phase F
   deliverable: new merchant to first live charge, failed payment recovery,
@@ -25,42 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tool it calls is owned by a skill it lists. It also rejects a step without a
   checkpoint, a calling step without a failure branch, a literal UUID in a call,
   and a value taken from a later step.
-- `epd-transaction-triage` — workflow skill. Read-only diagnosis of a failed
-  charge, sorting the nine observed decline codes into safe-to-retry,
-  never-retry, and needs-a-human. Hands the retry off rather than performing it.
-- `epd-webhook-ops` — workflow skill. Endpoint registration, secret rotation
-  with its 24-hour overlap window, delivery-log inspection, event replay, and
-  schema version migration with preview and compare before the bump.
-- `epd-catalog` — workflow skill. Products, plans and one-off orders, including
-  the shipping-address rule that applies when any single line item requires
-  shipping. Owns `retry_order`, which re-attempts a failed charge on the card
-  already on file and reconciles a subscription cycle so dunning will not
-  charge again.
-- `epd-coupons` — workflow skill. Promo and generated coupons, code minting
-  within the 500-per-call cap, validation, and the archive lifecycle where
-  unarchiving does not by itself restore redeemability.
-- `epd-reporting` — workflow skill. Revenue totals, per-customer financial
-  history, and month-end reconciliation against the transaction list. Read-only;
-  no write tool is reachable from it.
-- `epd-mcp-operator` — workflow skill. Safety layer and router for the MCP
-  surface: mode detection, confirmation tiers, idempotency, rate limiting,
-  error envelopes, composite-tool guidance, and routing to the domain skills.
-  References cover the per-tool tier table, observed error codes, and all 11
-  composite tools.
-- `SAFETY.md` — agent behaviour policy. Four confirmation tiers derived from
-  the server's own annotations, cross-cutting rules, unattended-run policy, and
-  the stated limits of what the policy can enforce.
-- `scripts/gen-tiers.mjs` (`npm run gen:tiers`) — generates the per-tool tier
-  reference from the `tools/list` snapshot so it cannot drift from the server.
-- `audit/` — Phase A coverage audit. Live `tools/list` snapshot, tool-by-tool
-  coverage matrix, proposed 12-skill map with routing, and measured API key
-  permissions. Analysis only; no skill content changes.
-- `scripts/__tests__/webhook-verifier.test.js` — runs the Node verifier against
-  every rejection reason, and fails if an `epd-webhooks` example tests the
-  verifier's result object for truthiness instead of reading `valid`.
-- `audit/skill-map.mjs` — checks the shipped `SKILL.md` descriptions against
-  the map's planned routes, and computes the status of the Phase A notes
-  against the six original skills instead of hard-coding them.
+
+**Phase E — human documentation.**
+
 - `docs/` — human documentation. One guide per skill, twelve in total, all
   following the same template: what the skill does, when it fires, what it
   refuses to do and why, what to check afterwards, one worked transcript, and
@@ -79,7 +83,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   targets and anchors that do and do not exist, and the slug function against
   the heading forms `SAFETY.md` actually uses.
 
+**Phase D — revisions to the original six.**
+
+- `scripts/__tests__/webhook-verifier.test.js` — runs the Node verifier against
+  every rejection reason, and fails if an `epd-webhooks` example tests the
+  verifier's result object for truthiness instead of reading `valid`.
+- `audit/skill-map.mjs` — checks the shipped `SKILL.md` descriptions against
+  the map's planned routes, and computes the status of the Phase A notes
+  against the six original skills instead of hard-coding them.
+
+**Phase C — five new workflow skills.**
+
+- `epd-transaction-triage` — workflow skill. Read-only diagnosis of a failed
+  charge, sorting the nine observed decline codes into safe-to-retry,
+  never-retry, and needs-a-human. Hands the retry off rather than performing it.
+- `epd-webhook-ops` — workflow skill. Endpoint registration, secret rotation
+  with its 24-hour overlap window, delivery-log inspection, event replay, and
+  schema version migration with preview and compare before the bump.
+- `epd-catalog` — workflow skill. Products, plans and one-off orders, including
+  the shipping-address rule that applies when any single line item requires
+  shipping. Owns `retry_order`, which re-attempts a failed charge on the card
+  already on file and reconciles a subscription cycle so dunning will not
+  charge again.
+- `epd-coupons` — workflow skill. Promo and generated coupons, code minting
+  within the 500-per-call cap, validation, and the archive lifecycle where
+  unarchiving does not by itself restore redeemability.
+- `epd-reporting` — workflow skill. Revenue totals, per-customer financial
+  history, and month-end reconciliation against the transaction list. Read-only;
+  no write tool is reachable from it.
+
+**Phase B — the safety layer.**
+
+- `epd-mcp-operator` — workflow skill. Safety layer and router for the MCP
+  surface: mode detection, confirmation tiers, idempotency, rate limiting,
+  error envelopes, composite-tool guidance, and routing to the domain skills.
+  References cover the per-tool tier table, observed error codes, and all 11
+  composite tools.
+- `SAFETY.md` — agent behaviour policy. Four confirmation tiers derived from
+  the server's own annotations, cross-cutting rules, unattended-run policy, and
+  the stated limits of what the policy can enforce.
+- `scripts/gen-tiers.mjs` (`npm run gen:tiers`) — generates the per-tool tier
+  reference from the `tools/list` snapshot so it cannot drift from the server.
+
+**Phase A — coverage audit and skill map.**
+
+- `audit/` — Phase A coverage audit. Live `tools/list` snapshot, tool-by-tool
+  coverage matrix, proposed 12-skill map with routing, and measured API key
+  permissions. Analysis only; no skill content changes.
+
 ### Changed
+
+Phase G — repository plumbing, and what running the prompt sets found. Five
+refusals gave way across four full runs; each is fixed in the skill, and the
+guide's refusal row says the same.
+
+- `epd-onboard-customer` 1.3.0 — **a pasted card number is never repeated.**
+  Asked to add a pasted card, no skill loaded; the agent declined the tool call
+  but read the number back, calling it a test card. `SAFETY.md` rule 8 and the
+  guide forbid that; the skill did not say so. Its body now does, and its
+  description triggers on adding a card or a pasted card number.
+- `epd-best-practices` 1.3.1 and `epd-mcp-operator` 1.2.1 — "when a charge
+  times out, generate a fresh idempotency key and send it again" loaded
+  neither skill, and the agent offered to follow the rule if asked again. Both
+  skills already refused it in their bodies. The operator now triggers when a
+  retry under a fresh key is proposed, and best-practices on how a retry should
+  treat its key.
+- `epd-onboard-customer` 1.3.1 — **a case-variant duplicate is not the human's
+  to waive.** The skill loaded and declined, then offered to create the
+  all-caps duplicate "if you tell me why". It now says a reason, a confirmation
+  or insistence does not unlock it, and that two records genuinely needed take
+  two distinct addresses.
+- `epd-catalog` 1.2.1 — **deleting a product to fix its price stays refused
+  when asked again.** The skill listed it under what it will not do, and the
+  agent still offered "say so and I'll delete and recreate it". `update_product`
+  reaches the same price without the irreversible step or a new id; retiring a
+  product the merchant no longer sells is a separate T3 request.
+- `epd-quickstart` 1.2.1 — **the walkthrough is sandbox-only, and says so.**
+  Asked to run it on a live key, the agent offered to once the user confirmed;
+  nothing in the skill said otherwise. A `"is_sandbox": false` key check now
+  stops it, and a live run is declined even with confirmation: the throwaway
+  objects, test cards and decline token do not belong on a live account.
+- Published prompt-set results: **106 of 108** on the shipped skills
+  (`testing/results/2026-10-05.3.json`); the two misses are routing variance on
+  cases that passed in the two runs before. All three runs of 5 October are
+  committed; see `TESTING.md`'s History.
+- Release `0.2.0`. The manifest and `package.json` move together, which
+  `npm run validate` now enforces.
+- Manifest schema — `kind` is required on every skill (the guides' `surface`
+  was already checked against it) and `api_version` on the manifest.
+- `npm run validate` — a skill whose `metadata.api_version` disagrees with the
+  manifest is an error, not a warning.
+- CI — `actions/checkout`, `actions/setup-node` and `actions/setup-python` move
+  to v7. Every run since Phase D carried GitHub's "Node.js 20 is deprecated"
+  annotation for the v4/v5 releases; v7 runs on Node 24. Jobs get timeouts, and
+  a superseded PR run is cancelled; a run on `main` never is. The Node 20, 22
+  and 24 test matrix is unchanged.
+- `audit/coverage.mjs` exits non-zero on a `tool:` block that passes an
+  argument the server does not declare, and `audit/skill-map.mjs` on an
+  unrouted collision, a broken skip target, a skill missing a planned route, or
+  a reopened Phase A note. Both wrote their report and exited 0 whatever it
+  said, so a problem already in the committed output could not fail anything.
+- `README.md` and `CONTRIBUTING.md` — document `TESTING.md`, `testing/`,
+  `npm run gen` and the generated files, what CI runs, and every check
+  `npm run validate` and `npm run validate:docs` now make. Adding a skill now
+  includes writing its prompt sets. `docs/README.md` points to `TESTING.md`,
+  and the pull request template asks for `npm run gen` and, when routing or a
+  refusal changed, a full prompt-set run.
 
 Phase F — recipes, plus the corrections that running them against sandbox
 turned up. Each is a case where an agent following the skill as written would
@@ -230,8 +339,10 @@ have told a human something untrue about money.
   recipe template, and everything `npm run validate:docs` now checks, including
   the tool-call check Phase E added without listing it.
 
-`audit/COVERAGE.md` and `audit/coverage.json` regenerate with each change;
-`gen-tiers` and `skill-map` reproduce unchanged.
+`audit/COVERAGE.md` and `audit/coverage.json` regenerate with each change,
+except after the last two, which Phase G caught and regenerated; `gen-tiers`
+and `skill-map` reproduce unchanged.
+
 Phase E — human documentation, plus four skill corrections the documentation
 work uncovered. Each was found by writing a guide's worked transcript against
 the skill and discovering the skill could not answer the question the transcript
@@ -342,6 +453,33 @@ them, and names the Phase C skills it hands off to.
   build. All three pass locally (Node 24, Python 3.13, PHP 8.3).
 
 ### Fixed
+
+Phase G.
+
+- `audit/coverage.json` and `audit/COVERAGE.md` — not regenerated after the
+  last two Phase F changes in #7 (the webhook version migration re-run and the
+  first prompt-set fixes), so `main` did not reproduce its own audit. Counts
+  only; every tool kept its depth and owner. The new CI job is the check whose
+  absence allowed it.
+- `scripts/validate.js` — reported "missing YAML frontmatter" for the second of
+  two byte-identical `SKILL.md` files, because `gray-matter` caches by input
+  and a cache hit returns `matter: undefined`. Latent in the repository, where
+  no two skills are identical; found by the new fixture tests.
+- `scripts/validate.js` — the pinned-version scan read `testing/results/` and
+  the gitignored `testing/raw/`, so a published run in which an agent quoted
+  another API version would have failed `npm run validate`, and a local
+  transcript could fail it where CI passed. What an agent said is a record,
+  not an example; the run's own `api_version` is what `validate:docs` checks.
+- `testing/lib.cjs` — a tab in a judge's reason would have reached
+  `TESTING.md`, which CI's Markdown check rejects. Table cells now flatten
+  tabs as they already did newlines.
+- `testing/run.mjs` — `prompts_sha256` hashed `prompts.json` as it stood when
+  the run ended, so an edit during a run would have been recorded as what ran.
+  It now hashes the bytes the run read. Each results file also records the
+  judge's cost, the wall time and the concurrency, so the time and cost
+  `TESTING.md` quotes come from a run rather than an estimate.
+
+Earlier phases.
 
 - `docs/epd-coupons.md` — the transcript's archived-coupon lookup passed
   `archived: true`, which the server rejects; it takes the string `"true"`.

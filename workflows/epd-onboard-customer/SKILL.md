@@ -1,9 +1,9 @@
 ---
 name: epd-onboard-customer
-description: Use when an operator-agent connected to the EPD Commerce MCP server needs a customer's identity or payment methods managed — create, look up, update or delete the customer record, or attach and remove a card. Also owns the two composites that bundle a first charge or a first subscription into the same call as signup — create_customer_and_charge and create_customer_and_subscribe — for a genuinely new customer. References MCP tool names, not REST endpoints. Triggers when the user says "onboard a customer", "create a customer", "sign up a new customer with a card", asks whether a customer already exists or to find one by email or name, "update the customer record", "remove their card", or chains customer creation with a first charge or subscription. Skip when the dev is integrating from their own backend — load the integration skill epd-best-practices instead. Skip when charging or starting a subscription for a customer who already exists — load epd-catalog or epd-subscriptions.
+description: Use when an operator-agent connected to the EPD Commerce MCP server needs a customer's identity or payment methods managed — create, look up, update or delete the customer record, or attach and remove a card. Also owns the two composites that bundle a first charge or a first subscription into the same call as signup — create_customer_and_charge and create_customer_and_subscribe — for a genuinely new customer. Triggers when the user says "onboard a customer", "create a customer", "sign up a new customer with a card", asks whether a customer already exists or to find one by email or name, "update the customer record", "add this card to their account", "remove their card", pastes a card number, or chains customer creation with a first charge or subscription. Skip when the dev is integrating from their own backend — load the integration skill epd-best-practices instead. Skip when charging or starting a subscription for a customer who already exists — load epd-catalog or epd-subscriptions.
 compatibility: Requires an MCP-connected agent authenticated against an EPD Commerce account; not for direct REST integration.
 metadata:
-  version: 1.2.0
+  version: 1.3.1
   api_version: "2026-02-11"
 ---
 
@@ -161,6 +161,11 @@ that looks like a 16-digit card number where a `card_token` or
 error — mishandling a PAN puts the merchant into PCI scope they probably
 don't want.
 
+**Do not repeat a card number someone pastes**, in any form — not to confirm
+it, not to remark that it looks like a test card, not partly masked. Refer to
+it as "the card you pasted". Every repetition puts it in another log; this is
+`SAFETY.md` rule 8, and it holds while you are declining the request.
+
 Legacy accounts may still reference a numeric `billing_id` from the older
 Collect.js / EPD Gateway vault flow — it's still accepted on the REST
 `payment_methods` endpoint, but it is **not** available on this MCP surface.
@@ -231,8 +236,11 @@ A record whose email differs only in case is almost certainly the same person �
 confirm with the human rather than creating another. **Never create a case
 variant on purpose** to get past the duplicate check, even when asked for "two
 records": the second record splits one person's orders, cards and history, and
-the email filter will only ever find one of them. Update the existing customer
-instead, or stop.
+the email filter will only ever find one of them. **This is not the human's to
+waive** — a reason, a confirmation or insistence does not unlock it, so do not
+offer it as an option either. Update the existing customer instead, or stop. If
+two records are genuinely needed, each takes its own distinct address, such as
+a second mailbox or a `+tag` alias, and that is an ordinary create.
 
 Other filters: `tags`, `created_after` / `created_before`, and `deleted: true`,
 which returns **only** soft-deleted customers — 8 on the sandbox, against 458

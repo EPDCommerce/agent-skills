@@ -414,3 +414,9 @@ console.log(`  UNROUTED collisions: ${unrouted.length}${unrouted.length ? ' → 
 console.log(`  broken skip targets: ${badTargets.length}${badTargets.length ? ' → ' + badTargets.join('; ') : ''}`);
 console.log(`  shipped skills missing a planned route: ${unshipped.length}${unshipped.length ? ' → ' + unshipped.map((s) => `${s.name} (${s.missing.join(', ')})`).join('; ') : ''}`);
 console.log(`  Phase A notes still open: ${NOTES.filter(([, ok]) => !ok).length} of ${NOTES.length}`);
+
+// Every count above is a regression when it is not zero. CI regenerates this
+// file and diffs it, which catches a NEW problem; failing here also catches one
+// already committed into SKILL-MAP.md, which a diff would wave through.
+const openNotes = NOTES.filter(([, ok]) => !ok).length;
+if (unrouted.length || badTargets.length || unshipped.length || openNotes) process.exitCode = 1;

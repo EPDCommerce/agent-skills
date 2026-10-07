@@ -1,7 +1,7 @@
 ---
 skill: epd-mcp-operator
 surface: workflow
-guide_version: 1.1.0
+guide_version: 1.1.1
 api_version: "2026-02-11"
 ---
 
@@ -74,7 +74,8 @@ On questions about the *surface* rather than about a domain:
 - *"Am I in test or live?"* · *"Is this safe to run?"*
 - A call came back `insufficient_permissions`, `idempotency_key_conflict`,
   `invalid_format`, or a 429.
-- A write timed out and it is unclear whether to retry.
+- A write timed out and it is unclear whether to retry, or someone proposes
+  retrying it under a fresh idempotency key.
 - Before the first write of any session.
 - A human granting standing permission — *"from now on, don't ask"* — which
   the skill declines, since standing authorizations are written into
